@@ -29,6 +29,141 @@
 - **Documentation**: CHANGELOG.md, IMPLEMENTATION_PLAN.md updated
 - **Impact**: Agents analyze actual project characteristics before selecting optimal configuration
 
+## Future Enhancements
+
+### Automated Analysis via Sub-Agent Spawning (v2.0.0 candidate)
+
+**Concept**: Instead of instructing agents to analyze, spawn specialized sub-agents to perform analysis automatically during --init.
+
+**Current Approach (v1.0.5):**
+- Display checklist instructing agent to analyze project
+- Agent manually performs analysis using available tools
+- Agent makes informed decision based on findings
+
+**Proposed Enhancement:**
+- System automatically spawns analysis sub-agents during --init
+- Each sub-agent performs specific analysis task in parallel:
+  - **Codebase Explorer**: Scans file structure, counts files, detects languages
+  - **Complexity Analyzer**: Assesses LOC, patterns, architecture
+  - **Git Historian**: Reviews commit patterns, collaboration indicators
+  - **Config Reader**: Checks existing Claude Code/MCP configuration
+  - **Tool Discoverer**: Lists currently installed MCP tools
+- Sub-agents report findings back to main process
+- System presents comprehensive analysis results
+- Agent reviews automated findings and selects configuration
+
+**Benefits:**
+- **Speed**: Parallel sub-agents faster than sequential manual analysis
+- **Accuracy**: Specialized sub-agents use optimal tools for each task
+- **Token Efficiency**: Analysis performed in sub-agent contexts, not main session
+- **Consistency**: Automated analysis ensures all steps completed
+- **Optional Use**: Can be enabled via flag (--init --auto-analyze)
+
+**Considerations:**
+- Requires Task tool integration
+- Need dry testing framework for validation (like v1.0.5 verbiage testing)
+- Should preserve option for manual analysis (some users may want control)
+- Must handle analysis failures gracefully (fallback to manual checklist)
+- Token cost vs. benefit analysis needed
+
+**Implementation Approach:**
+1. Add --auto-analyze flag to --init
+2. Create analysis sub-agent spawning logic
+3. Implement result aggregation and presentation
+4. Maintain current checklist as fallback
+5. Add configuration option to make auto-analyze default
+6. Validate with dry testing scenarios
+
+**Priority**: Low (current checklist approach works well per v1.0.5 validation)
+
+### Hook Reminder Optimization via Sub-Agent Dry Testing (v2.0.0 candidate)
+
+**Concept**: Use spawned sub-agents to continuously optimize hook reminder messages for maximum efficiency and effectiveness.
+
+**Current Approach (v1.0.5):**
+- Hook reminders (user_prompt_submit.cjs) have static, manually-crafted messages
+- Messages designed based on intuition and single-round feedback
+- No systematic validation of message effectiveness
+- Example current message:
+  ```
+  ⚠️  WORKFLOW ENFORCEMENT ACTIVE
+  This hook was installed to REQUIRE workflow compliance.
+  File operations will be BLOCKED until you complete:
+  ✓ LEARN: Search experiences for relevant patterns
+  ✓ REASON: Analyze problem and gather context
+  ✓ TEACH: Record your solution after completion
+  ```
+
+**Proposed Enhancement:**
+- Periodic automated testing of hook reminder variations
+- Spawn sub-agents to test different message formulations:
+  - **Verbiage Testing**: Test different phrasing (imperative vs. suggestive)
+  - **Conciseness Testing**: Test shorter vs. longer messages
+  - **Clarity Testing**: Measure comprehension and compliance rates
+  - **Tone Testing**: Test authoritative vs. collaborative tone
+- Each sub-agent receives a task + hook reminder variant
+- Measure effectiveness:
+  - Does agent follow workflow without additional prompting?
+  - How many steps does agent complete?
+  - Token efficiency (message length vs. compliance)
+  - Time to compliance
+- Aggregate results and identify optimal message patterns
+- Automatically update hook files with optimized messages
+- Run validation periodically (weekly/monthly) to adapt to model updates
+
+**Benefits:**
+- **Efficiency**: Minimal tokens for maximum compliance
+- **Effectiveness**: Data-driven message optimization
+- **Adaptability**: Adjusts to new model versions automatically
+- **A/B Testing**: Compare multiple variations simultaneously
+- **Continuous Improvement**: Regular optimization cycles
+
+**Implementation Approach:**
+1. Create hook message testing framework
+2. Define effectiveness metrics (compliance rate, token usage, time)
+3. Generate message variations (verbiage, length, structure, tone)
+4. Spawn parallel sub-agents to test each variation
+5. Aggregate results and calculate optimal message
+6. Update hook files automatically (with approval)
+7. Schedule periodic re-testing (configurable interval)
+8. Log optimization history for analysis
+
+**Example Dry Testing Process:**
+```javascript
+// Spawn 5 sub-agents with different reminder variations
+variations = [
+  "REQUIRED: Complete workflow before file ops",
+  "⚠️ Workflow enforcement: LEARN → REASON → TEACH",
+  "Search experiences, analyze, then record. (Required)",
+  "File ops blocked until: 1) Search 2) Analyze 3) Record",
+  "Complete TEACH→LEARN→REASON to proceed"
+];
+
+results = await Promise.all(
+  variations.map(msg => testWithSubAgent(msg))
+);
+
+// Analyze which message achieved compliance fastest with fewest tokens
+optimal = selectBestPerforming(results);
+updateHookFile('user-prompt-submit.cjs', optimal);
+```
+
+**Testing Metrics:**
+- **Compliance Rate**: % of times agent completes full workflow
+- **Tokens Used**: Total tokens for message + agent response
+- **Steps Completed**: How many checklist items completed
+- **Time to First Tool**: How quickly agent starts workflow
+- **User Satisfaction**: Subjective rating (for human testers)
+
+**Considerations:**
+- Requires spawning infrastructure (Task tool)
+- Token cost for testing (can be run in background/off-hours)
+- Need approval mechanism before updating production hooks
+- Should preserve message history for rollback
+- Must handle model version differences (different Claude versions)
+
+**Priority**: Medium (hook effectiveness directly impacts core value proposition)
+
 ### v1.0.4 - 2026-01-30 (Patch Release)
 **User Feedback: Agent Auto-Configuration Guidance**
 - **Issue**: Agents needed to "figure out" optimal configuration from clear guidance
