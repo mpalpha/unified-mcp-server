@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Unified MCP Server v1.0.4
+ * Unified MCP Server v1.0.5
  *
  * Combines memory-augmented reasoning and protocol enforcement with modern tool ergonomics.
  * - 25 atomic, composable tools (not monolithic)
@@ -9,7 +9,7 @@
  * - Automated hook installation
  * - Comprehensive documentation
  *
- * Version: 1.0.4
+ * Version: 1.0.5
  * License: MIT
  * Author: Jason Lusk <jason@jasonlusk.com>
  */
@@ -20,7 +20,7 @@ const path = require('path');
 const os = require('os');
 const readline = require('readline');
 
-const VERSION = '1.0.4';
+const VERSION = '1.0.5';
 
 // Consolidated namespace: ~/.unified-mcp/
 const MCP_DIR = path.join(os.homedir(), '.unified-mcp');
@@ -2401,6 +2401,46 @@ SETUP STATUS:
     hooksInstalled: false
   };
 
+  // Display analysis checklist before configuration
+  console.log(`
+${'═'.repeat(60)}
+CONFIGURATION OPTIMIZATION
+${'═'.repeat(60)}
+
+You are expected to perform a CURRENT and COMPLETE analysis of the
+actual project state before selecting configuration.
+
+Do not rely on assumptions or prior knowledge - analyze the actual
+current state:
+
+ANALYSIS CHECKLIST (complete all steps):
+
+□ List currently available MCP tools (check actual installed tools)
+
+  → Use these available tools for ALL remaining analysis steps where
+    they provide benefit.
+
+□ Explore actual codebase structure and organization
+  (use filesystem/code analysis tools if available)
+
+□ Assess actual project complexity (file counts, patterns, architecture)
+  (use code analysis/search tools if available)
+
+□ Review current Claude Code configuration (read actual settings.json)
+  (use filesystem tools if available)
+
+□ Identify actual development patterns from current git history
+  (use git/github tools if available)
+
+□ Examine actual project documentation and architecture
+  (use documentation/search tools if available)
+
+After completing this checklist with available tools, select the
+configuration that best fits the actual project characteristics.
+
+${'═'.repeat(60)}
+`);
+
   // Question 1: Preset selection
   rl.question(`
 Which workflow preset would you like to use?
@@ -2412,7 +2452,7 @@ Which workflow preset would you like to use?
   4. custom                   - Template for custom workflows
   5. skip                     - Don't apply a preset now
 
-Enter choice [1-5] (default: 1 - three-gate recommended): `, (answer) => {
+Based on your analysis, enter choice [1-5] (default: 1 - three-gate): `, (answer) => {
     const choice = answer.trim() || '1'; // Default to 1 if empty
     const presets = { '1': 'three-gate', '2': 'minimal', '3': 'strict', '4': 'custom', '5': null };
     setupState.preset = presets[choice] || null;

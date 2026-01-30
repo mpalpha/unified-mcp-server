@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.5] - 2026-01-30
+
+### Added - Project Analysis Checklist
+- **Critical**: Added comprehensive analysis checklist before configuration selection
+  - Displays BEFORE preset selection to guide thorough analysis
+  - Checklist format with □ boxes for visual clarity
+  - Emphasizes "CURRENT and COMPLETE analysis of actual project state"
+  - Anti-shortcut language: "Do not rely on assumptions or prior knowledge"
+  - Step 1: List available MCP tools FIRST
+  - Explicit instruction: "Use these tools for ALL remaining steps where beneficial"
+  - Each checklist item suggests which tools to use (filesystem, git, code analysis)
+  - Six analysis steps covering:
+    1. Available MCP tools discovery
+    2. Codebase structure exploration
+    3. Project complexity assessment
+    4. Current Claude Code configuration review
+    5. Development patterns from git history
+    6. Project documentation examination
+- Updated preset selection prompt: "Based on your analysis, enter choice..."
+  - Links selection to completed analysis
+  - Reinforces that choice should be informed by findings
+
+### Testing
+- Conducted dry tests with 4 verbiage variations using spawned sub-agents
+- All agents performed thorough analysis (no shortcuts observed)
+- Checklist format produced most structured analysis responses
+- Option 3 verbiage ("actual/current/complete" + checklist) selected as optimal balance
+- No new automated tests needed (output formatting only)
+
+### Context
+- User feedback: "agent should analyze the project to maximum configuration efficiency"
+- User feedback: "analysis should happen before it's prompted for a reload"
+- User feedback: "tell it to utilize any installed mcp tools it may benefit from"
+- Goal: Agent discovers project characteristics → chooses optimal configuration
+- Previous v1.0.4: Had recommendations but no analysis guidance
+- Solution: Explicit analysis checklist with tool usage instructions
+- Result: Agents perform structured project analysis before configuration
+
 ## [1.0.4] - 2026-01-30
 
 ### Changed - Optimal Configuration Guidance

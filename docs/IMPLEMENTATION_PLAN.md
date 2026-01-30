@@ -2,6 +2,33 @@
 
 ## Version History
 
+### v1.0.5 - 2026-01-30 (Patch Release)
+**User Feedback: Project Analysis Guidance**
+- **Issue**: Agents needed explicit guidance to analyze project before configuration
+- **User Quotes**:
+  - "agent should analyze the project to maximum configuration efficiency using information discovered from analysis"
+  - "this should happen before it's prompted for a reload"
+  - "tell it to utilize any installed mcp tools it may benefit from to gather more informed analysis"
+  - "directed at the agent or user" (works for both)
+- **Problem**: v1.0.4 had defaults but no analysis guidance; agents might skip to defaults without project analysis
+- **Solution**: Added comprehensive analysis checklist before preset selection
+- **Changes**:
+  - Added: Analysis checklist displayed before configuration questions
+  - Added: "CURRENT and COMPLETE analysis of actual project state" requirement
+  - Added: Anti-shortcut language ("Do not rely on assumptions or prior knowledge")
+  - Added: Tool discovery step FIRST (list available MCP tools)
+  - Added: Explicit instruction to use discovered tools for remaining steps
+  - Added: Six checklist items with tool usage suggestions (filesystem, git, code analysis)
+  - Changed: Preset selection prompt to "Based on your analysis, enter choice..."
+  - Changed: All version constants to 1.0.5
+- **Design Validation**: Tested 4 verbiage options with spawned sub-agents
+  - All agents performed thorough analysis (no shortcuts)
+  - Checklist format produced most structured responses
+  - Selected Option 3: "actual/current/complete" + checklist (optimal balance)
+- **Testing**: No new tests needed (output formatting change)
+- **Documentation**: CHANGELOG.md, IMPLEMENTATION_PLAN.md updated
+- **Impact**: Agents analyze actual project characteristics before selecting optimal configuration
+
 ### v1.0.4 - 2026-01-30 (Patch Release)
 **User Feedback: Agent Auto-Configuration Guidance**
 - **Issue**: Agents needed to "figure out" optimal configuration from clear guidance
