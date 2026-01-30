@@ -100,8 +100,11 @@ test('--init flag works', () => {
   if (!output.includes('DATABASE LOCATION:')) {
     throw new Error('Init output missing database info');
   }
-  if (!output.includes('NEXT STEPS:')) {
+  if (!output.includes('NEXT STEPS FOR AUTOMATIC CONFIGURATION:')) {
     throw new Error('Init output missing next steps');
+  }
+  if (!output.includes('STEP 1: Configure Claude Code MCP Settings')) {
+    throw new Error('Init output missing configuration steps');
   }
 });
 

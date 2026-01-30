@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-01-30
+
+### Changed - Post-Installation Guidance
+- **Critical**: Improved --init output with actionable next steps for agents
+  - Added specific file paths for settings.json with platform detection
+    - VSCode: `~/.config/claude-code/settings.json`
+    - Claude Desktop: `~/Library/Application Support/Claude/claude_desktop_config.json`
+  - Added commands to edit configuration files
+    - VSCode command: `code "<path>"`
+    - Text editor alternatives provided
+  - Added detailed restart instructions by platform
+    - VSCode: "Developer: Reload Window" command (Cmd+Shift+P / Ctrl+Shift+P)
+    - Claude Desktop: Quit and relaunch application
+    - CLI: Exit and restart terminal session
+  - Added verification steps with expected output
+    - Ask Claude: "List all available MCP tools"
+    - Expected: 25 tools from unified-mcp-server
+    - Verification command: Test informed_reasoning tool
+  - Added workflow example showing TEACH → LEARN → REASON → ACT
+    - record_experience → search_experiences → informed_reasoning → verify_protocol_compliance
+  - Added troubleshooting links and documentation references
+    - README.md for full documentation
+    - GitHub issues for support
+- Enhanced output formatting with clear step numbers and sections
+  - STEP 1: Configure Claude Code MCP Settings
+  - STEP 2: Restart Claude Code
+  - STEP 3: Verify Installation
+  - STEP 4: Start Using the System
+  - TROUBLESHOOTING section with links
+- Provided both manual and automated configuration methods
+  - Automatic: `code "<path>"` command
+  - Manual: Copy-paste JSON configuration
+
+### Context
+- User feedback: After successful installation, agent didn't receive clear guidance on:
+  - How to update project configuration automatically
+  - How to reload Claude Code
+  - How to verify tools are working
+  - How to use the system effectively
+- Previous output showed generic instructions:
+  - "Add this server to your Claude Code MCP settings"
+  - "Restart Claude Code to apply changes"
+  - No file paths, no commands, no verification steps
+- Agents need executable instructions, not just descriptions
+- User quote: "the installation doesn't tell the agent what to do next to automatically configure or update the existing project configuration, as well as steps to reload claude after configuration"
+- User had to manually instruct agent to follow README after installation
+- This update provides all necessary context directly in --init output
+
 ## [1.0.2] - 2026-01-30
 
 ### Added - User Feedback

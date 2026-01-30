@@ -2,6 +2,29 @@
 
 ## Version History
 
+### v1.0.3 - 2026-01-30 (Patch Release)
+**User Feedback: Post-Installation Guidance**
+- **Issue**: After successful installation, agents didn't receive clear guidance on configuration and verification
+- **User Quote**: "the installation doesn't tell the agent what to do next to automatically configure or update the existing project configuration, as well as steps to reload claude after configuration"
+- **Problem**: Previous --init output was too generic:
+  - "Add this server to your Claude Code MCP settings" (no file path)
+  - "Restart Claude Code to apply changes" (no instructions)
+  - No verification steps or workflow examples
+  - User had to manually instruct agent to follow README
+- **Solution**: Rewrote --init output with actionable step-by-step guidance
+- **Changes**:
+  - Added: Platform-specific file paths for settings.json (VSCode, Claude Desktop)
+  - Added: Edit commands (`code "<path>"`) for automatic configuration
+  - Added: Detailed restart instructions by platform (VSCode command, Desktop app, CLI)
+  - Added: Verification steps with expected output (25 tools, test informed_reasoning)
+  - Added: Workflow example showing TEACH → LEARN → REASON → ACT flow
+  - Added: TROUBLESHOOTING section with documentation links
+  - Changed: Output structure to 4 clear steps with NEXT STEPS header
+  - Changed: All version constants to 1.0.3
+- **Testing**: No new tests needed (output formatting change only, existing 12 NPX tests cover --init)
+- **Documentation**: CHANGELOG.md, IMPLEMENTATION_PLAN.md updated
+- **Impact**: Agents now receive complete context to configure, restart, verify, and use the system without manual guidance
+
 ### v1.0.2 - 2026-01-30 (Patch Release)
 **User Feedback: System Requirements & CLI Improvements**
 - **Issue**: User requested system requirements documentation and --preset CLI flag

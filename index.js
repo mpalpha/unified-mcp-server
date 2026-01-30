@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Unified MCP Server v1.0.2
+ * Unified MCP Server v1.0.3
  *
  * Combines memory-augmented reasoning and protocol enforcement with modern tool ergonomics.
  * - 25 atomic, composable tools (not monolithic)
@@ -9,7 +9,7 @@
  * - Automated hook installation
  * - Comprehensive documentation
  *
- * Version: 1.0.2
+ * Version: 1.0.3
  * License: MIT
  * Author: Jason Lusk <jason@jasonlusk.com>
  */
@@ -20,7 +20,7 @@ const path = require('path');
 const os = require('os');
 const readline = require('readline');
 
-const VERSION = '1.0.2';
+const VERSION = '1.0.3';
 
 // Consolidated namespace: ~/.unified-mcp/
 const MCP_DIR = path.join(os.homedir(), '.unified-mcp');
@@ -2533,35 +2533,89 @@ Migrate old database? [y/N]: `, (answer) => {
         }
 
         // Display next steps
-        console.log('\n' + '─'.repeat(60));
-        console.log('SETUP COMPLETE!\n');
-        console.log('NEXT STEPS:\n');
-        console.log('1. Add this server to your Claude Code MCP settings:\n');
-        console.log('   {');
-        console.log('     "mcpServers": {');
-        console.log('       "unified-mcp": {');
-        console.log('         "command": "npx",');
-        console.log('         "args": ["mpalpha/unified-mcp-server"]');
-        console.log('       }');
-        console.log('     }');
-        console.log('   }\n');
+        console.log('\n' + '='.repeat(60));
+        console.log('✅ SETUP COMPLETE!\n');
+        console.log('='.repeat(60));
+        console.log('\n📋 NEXT STEPS FOR AUTOMATIC CONFIGURATION:\n');
 
+        // Step 1: Configure MCP Settings
+        const settingsPath = path.join(os.homedir(), '.config', 'claude-code', 'settings.json');
+        console.log('STEP 1: Configure Claude Code MCP Settings\n');
+        console.log(`  File Location: ${settingsPath}\n`);
+        console.log('  Action: Add the following to your settings.json:\n');
+        console.log('  {');
+        console.log('    "mcpServers": {');
+        console.log('      "unified-mcp": {');
+        console.log('        "command": "npx",');
+        console.log('        "args": ["mpalpha/unified-mcp-server"]');
+        console.log('      }');
+        console.log('    }');
+        console.log('  }\n');
+        console.log('  💡 TIP: If mcpServers already exists, add unified-mcp to it.\n');
+        console.log('  To edit automatically, run:');
+        console.log(`    code "${settingsPath}"`);
+        console.log('    # OR');
+        console.log(`    open "${settingsPath}"\n`);
+
+        // Step 2: Configure hooks if installed
         if (setupState.hooksInstalled) {
-          console.log('2. Add hooks to Claude Code settings.json:\n');
-          console.log('   "hooks": {');
-          console.log('     "user_prompt_submit": {');
-          console.log(`       "command": "${path.join(MCP_DIR, 'hooks', 'user-prompt-submit.cjs')}"`);
-          console.log('     },');
-          console.log('     "pre_tool_use": {');
-          console.log(`       "command": "${path.join(MCP_DIR, 'hooks', 'pre-tool-use.cjs')}"`);
-          console.log('     }');
-          console.log('   }\n');
+          console.log('STEP 2: Configure Workflow Hooks\n');
+          console.log(`  File Location: ${settingsPath}\n`);
+          console.log('  Action: Add the following to your settings.json:\n');
+          console.log('  {');
+          console.log('    "hooks": {');
+          console.log('      "user_prompt_submit": {');
+          console.log(`        "command": "${path.join(MCP_DIR, 'hooks', 'user-prompt-submit.cjs')}"`);
+          console.log('      },');
+          console.log('      "pre_tool_use": {');
+          console.log(`        "command": "${path.join(MCP_DIR, 'hooks', 'pre-tool-use.cjs')}"`);
+          console.log('      }');
+          console.log('    }');
+          console.log('  }\n');
         }
 
-        console.log(`${setupState.hooksInstalled ? '3' : '2'}. Restart Claude Code to apply changes\n`);
-        console.log(`${setupState.hooksInstalled ? '4' : '3'}. Record your first experience using the 'record_experience' tool\n`);
-        console.log('For detailed documentation, visit:');
-        console.log('  https://github.com/mpalpha/unified-mcp-server/tree/main/docs\n');
+        // Step 3: Restart Claude Code
+        const nextStep = setupState.hooksInstalled ? 3 : 2;
+        console.log(`STEP ${nextStep}: Restart Claude Code\n`);
+        console.log('  WHY: Claude Code must be restarted to load the new MCP server.\n');
+        console.log('  HOW TO RESTART:\n');
+        console.log('    • VSCode: Run "Developer: Reload Window" command (Cmd/Ctrl+Shift+P)');
+        console.log('    • Claude Desktop: Restart the application');
+        console.log('    • CLI: Exit and restart claude-code\n');
+
+        // Step 4: Verify installation
+        console.log(`STEP ${nextStep + 1}: Verify Installation\n`);
+        console.log('  After restart, check that tools are available:\n');
+        console.log('  METHOD 1 - Ask Claude:\n');
+        console.log('    "List all available MCP tools"\n');
+        console.log('  METHOD 2 - Use a tool:\n');
+        console.log('    "Search experiences for \'test\'"\n');
+        console.log('  EXPECTED: You should see 25 tools from unified-mcp-server,');
+        console.log('            including record_experience, search_experiences, etc.\n');
+
+        // Step 5: Start using
+        console.log(`STEP ${nextStep + 2}: Start Using the System\n`);
+        console.log('  WORKFLOW: TEACH → LEARN → REASON → ACT\n');
+        console.log('  Example task: "Add a login button to my React app"\n');
+        console.log('    1. Claude searches past experiences: search_experiences("login button")\n');
+        console.log('    2. Claude analyzes problem: analyze_problem("Add login button")\n');
+        console.log('    3. Claude gathers context: gather_context(...)\n');
+        console.log('    4. Claude reasons through solution: reason_through(...)\n');
+        console.log('    5. Claude makes changes: Write/Edit files\n');
+        console.log('    6. Claude records experience: record_experience(...)\n');
+        console.log('\n💡 TIP: The workflow is enforced automatically if hooks are installed.\n');
+
+        // Documentation
+        console.log('📚 DOCUMENTATION:\n');
+        console.log('  Full Documentation:');
+        console.log('    https://github.com/mpalpha/unified-mcp-server\n');
+        console.log('  Quick Reference:');
+        console.log('    https://github.com/mpalpha/unified-mcp-server/tree/main/docs\n');
+        console.log('  Troubleshooting:');
+        console.log('    https://github.com/mpalpha/unified-mcp-server#troubleshooting\n');
+
+        console.log('='.repeat(60));
+        console.log('🚀 Ready to use! Restart Claude Code to begin.');
 
         } catch (e) {
           console.error(`\n✗ Setup failed: ${e.message}`);
