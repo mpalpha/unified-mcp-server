@@ -7,35 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+## [1.0.0] - 2026-01-30
+
+### Deployment
+- **Published to GitHub:** https://github.com/mpalpha/unified-mcp-server
+- **Installation:** `npx mpalpha/unified-mcp-server --init`
+- **Repository:** Full directory structure preserved (scripts/, test/, docs/, hooks/)
+- **Breaking Change:** Changed from gist deployment to GitHub repository
+  - Old: `npx gist:494c7c5acaad6a13ae5666244e6fbcd2`
+  - New: `npx mpalpha/unified-mcp-server`
+
+### Added - Migration Tool
 - Migration tool for importing experiences from old memory-augmented-reasoning.db format
   - Standalone CLI script (`scripts/migrate-experiences.js`)
   - Command-line flags: --source, --target, --dry-run, --skip-duplicates, --verbose
   - Automatic schema creation if missing
-  - Duplicate detection using Dice coefficient
+  - Duplicate detection using Dice coefficient (90% similarity threshold)
   - Two-pass migration with revision ID remapping
-  - Comprehensive test suite (10/10 tests passing)
+  - Transaction safety with automatic rollback
+  - Read-only source database access (never modifies original)
+- Migration wizard integration into --init setup
+  - Auto-discovers old databases in common locations
+  - Provides copy-paste migration commands
+  - Links to comprehensive migration guide
 - Synthetic test data generator (`test/fixtures/create-test-migration-db.js`)
-- Migration test suite (`test/test-migration.js`)
+- Migration test suite (`test/test-migration.js`) - 10/10 tests passing
+- Migration user guide (`docs/MIGRATION_GUIDE.md`) - 400+ lines
 
-### Changed
-- test() function in test-migration.js now properly handles async functions
+### Changed - Migration
+- --init wizard now includes migration prompt as third question
+- test() function in test-migration.js properly handles async functions
+- Total automated tests: 223 (was 200)
+  - Core tests: 150
+  - Migration tests: 10
+  - Compliance tests: 50
+  - Experience usage: 6
+  - Edge scenarios: 7
 
-### Fixed
+### Fixed - Migration
 - Migration script handles missing target database schema
 - Test race conditions resolved in migration tests
 
-## [1.0.0] - 2026-01-30
-
-### Added
+### Added - Core Features
 - Initial release of unified-mcp-server
 - 25 tools for protocol-enforced learning
 - 3 integration hooks (user_prompt_submit, pre_tool_use, stop)
-- Interactive --init wizard with preset selection
+- Interactive --init wizard with preset selection and migration prompt
 - Automated hook installation/uninstallation
 - Research-based compliance tests (50 scenarios)
-- Complete test suite (140 tests + 50 compliance tests + 10 migration tests = 200 total)
-- Comprehensive documentation (README, API docs, implementation plan)
+- Complete test suite (223 total tests - 100% passing)
+  - Core tests: 150
+  - Compliance tests: 50
+  - Migration tests: 10
+  - Experience usage: 6
+  - Edge scenarios: 7
+- Comprehensive documentation (README, MIGRATION_GUIDE, IMPLEMENTATION_PLAN, CONTRIBUTING)
 
 ### Core Tools
 **Research Workflow (5 tools):**
@@ -84,17 +110,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - --validate: Validate hooks configuration
 
 ### Documentation
-- README.md: Quick start and overview
-- docs/IMPLEMENTATION_PLAN.md: Complete development plan
-- docs/API.md: Tool documentation
-- docs/HOOKS.md: Hook integration guide
-- docs/TESTING.md: Test coverage details
+- README.md: Quick start and overview with migration section
+- docs/MIGRATION_GUIDE.md: Complete migration user guide (400+ lines)
+- docs/IMPLEMENTATION_PLAN.md: Complete development plan with Phase 10
+- docs/CONTRIBUTING.md: Contribution guidelines
+- docs/GETTING_STARTED.md: Installation and setup guide
+- docs/ARCHITECTURE.md: System architecture
+- docs/WORKFLOWS.md: Workflow documentation
+- docs/TROUBLESHOOTING.md: Common issues and solutions
 
 ### Testing
-- 140 core tests (tool tests, workflow tests, enforcement tests)
-- 50 research-based compliance scenarios
-- 10 migration tests
-- 100% test pass rate
+- 223 total automated tests (100% passing)
+  - 150 core tests (tool tests, workflow tests, enforcement tests)
+  - 50 research-based compliance scenarios
+  - 10 migration tests (with synthetic test data)
+  - 6 experience usage tests
+  - 7 edge scenario tests
+- Zero test failures
+- Comprehensive test coverage across all features
 
 ### Safety & Research Foundation
 - Read-only source database access
