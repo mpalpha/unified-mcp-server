@@ -59,26 +59,27 @@ try {
     const hasReasonGate = gates.reason && gates.reason.required_tools && gates.reason.required_tools.length > 0;
 
     if (hasLearnGate || hasReasonGate || hasTeachGate) {
-      console.log('🔵 CONFIGURED HOOK - Protocol Guidance\n');
-      console.log('Your workflow requires following the three-gate protocol:\n');
+      console.log('⚠️  WORKFLOW ENFORCEMENT ACTIVE\n');
+      console.log('This hook was installed to REQUIRE workflow compliance.');
+      console.log('File operations will be BLOCKED until you complete:\n');
 
       if (hasLearnGate) {
-        console.log('LEARN Gate: Search for relevant patterns before making changes.');
-        console.log('  Suggested: search_experiences({ query: "your task keywords" })\n');
+        console.log('✓ LEARN: Search experiences for relevant patterns');
+        console.log('  → search_experiences({ query: "keywords for this task" })\n');
       }
 
       if (hasReasonGate) {
-        console.log('REASON Gate: Analyze and gather context before implementing.');
-        console.log('  Suggested: analyze_problem({ problem: "your task" })');
-        console.log('  Then: gather_context({ session_id: "...", sources: {...} })\n');
+        console.log('✓ REASON: Analyze problem and gather context');
+        console.log('  → analyze_problem({ problem: "describe task" })');
+        console.log('  → gather_context({ session_id: "...", sources: {...} })\n');
       }
 
       if (hasTeachGate) {
-        console.log('TEACH Gate: Record your approach after completion.');
-        console.log('  Suggested: record_experience({ type: "effective", ... })\n');
+        console.log('✓ TEACH: Record your solution after completion');
+        console.log('  → record_experience({ type: "effective", ... })\n');
       }
 
-      console.log('⚡ Fast-track available after completing workflow once (valid 60 minutes)\n');
+      console.log('After completing workflow: Authorization granted for 60 minutes\n');
     }
   }
 

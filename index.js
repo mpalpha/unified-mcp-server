@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Unified MCP Server v1.0.3
+ * Unified MCP Server v1.0.4
  *
  * Combines memory-augmented reasoning and protocol enforcement with modern tool ergonomics.
  * - 25 atomic, composable tools (not monolithic)
@@ -9,7 +9,7 @@
  * - Automated hook installation
  * - Comprehensive documentation
  *
- * Version: 1.0.3
+ * Version: 1.0.4
  * License: MIT
  * Author: Jason Lusk <jason@jasonlusk.com>
  */
@@ -20,7 +20,7 @@ const path = require('path');
 const os = require('os');
 const readline = require('readline');
 
-const VERSION = '1.0.3';
+const VERSION = '1.0.4';
 
 // Consolidated namespace: ~/.unified-mcp/
 const MCP_DIR = path.join(os.homedir(), '.unified-mcp');
@@ -2405,14 +2405,15 @@ SETUP STATUS:
   rl.question(`
 Which workflow preset would you like to use?
 
-  1. three-gate (Recommended) - Standard TEACH → LEARN → REASON workflow
-  2. minimal              - Lightweight with optional gates
-  3. strict               - Strict enforcement with all validations
-  4. custom               - Template for custom workflows
-  5. skip                 - Don't apply a preset now
+  1. three-gate (RECOMMENDED) - Standard TEACH → LEARN → REASON workflow
+                                Optimal for consistent learning and knowledge retention
+  2. minimal                  - Lightweight with optional gates
+  3. strict                   - Strict enforcement with all validations
+  4. custom                   - Template for custom workflows
+  5. skip                     - Don't apply a preset now
 
-Enter choice [1-5]: `, (answer) => {
-    const choice = answer.trim();
+Enter choice [1-5] (default: 1 - three-gate recommended): `, (answer) => {
+    const choice = answer.trim() || '1'; // Default to 1 if empty
     const presets = { '1': 'three-gate', '2': 'minimal', '3': 'strict', '4': 'custom', '5': null };
     setupState.preset = presets[choice] || null;
 
@@ -2424,15 +2425,21 @@ Enter choice [1-5]: `, (answer) => {
 
     // Question 2: Hook installation
     rl.question(`
-Would you like to install workflow hooks?
+Install workflow enforcement hooks? (RECOMMENDED)
 
-Hooks enable automatic workflow enforcement in Claude Code by:
-  • Reminding agents to search for patterns before making changes
-  • Blocking file operations until protocol compliance verified
-  • Suggesting experience recording after completions
+Hooks enforce TEACH → LEARN → REASON workflow for optimal operation:
+  • WITHOUT hooks: Agents may skip workflow, reducing effectiveness
+  • WITH hooks:    Every file operation builds on accumulated knowledge
 
-Install hooks? [y/N]: `, (answer) => {
-      setupState.installHooks = answer.trim().toLowerCase() === 'y';
+Benefits:
+  ✓ Consistent workflow enforcement across all requests
+  ✓ Maximum knowledge retention and learning
+  ✓ Prevents failure patterns documented in AgentErrorTaxonomy research
+  ✓ Blocks file operations until workflow complete (optimal behavior)
+
+Install hooks? [Y/n] (default: Yes - recommended for agents): `, (answer) => {
+      const response = answer.trim().toLowerCase();
+      setupState.installHooks = response === '' || response === 'y' || response === 'yes';
 
       if (setupState.installHooks) {
         console.log('\n✓ Hooks will be installed');
@@ -2454,8 +2461,9 @@ Common locations:
   • ~/.cursor/memory-augmented-reasoning.db
   • <project>/.cursor/memory-augmented-reasoning.db
 
-Migrate old database? [y/N]: `, (answer) => {
-        setupState.migrate = answer.trim().toLowerCase() === 'y';
+Migrate old database? [Y/n] (default: Yes - preserve your knowledge): `, (answer) => {
+        const response = answer.trim().toLowerCase();
+        setupState.migrate = response === '' || response === 'y' || response === 'yes';
 
         if (setupState.migrate) {
           console.log('\n✓ Will help you migrate old database');
@@ -2585,13 +2593,46 @@ Migrate old database? [y/N]: `, (answer) => {
 
         // Step 4: Verify installation
         console.log(`STEP ${nextStep + 1}: Verify Installation\n`);
-        console.log('  After restart, check that tools are available:\n');
-        console.log('  METHOD 1 - Ask Claude:\n');
-        console.log('    "List all available MCP tools"\n');
-        console.log('  METHOD 2 - Use a tool:\n');
-        console.log('    "Search experiences for \'test\'"\n');
-        console.log('  EXPECTED: You should see 25 tools from unified-mcp-server,');
-        console.log('            including record_experience, search_experiences, etc.\n');
+        console.log('  After restart, copy and paste this test prompt:\n');
+
+        if (setupState.hooksInstalled) {
+          // With hooks: demonstrate full workflow enforcement
+          console.log('  ┌─────────────────────────────────────────────────────────────┐');
+          console.log('  │ Create a file called installation-verified.txt with the    │');
+          console.log('  │ content "Installation complete and enforcement working".   │');
+          console.log('  └─────────────────────────────────────────────────────────────┘\n');
+          console.log('  EXPECTED BEHAVIOR:');
+          console.log('    1. Hooks will BLOCK the Write operation initially');
+          console.log('    2. System guides you through workflow:');
+          console.log('       • Record an experience (TEACH phase)');
+          console.log('       • Search past experiences (LEARN phase)');
+          console.log('       • Reason through the task (REASON phase)');
+          console.log('    3. After completing workflow, Write is authorized');
+          console.log('    4. File is created successfully');
+          console.log('    5. This experience is saved for future use\n');
+          console.log('  This verifies:');
+          console.log('    ✓ MCP server is connected');
+          console.log('    ✓ All 25 tools are accessible');
+          console.log('    ✓ Database is working');
+          console.log('    ✓ Workflow enforcement is ACTIVE');
+          console.log('    ✓ Hooks are blocking/authorizing correctly');
+          console.log('    ✓ Complete TEACH → LEARN → REASON → ACT cycle\n');
+        } else {
+          // Without hooks: basic tool verification
+          console.log('  ┌─────────────────────────────────────────────────────────────┐');
+          console.log('  │ Record this installation as a successful experience, then   │');
+          console.log('  │ search for "installation" to verify the database works.    │');
+          console.log('  └─────────────────────────────────────────────────────────────┘\n');
+          console.log('  EXPECTED OUTPUT:');
+          console.log('    • Experience recorded with an ID');
+          console.log('    • Search returns the installation experience');
+          console.log('    • Database path: ~/.unified-mcp/data.db\n');
+          console.log('  This verifies:');
+          console.log('    ✓ MCP server is connected');
+          console.log('    ✓ Basic tools are accessible (record_experience, search_experiences)');
+          console.log('    ✓ Database is working');
+          console.log('    ⚠️  Workflow enforcement is NOT active (hooks not installed)\n');
+        }
 
         // Step 5: Start using
         console.log(`STEP ${nextStep + 2}: Start Using the System\n`);

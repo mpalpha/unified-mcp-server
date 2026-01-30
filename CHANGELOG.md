@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-01-30
+
+### Changed - Optimal Configuration Guidance
+- **Critical**: Enhanced --init wizard with clear recommended defaults for agent auto-configuration
+  - **Preset selection**: Shows `[1]` as default with "RECOMMENDED" label
+    - Three-gate preset marked as "Optimal for consistent learning and knowledge retention"
+    - Empty input (press Enter) defaults to optimal choice
+  - **Hook installation**: Changed to `[Y/n]` (default Yes) with strong recommendation
+    - Clear explanation: "WITH hooks: Every file operation builds on accumulated knowledge"
+    - Explicit: "default: Yes - recommended for agents"
+    - Empty input (press Enter) installs hooks
+  - **Migration**: Changed to `[Y/n]` (default: Yes - preserve your knowledge)
+    - Defaults to migrating if old database exists
+  - **Benefits listed**: Agents can "figure out" optimal path from clear guidance
+    - Consistent workflow enforcement
+    - Maximum knowledge retention and learning
+    - Prevents failure patterns from research
+- **Verification prompt**: Different prompts based on configuration
+  - **With hooks**: Demonstrates full TEACH → LEARN → REASON → ACT workflow
+    - Prompt: "Create installation-verified.txt" (will trigger enforcement)
+    - Shows blocking → workflow → authorization → file creation cycle
+  - **Without hooks**: Basic tool verification
+    - Prompt: "Record and search for installation experience"
+    - Shows basic tool functionality only
+- **Opt-out still available**: Humans can explicitly choose non-optimal paths
+  - Type '2', '3', '4', '5' for different presets
+  - Type 'n' to skip hooks
+  - Guidance makes optimal path obvious without forcing it
+
+### Context
+- User feedback: "the agent installed path should always utilize the maximum amount and consistency to utilize the tools and learn as much as possible"
+- User feedback: "guidance should recommend the optimal configuration for the agent to 'figure out' that it needs to choose"
+- Previous v1.0.3: Had recommendations but no clear defaults, agents couldn't auto-configure
+- Goal: Agent reads output → understands optimal path → chooses automatically
+- Solution: Clear RECOMMENDED labels, default values, explicit benefits, while keeping opt-out
+- Result: Agents get optimal configuration (hooks + three-gate + migration), humans can still customize
+
 ## [1.0.3] - 2026-01-30
 
 ### Changed - Post-Installation Guidance

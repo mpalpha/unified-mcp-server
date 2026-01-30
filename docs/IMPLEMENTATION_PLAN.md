@@ -2,6 +2,27 @@
 
 ## Version History
 
+### v1.0.4 - 2026-01-30 (Patch Release)
+**User Feedback: Agent Auto-Configuration Guidance**
+- **Issue**: Agents needed to "figure out" optimal configuration from clear guidance
+- **User Quotes**:
+  - "the agent installed path should always utilize the maximum amount and consistency to utilize the tools and learn as much as possible"
+  - "guidance should recommend the optimal configuration for the agent to 'figure out' that it needs to choose"
+  - "you should be able to opt out if installing manually, but guidance should recommend the optimal configuration"
+- **Problem**: v1.0.3 had recommendations but no defaults; agents couldn't auto-configure
+- **Solution**: Enhanced --init with clear defaults and RECOMMENDED labels while keeping opt-out
+- **Changes**:
+  - Changed: Preset selection shows `[1]` default with "RECOMMENDED: Optimal for consistent learning"
+  - Changed: Hook installation to `[Y/n]` (default Yes) with clear benefits explanation
+  - Changed: Migration to `[Y/n]` (default Yes - preserve knowledge)
+  - Added: Different verification prompts based on configuration (with/without hooks)
+  - Added: Verification with hooks demonstrates full TEACH → LEARN → REASON → ACT enforcement
+  - Changed: All version constants to 1.0.4
+- **Design Principle**: Agent-readable guidance that makes optimal path obvious, humans can still opt-out
+- **Testing**: No new tests needed (existing 12 NPX tests cover --init wizard)
+- **Documentation**: CHANGELOG.md, IMPLEMENTATION_PLAN.md updated
+- **Impact**: Agents auto-configure optimally by following clear recommendations; verification demonstrates full workflow
+
 ### v1.0.3 - 2026-01-30 (Patch Release)
 **User Feedback: Post-Installation Guidance**
 - **Issue**: After successful installation, agents didn't receive clear guidance on configuration and verification
