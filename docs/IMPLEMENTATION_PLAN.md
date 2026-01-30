@@ -31,50 +31,80 @@
 
 ## Future Enhancements
 
-### Automated Analysis via Sub-Agent Spawning (v2.0.0 candidate)
+### Sub-Agent Integration Testing Framework (v2.0.0 candidate)
 
-**Concept**: Instead of instructing agents to analyze, spawn specialized sub-agents to perform analysis automatically during --init.
+**Concept**: Use spawned sub-agents to systematically test where sub-agent usage provides benefit across the entire unified-mcp-server workflow.
 
 **Current Approach (v1.0.5):**
-- Display checklist instructing agent to analyze project
-- Agent manually performs analysis using available tools
-- Agent makes informed decision based on findings
+- All 25 tools execute directly in main agent context
+- No sub-agent spawning for any operations
+- Agent performs all tasks sequentially in current session
 
 **Proposed Enhancement:**
-- System automatically spawns analysis sub-agents during --init
-- Each sub-agent performs specific analysis task in parallel:
-  - **Codebase Explorer**: Scans file structure, counts files, detects languages
-  - **Complexity Analyzer**: Assesses LOC, patterns, architecture
-  - **Git Historian**: Reviews commit patterns, collaboration indicators
-  - **Config Reader**: Checks existing Claude Code/MCP configuration
-  - **Tool Discoverer**: Lists currently installed MCP tools
-- Sub-agents report findings back to main process
-- System presents comprehensive analysis results
-- Agent reviews automated findings and selects configuration
+- Create dry testing framework to evaluate sub-agent usage for each tool
+- Test workflow variations with/without sub-agent spawning:
+  - **search_experiences**: Spawn sub-agent for deep pattern search vs. direct search
+  - **gather_context**: Spawn parallel sub-agents for multi-source collection vs. sequential
+  - **analyze_problem**: Spawn sub-agent for complex analysis vs. inline analysis
+  - **reason_through**: Spawn sub-agents for parallel reasoning branches vs. linear
+  - **record_experience**: Spawn sub-agent for experience writing vs. direct write
+  - **verify_compliance**: Spawn sub-agent for compliance checking vs. inline check
+  - Any of the 25 tools where parallelization or isolation might help
+- Measure effectiveness for each tool:
+  - **Speed**: Time to completion (parallel vs. sequential)
+  - **Accuracy**: Quality of results (specialized vs. generalized)
+  - **Token Usage**: Cost comparison (sub-agent overhead vs. direct execution)
+  - **Context Preservation**: Does spawning lose important context?
+- Identify optimal integration points based on empirical data
+- Document findings and recommend where sub-agents add value
+- Implement optional sub-agent mode for beneficial tools
 
 **Benefits:**
-- **Speed**: Parallel sub-agents faster than sequential manual analysis
-- **Accuracy**: Specialized sub-agents use optimal tools for each task
-- **Token Efficiency**: Analysis performed in sub-agent contexts, not main session
-- **Consistency**: Automated analysis ensures all steps completed
-- **Optional Use**: Can be enabled via flag (--init --auto-analyze)
+- **Data-Driven**: Decisions based on actual testing, not assumptions
+- **Optimization**: Use sub-agents only where they provide clear benefit
+- **Token Efficiency**: Avoid unnecessary sub-agent overhead
+- **Performance**: Identify parallelization opportunities
+- **Future-Proof**: Framework can test new tools as they're added
+
+**Testing Methodology (similar to v1.0.5 verbiage testing):**
+```javascript
+// For each tool, test with/without sub-agent
+const tools = ['search_experiences', 'gather_context', 'analyze_problem', ...];
+
+for (const tool of tools) {
+  // Variant 1: Direct execution (current)
+  const directResult = await testDirectExecution(tool);
+
+  // Variant 2: Sub-agent spawning
+  const subAgentResult = await testWithSubAgent(tool);
+
+  // Compare: speed, accuracy, tokens, context
+  const comparison = compareResults(directResult, subAgentResult);
+
+  // Document findings
+  recommendations[tool] = comparison.winner;
+}
+```
 
 **Considerations:**
-- Requires Task tool integration
-- Need dry testing framework for validation (like v1.0.5 verbiage testing)
-- Should preserve option for manual analysis (some users may want control)
-- Must handle analysis failures gracefully (fallback to manual checklist)
-- Token cost vs. benefit analysis needed
+- Requires Task tool integration for spawning
+- Need comprehensive test scenarios for each tool
+- Must measure context loss when spawning
+- Token cost for extensive testing (run in background/off-hours)
+- Some tools may not benefit from sub-agents (overhead > benefit)
+- Results may vary by model version (test across Claude versions)
 
 **Implementation Approach:**
-1. Add --auto-analyze flag to --init
-2. Create analysis sub-agent spawning logic
-3. Implement result aggregation and presentation
-4. Maintain current checklist as fallback
-5. Add configuration option to make auto-analyze default
-6. Validate with dry testing scenarios
+1. Create dry testing framework for tool variations
+2. Define metrics (speed, accuracy, tokens, context preservation)
+3. Generate test scenarios for each of 25 tools
+4. Spawn parallel tests: direct vs. sub-agent execution
+5. Aggregate results and identify beneficial integration points
+6. Document findings with recommendations
+7. Implement optional sub-agent mode for proven beneficial tools
+8. Add configuration to enable/disable sub-agent usage per tool
 
-**Priority**: Low (current checklist approach works well per v1.0.5 validation)
+**Priority**: Low (current direct execution works well, but optimization potential exists)
 
 ### Hook Reminder Optimization via Sub-Agent Dry Testing (v2.0.0 candidate)
 
