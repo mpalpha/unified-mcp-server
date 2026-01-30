@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Unified MCP Server v1.0
+ * Unified MCP Server v1.0.1
  *
  * Combines memory-augmented reasoning and protocol enforcement with modern tool ergonomics.
  * - 25 atomic, composable tools (not monolithic)
@@ -9,7 +9,7 @@
  * - Automated hook installation
  * - Comprehensive documentation
  *
- * Version: 1.0.0
+ * Version: 1.0.1
  * License: MIT
  * Author: Jason Lusk <jason@jasonlusk.com>
  */
@@ -20,7 +20,7 @@ const path = require('path');
 const os = require('os');
 const readline = require('readline');
 
-const VERSION = '1.0.0';
+const VERSION = '1.0.1';
 
 // Consolidated namespace: ~/.unified-mcp/
 const MCP_DIR = path.join(os.homedir(), '.unified-mcp');

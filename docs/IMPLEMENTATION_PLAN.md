@@ -1,5 +1,30 @@
 # Unified MCP Server - Implementation Plan
 
+## Version History
+
+### v1.0.1 - 2026-01-30 (Patch Release)
+**Native Module Compatibility Fix**
+- **Critical Issue**: better-sqlite3 native module version mismatches caused installation failures
+- **Solution**: Added bootstrap wrapper with error handling and postinstall checks
+- **Changes**:
+  - New: `bootstrap.js` - Entry point with native module error handling
+  - New: `scripts/check-native-modules.js` - Postinstall native module validation
+  - Changed: bin entry point from `./index.js` → `./bootstrap.js`
+  - Changed: Node.js engines requirement from `>=14.0.0` → `>=16.0.0`
+  - Added: `prebuild-install` as optional dependency
+  - Updated: NPX tests to use bootstrap.js entry point
+  - Updated: README with comprehensive troubleshooting section
+  - Updated: All version constants to 1.0.1
+- **Testing**: All 223 tests passing (including 10/10 NPX tests)
+- **Documentation**: CHANGELOG.md, README.md, IMPLEMENTATION_PLAN.md updated
+
+### v1.0.0 - 2026-01-30 (Initial Release)
+- Complete unified MCP server with 25 tools
+- Migration tool for old databases
+- 223 automated tests (100% passing)
+- Comprehensive documentation
+- NPX-ready deployment
+
 ## Overview
 Building a research-based MCP server with 25 tools in phases. **Target: 150 automated tests + 50+ research-based compliance scenarios**, complete docs, ready for deployment.
 
@@ -109,8 +134,8 @@ Run Full Test Suite (ensure no breakage)
 **Implementation Deliverables:**
 - [x] package.json + dependencies installed
 - [x] **NPX: bin field configured**
-- [x] **NPX: index.js with shebang (`#!/usr/bin/env node`)**
-- [x] **NPX: Executable permissions set (`chmod +x index.js`)**
+- [x] **NPX: bootstrap.js with shebang (`#!/usr/bin/env node`)** (v1.0.1: changed from index.js)
+- [x] **NPX: Executable permissions set (`chmod +x bootstrap.js`)** (v1.0.1: changed from index.js)
 - [x] **NPX: CLI argument parsing (--help, --version, --init flags)**
 - [x] **NPX: MCP protocol vs CLI mode detection**
 - [x] index.js with MCP protocol scaffolding (initialize, tools/list, tools/call)
@@ -251,7 +276,7 @@ Run Full Test Suite (ensure no breakage)
 - [x] **NPX: 10 NPX tests (CLI flags, MCP protocol mode, permissions)**
 - [x] Version consistency check
 - [x] **NPX: Compatibility verification (shebang, permissions, bin field)**
-- [x] Gist deployment (4 files: index.js, package.json, README.md) with NPX support
+- [x] GitHub deployment (v1.0.1: includes bootstrap.js, index.js, package.json, README.md, scripts/, etc.)
 - [x] **Git repo published (docs, hooks folders)** - hooks/ now exists with 5 .cjs files
 - [x] **NPX: Gist updated with CLI mode support**
 - [x] **--init flag** - provides setup information and next steps
@@ -496,14 +521,14 @@ echo '{"test":1}' | node hooks/user-prompt-submit.cjs 2>&1 | head -1
 # CRITICAL: Hook files don't exist yet - install_hooks is a stub
 
 # 6. NPX compatibility
-head -1 index.js
-# Expected: #!/usr/bin/env node
+head -1 bootstrap.js
+# Expected: #!/usr/bin/env node (v1.0.1: changed from index.js to bootstrap.js)
 
 ls -la index.js | grep -E 'x'
 # Expected: Executable permissions (`-rwxr-xr-x`)
 
 grep '"bin"' package.json
-# Expected: "bin": { "unified-mcp-server": "./index.js" }
+# Expected: "bin": { "unified-mcp-server": "./bootstrap.js" } (v1.0.1: changed from ./index.js)
 
 npx . --help
 # Expected: Usage information
@@ -524,9 +549,11 @@ npx mpalpha/unified-mcp-server --version
 **✅ NPX functionality is fully implemented and tested!**
 
 **Phase 1 Tasks (Foundation):**
-- [x] Add shebang line to index.js: `#!/usr/bin/env node`
-- [x] Set executable permissions: `chmod +x index.js`
-- [x] Add bin field to package.json: `"bin": { "unified-mcp-server": "./index.js" }`
+- [x] Add shebang line to bootstrap.js: `#!/usr/bin/env node` (v1.0.1: changed from index.js)
+- [x] Set executable permissions: `chmod +x bootstrap.js` (v1.0.1: changed from index.js)
+- [x] Add bin field to package.json: `"bin": { "unified-mcp-server": "./bootstrap.js" }` (v1.0.1: changed from ./index.js)
+- [x] Implement bootstrap wrapper with native module error handling (v1.0.1: new)
+- [x] Implement postinstall native module check (v1.0.1: new)
 - [x] Implement CLI argument parsing
   - [x] Parse `--help` flag (show usage)
   - [x] Parse `--version` flag (show version)
@@ -550,8 +577,8 @@ npx mpalpha/unified-mcp-server --version
   - [x] Test: Zero-config initialization
   - [x] Test: Namespace auto-creation
   - [x] Test: All 25 tools accessible via MCP
-- [x] Update gist with NPX-compatible files
-- [x] Verify gist includes CLI mode and shebang
+- [x] Update GitHub repo with NPX-compatible files (v1.0.0: changed from gist to GitHub)
+- [x] Verify GitHub repo includes CLI mode and shebang
 - [x] Update README with npx installation instructions
 - [x] Update GETTING_STARTED docs with npx examples
 - [x] Verify all 110/110 tests pass
@@ -564,8 +591,9 @@ npx mpalpha/unified-mcp-server --version
 - [x] `npx . --init` interactive wizard works ✅
 - [x] `npx . --health` runs health check ✅
 - [x] `npx . --validate` validates config ✅
-- [x] Gist updated with NPX-compatible index.js ✅
-- [x] Gist includes shebang and CLI argument parsing ✅
+- [x] GitHub repo updated with NPX-compatible bootstrap.js ✅ (v1.0.1)
+- [x] GitHub repo includes shebang and CLI argument parsing ✅
+- [x] Native module compatibility fixes deployed ✅ (v1.0.1)
 
 ## Current Status - VERIFIED 2026-01-30
 - **Phase: ALL 8 PHASES COMPLETE** ✅
@@ -580,9 +608,9 @@ npx mpalpha/unified-mcp-server --version
 - **Status: PRODUCTION READY** ✅
 
 ### Implementation Verification (Code-Confirmed):
-1. ✅ Shebang in index.js (`#!/usr/bin/env node`)
+1. ✅ Shebang in bootstrap.js (`#!/usr/bin/env node`) (v1.0.1: changed from index.js)
 2. ✅ Executable permissions set (`-rwxr-xr-x`)
-3. ✅ package.json bin field configured
+3. ✅ package.json bin field configured (v1.0.1: points to bootstrap.js)
 4. ✅ CLI argument parsing COMPLETE (all 5 flags working: --help, --version, --init, --health, --validate)
 5. ✅ --init is fully interactive (preset selection, hook installation prompts)
 6. ✅ MCP vs CLI mode detection working
@@ -650,8 +678,10 @@ npx mpalpha/unified-mcp-server --version
 - ✅ CONTRIBUTING.md: Complete
 
 **NPX Features (Code-Verified):**
-- ✅ Shebang line in index.js (`#!/usr/bin/env node`)
-- ✅ Executable permissions set (`-rwxr-xr-x`)
+- ✅ Shebang line in bootstrap.js (`#!/usr/bin/env node`) (v1.0.1: changed from index.js)
+- ✅ Executable permissions set on bootstrap.js (`-rwxr-xr-x`) (v1.0.1)
+- ✅ Native module error handling in bootstrap wrapper (v1.0.1: new)
+- ✅ Postinstall native module check (v1.0.1: new)
 - ✅ package.json bin field configured
 - ✅ CLI argument parsing COMPLETE (all 5 flags functional)
 - ✅ --init IS interactive (preset selection, hook installation)

@@ -3,7 +3,7 @@
 > Protocol-enforced learning system combining memory-augmented reasoning with workflow automation for AI assistants
 
 [![Tests](https://img.shields.io/badge/tests-200%2F200%20passing-brightgreen)](test/)
-[![Node](https://img.shields.io/badge/node-%3E%3D14.0.0-brightgreen)](package.json)
+[![Node](https://img.shields.io/badge/node-%3E%3D16.0.0-brightgreen)](package.json)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 ## Overview
@@ -19,6 +19,13 @@ Unified MCP Server is a Model Context Protocol server that enforces research-bas
 
 ## Quick Start
 
+### Requirements
+
+- **Node.js**: >=16.0.0 (check with `node --version`)
+  - Recommended: 18.x, 20.x, or 22.x
+  - Other versions work with `--build-from-source` flag
+- **npm**: 8.x or higher
+
 ### Installation
 
 ```bash
@@ -31,6 +38,8 @@ cd unified-mcp-server
 npm install
 node index.js --init
 ```
+
+**Note**: If you encounter native module errors, use `--build-from-source` flag or see [Troubleshooting](#troubleshooting) below.
 
 ### Setup Wizard
 
@@ -340,6 +349,61 @@ npm run lint
 6. Submit a pull request
 
 ## Troubleshooting
+
+### Installation / Native Module Issues
+
+**Problem**: Error like "was compiled against a different Node.js version"
+
+This occurs when `better-sqlite3` (native module) was compiled for a different Node.js version than you're currently using.
+
+**Solutions** (in recommended order):
+
+#### Option 1: Build from Source (Recommended - Works with Any Node Version)
+```bash
+# This rebuilds better-sqlite3 for your specific Node version
+npm install -g mpalpha/unified-mcp-server --build-from-source
+unified-mcp-server --init
+```
+
+#### Option 2: Global Install with Rebuild
+```bash
+# Install globally
+npm install -g mpalpha/unified-mcp-server
+
+# Rebuild native module for your Node version
+npm rebuild -g better-sqlite3
+
+# Run
+unified-mcp-server --init
+```
+
+#### Option 3: Local Install (Best for Existing Projects)
+```bash
+# Keeps your project's Node version unchanged
+git clone https://github.com/mpalpha/unified-mcp-server.git
+cd unified-mcp-server
+npm install  # Automatically rebuilds for your Node version
+node index.js --init
+```
+
+#### Option 4: Use Specific Node Version (Only if Options 1-3 Don't Work)
+```bash
+# Using nvm
+nvm install 20
+nvm use 20
+npx mpalpha/unified-mcp-server --init
+
+# Using volta
+volta install node@20
+npx mpalpha/unified-mcp-server --init
+```
+
+**Recommended Node Versions**: 18.x, 20.x, or 22.x (but any recent version should work with Option 1)
+
+**Check Your Node Version**:
+```bash
+node --version
+```
 
 ### Migration Issues
 

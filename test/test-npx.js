@@ -16,6 +16,7 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
+const BOOTSTRAP_PATH = path.join(__dirname, '../bootstrap.js');
 const INDEX_PATH = path.join(__dirname, '../index.js');
 const PACKAGE_PATH = path.join(__dirname, '../package.json');
 
@@ -36,17 +37,17 @@ function test(name, fn) {
 
 console.log('\n=== NPX Compatibility Tests ===\n');
 
-// Test 1: Shebang exists
+// Test 1: Shebang exists (bootstrap is entry point)
 test('Shebang line exists', () => {
-  const firstLine = fs.readFileSync(INDEX_PATH, 'utf8').split('\n')[0];
+  const firstLine = fs.readFileSync(BOOTSTRAP_PATH, 'utf8').split('\n')[0];
   if (firstLine !== '#!/usr/bin/env node') {
     throw new Error(`Expected "#!/usr/bin/env node", got "${firstLine}"`);
   }
 });
 
-// Test 2: Executable permissions
+// Test 2: Executable permissions (bootstrap is entry point)
 test('Executable permissions set', () => {
-  const stats = fs.statSync(INDEX_PATH);
+  const stats = fs.statSync(BOOTSTRAP_PATH);
   const mode = stats.mode.toString(8);
   // Check if owner execute bit is set (0100)
   if ((stats.mode & 0o100) === 0) {
@@ -54,7 +55,7 @@ test('Executable permissions set', () => {
   }
 });
 
-// Test 3: Package.json bin field
+// Test 3: Package.json bin field (updated to bootstrap.js)
 test('Package.json bin field configured', () => {
   const pkg = JSON.parse(fs.readFileSync(PACKAGE_PATH, 'utf8'));
   if (!pkg.bin) {
@@ -63,14 +64,14 @@ test('Package.json bin field configured', () => {
   if (!pkg.bin['unified-mcp-server']) {
     throw new Error('No "unified-mcp-server" entry in bin field');
   }
-  if (pkg.bin['unified-mcp-server'] !== './index.js') {
-    throw new Error(`Expected "./index.js", got "${pkg.bin['unified-mcp-server']}"`);
+  if (pkg.bin['unified-mcp-server'] !== './bootstrap.js') {
+    throw new Error(`Expected "./bootstrap.js", got "${pkg.bin['unified-mcp-server']}"`);
   }
 });
 
 // Test 4: --help flag works
 test('--help flag works', () => {
-  const output = execSync('node index.js --help', { encoding: 'utf8' });
+  const output = execSync('node bootstrap.js --help', { encoding: 'utf8' });
   if (!output.includes('Unified MCP Server')) {
     throw new Error('Help output missing expected text');
   }
@@ -84,7 +85,7 @@ test('--help flag works', () => {
 
 // Test 5: --version flag works
 test('--version flag works', () => {
-  const output = execSync('node index.js --version', { encoding: 'utf8' }).trim();
+  const output = execSync('node bootstrap.js --version', { encoding: 'utf8' }).trim();
   if (!output.match(/^\d+\.\d+\.\d+$/)) {
     throw new Error(`Expected version format X.Y.Z, got "${output}"`);
   }
@@ -92,7 +93,7 @@ test('--version flag works', () => {
 
 // Test 6: --init flag works
 test('--init flag works', () => {
-  const output = execSync('echo -e "5\\n\\n" | node index.js --init', { encoding: 'utf8', shell: '/bin/bash' });
+  const output = execSync('echo -e "5\\n\\n" | node bootstrap.js --init', { encoding: 'utf8', shell: '/bin/bash' });
   if (!output.includes('Interactive Setup')) {
     throw new Error('Init output missing expected text');
   }
@@ -112,7 +113,7 @@ test('MCP protocol mode works (no flags)', () => {
     params: { protocolVersion: '1.0', capabilities: {} },
     id: 1
   });
-  const output = execSync(`echo '${input}' | node index.js`, { encoding: 'utf8' });
+  const output = execSync(`echo '${input}' | node bootstrap.js`, { encoding: 'utf8' });
 
   // Parse JSON response (ignore stderr)
   const lines = output.split('\n').filter(line => line.trim().startsWith('{'));
@@ -164,7 +165,7 @@ test('All 25 tools accessible via MCP', () => {
     params: {},
     id: 2
   });
-  const output = execSync(`echo '${input}' | node index.js`, { encoding: 'utf8' });
+  const output = execSync(`echo '${input}' | node bootstrap.js`, { encoding: 'utf8' });
 
   // Parse JSON response
   const lines = output.split('\n').filter(line => line.trim().startsWith('{'));

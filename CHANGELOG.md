@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-01-30
+
+### Fixed - Native Module Compatibility
+- **Critical**: Fixed better-sqlite3 native module compatibility issues across Node.js versions
+  - Added bootstrap wrapper (`bootstrap.js`) with graceful error handling
+  - Detects ERR_DLOPEN_FAILED and provides actionable error messages with solutions
+  - Attempts automatic rebuild for non-npx installations
+  - Postinstall script (`scripts/check-native-modules.js`) validates native modules
+  - Added prebuild-install as optional dependency for better prebuilt binary support
+
+### Changed - Installation
+- Updated Node.js version requirement from `>=14.0.0` to `>=16.0.0`
+  - Supports wider Node.js version range via build-from-source
+  - Recommended versions: 18.x, 20.x, or 22.x (but any Node >=16 should work)
+- Changed bin entry point from `index.js` to `bootstrap.js`
+  - Provides better error messages for native module issues
+  - Attempts auto-repair before failing
+- Enhanced README with troubleshooting section
+  - Node.js version requirements prominently displayed
+  - Four installation methods documented (npx, global, build-from-source, local)
+  - Clear error resolution steps
+- Updated Node.js badge to show supported versions (18 | 20 | 22)
+
+### Technical Details
+- Addresses NODE_MODULE_VERSION mismatches (e.g., 127 vs 115)
+- Handles npx cache limitations (no automatic rebuild)
+- Provides installation path detection (npx, global, local)
+- Non-blocking postinstall (won't fail package installation)
+
 ## [1.0.0] - 2026-01-30
 
 ### Deployment
