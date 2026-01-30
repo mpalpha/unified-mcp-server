@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-01-30
+
+### Added - User Feedback
+- **System Requirements**: Comprehensive system requirements section in README
+  - Operating systems (macOS, Linux, Windows)
+  - Build tools for native modules (Xcode, build-essential, VS Build Tools)
+  - Python requirement for node-gyp
+  - Disk space and memory requirements
+- **CLI Flag**: `--preset <name>` for non-interactive preset application
+  - Allows direct preset application without wizard
+  - Validates preset names with helpful error messages
+  - Shows preset details after application
+  - Four presets: three-gate, minimal, strict, custom
+
+### Changed - User Feedback
+- Updated --help output to include --preset flag with examples
+- Reformatted USAGE section for better readability
+- Added PRESETS section showing available options
+
 ## [1.0.1] - 2026-01-30
 
 ### Fixed - Native Module Compatibility

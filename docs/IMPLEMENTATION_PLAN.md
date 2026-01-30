@@ -2,6 +2,19 @@
 
 ## Version History
 
+### v1.0.2 - 2026-01-30 (Patch Release)
+**User Feedback: System Requirements & CLI Improvements**
+- **Issue**: User requested system requirements documentation and --preset CLI flag
+- **Solution**: Added comprehensive system requirements and non-interactive preset application
+- **Changes**:
+  - Added: System Requirements section to README (OS, build tools, Python, disk space, memory)
+  - Added: `--preset <name>` CLI flag for non-interactive preset application
+  - Changed: --help output reformatted with PRESETS section
+  - Updated: NPX tests to include --preset flag testing (12/12 passing)
+  - Updated: All version constants to 1.0.2
+- **Testing**: All 12 NPX tests passing + 55 tool tests + 10 integration tests
+- **Documentation**: CHANGELOG.md, README.md, IMPLEMENTATION_PLAN.md updated
+
 ### v1.0.1 - 2026-01-30 (Patch Release)
 **Native Module Compatibility Fix**
 - **Critical Issue**: better-sqlite3 native module version mismatches caused installation failures
@@ -152,13 +165,15 @@ Run Full Test Suite (ensure no breakage)
   - update_experience: Revisions, history tracking, validation
   - tag_experience: Tag addition, validation
   - export_experiences: JSON/Markdown formats, filters
-- [x] 10 NPX compatibility tests
+- [x] 12 NPX compatibility tests (v1.0.2: added --preset tests)
   - Shebang verification
   - Permission checks
   - Bin field configuration
-  - CLI flag functionality
+  - CLI flag functionality (--help, --version, --init, --preset)
+  - --preset flag functionality (v1.0.2: new)
+  - --preset validation (v1.0.2: new)
   - MCP protocol mode
-- [x] All 65 tests passing before phase complete
+- [x] All 67 tests passing before phase complete (v1.0.2: 65 + 2 new)
 
 **Success Criteria:**
 - ✅ `npx .` starts MCP server

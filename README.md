@@ -19,12 +19,26 @@ Unified MCP Server is a Model Context Protocol server that enforces research-bas
 
 ## Quick Start
 
-### Requirements
+### System Requirements
 
+**Runtime:**
 - **Node.js**: >=16.0.0 (check with `node --version`)
   - Recommended: 18.x, 20.x, or 22.x
   - Other versions work with `--build-from-source` flag
 - **npm**: 8.x or higher
+- **Disk Space**: ~50 MB for installation
+- **Memory**: 100 MB minimum
+
+**Operating Systems:**
+- ✅ macOS (Intel & Apple Silicon)
+- ✅ Linux (x64, arm64)
+- ✅ Windows 10/11 (x64)
+
+**Build Tools** (for native modules):
+- **macOS**: Xcode Command Line Tools (`xcode-select --install`)
+- **Linux**: `build-essential` package (`sudo apt-get install build-essential`)
+- **Windows**: Visual Studio Build Tools or `windows-build-tools`
+- **All platforms**: Python 3.x (for node-gyp)
 
 ### Installation
 
@@ -253,12 +267,25 @@ npx unified-mcp-server --version
 # Interactive setup wizard
 npx unified-mcp-server --init
 
+# Apply preset (non-interactive)
+npx unified-mcp-server --preset three-gate
+npx unified-mcp-server --preset minimal
+npx unified-mcp-server --preset strict
+npx unified-mcp-server --preset custom
+
 # Health check
 npx unified-mcp-server --health
 
 # Validate hooks configuration
 npx unified-mcp-server --validate
 ```
+
+### Available Presets
+
+- **three-gate** (Recommended): Standard TEACH → LEARN → REASON workflow
+- **minimal**: Lightweight with optional gates
+- **strict**: Strict enforcement with all validations
+- **custom**: Template for custom workflows
 
 ## Documentation
 

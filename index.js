@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Unified MCP Server v1.0.1
+ * Unified MCP Server v1.0.2
  *
  * Combines memory-augmented reasoning and protocol enforcement with modern tool ergonomics.
  * - 25 atomic, composable tools (not monolithic)
@@ -9,7 +9,7 @@
  * - Automated hook installation
  * - Comprehensive documentation
  *
- * Version: 1.0.1
+ * Version: 1.0.2
  * License: MIT
  * Author: Jason Lusk <jason@jasonlusk.com>
  */
@@ -20,7 +20,7 @@ const path = require('path');
 const os = require('os');
 const readline = require('readline');
 
-const VERSION = '1.0.1';
+const VERSION = '1.0.2';
 
 // Consolidated namespace: ~/.unified-mcp/
 const MCP_DIR = path.join(os.homedir(), '.unified-mcp');
@@ -2283,12 +2283,21 @@ Unified MCP Server v${VERSION}
 Combines memory-augmented reasoning and protocol enforcement
 
 USAGE:
-  npx unified-mcp-server              Start MCP server (JSON-RPC over stdio)
-  npx unified-mcp-server --help       Show this help message
-  npx unified-mcp-server --version    Show version number
-  npx unified-mcp-server --init       Run setup wizard
-  npx unified-mcp-server --health     Run health check
-  npx unified-mcp-server --validate   Validate configuration
+  npx unified-mcp-server                      Start MCP server (JSON-RPC over stdio)
+  npx unified-mcp-server --help               Show this help message
+  npx unified-mcp-server --version            Show version number
+  npx unified-mcp-server --init               Run interactive setup wizard
+  npx unified-mcp-server --preset <name>      Apply preset (non-interactive)
+  npx unified-mcp-server --health             Run health check
+  npx unified-mcp-server --validate           Validate configuration
+
+PRESETS:
+  three-gate      Standard TEACH → LEARN → REASON workflow (recommended)
+  minimal         Lightweight with optional gates
+  strict          Strict enforcement with all validations
+  custom          Template for custom workflows
+
+  Example: npx unified-mcp-server --preset three-gate
 
 INSTALLATION:
   # From gist (recommended)
@@ -2329,6 +2338,39 @@ DOCUMENTATION:
 if (args.includes('--version') || args.includes('-v')) {
   console.log(VERSION);
   process.exit(0);
+}
+
+// --preset flag (non-interactive preset application)
+const presetIndex = args.findIndex(arg => arg === '--preset');
+if (presetIndex !== -1 && args[presetIndex + 1]) {
+  const presetName = args[presetIndex + 1];
+  const validPresets = ['three-gate', 'minimal', 'strict', 'custom'];
+
+  if (!validPresets.includes(presetName)) {
+    console.error(`Error: Invalid preset "${presetName}"`);
+    console.error(`Valid presets: ${validPresets.join(', ')}`);
+    process.exit(1);
+  }
+
+  const presetConfig = BUILT_IN_PRESETS[presetName];
+  if (!presetConfig) {
+    console.error(`Error: Preset "${presetName}" not found`);
+    process.exit(1);
+  }
+
+  try {
+    const configPath = path.join(MCP_DIR, 'config.json');
+    fs.writeFileSync(configPath, JSON.stringify(presetConfig, null, 2));
+    console.log(`✓ Applied ${presetName} preset`);
+    console.log(`  Config saved to: ${configPath}`);
+    console.log(`\nPreset details:`);
+    console.log(`  Enforcement level: ${presetConfig.enforcement_level || 'custom'}`);
+    console.log(`  Tools: ${Object.keys(presetConfig.tools || {}).length} configured`);
+    process.exit(0);
+  } catch (error) {
+    console.error(`Error applying preset: ${error.message}`);
+    process.exit(1);
+  }
 }
 
 // --init flag (interactive setup wizard)

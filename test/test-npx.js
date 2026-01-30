@@ -184,9 +184,38 @@ test('All 25 tools accessible via MCP', () => {
   }
 });
 
+// Test 11: --preset flag works
+test('--preset flag works', () => {
+  const output = execSync('node bootstrap.js --preset three-gate', { encoding: 'utf8' });
+  if (!output.includes('Applied three-gate preset')) {
+    throw new Error('Preset application output missing');
+  }
+  if (!output.includes('Config saved to:')) {
+    throw new Error('Config path missing from output');
+  }
+  // Verify config file was created
+  const homeDir = require('os').homedir();
+  const configPath = path.join(homeDir, '.unified-mcp', 'config.json');
+  if (!fs.existsSync(configPath)) {
+    throw new Error('Config file not created');
+  }
+});
+
+// Test 12: --preset validates preset names
+test('--preset validates preset names', () => {
+  try {
+    execSync('node bootstrap.js --preset invalid-preset', { encoding: 'utf8', stderr: 'pipe' });
+    throw new Error('Should have failed with invalid preset');
+  } catch (error) {
+    if (!error.message.includes('Invalid preset')) {
+      throw new Error('Expected invalid preset error message');
+    }
+  }
+});
+
 console.log(`\n=== Results ===`);
-console.log(`Passed: ${passed}/10`);
-console.log(`Failed: ${failed}/10`);
+console.log(`Passed: ${passed}/12`);
+console.log(`Failed: ${failed}/12`);
 
 if (failed > 0) {
   process.exit(1);
