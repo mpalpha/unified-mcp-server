@@ -194,6 +194,177 @@ updateHookFile('user-prompt-submit.cjs', optimal);
 
 **Priority**: Medium (hook effectiveness directly impacts core value proposition)
 
+### Post-Reload Configuration Customization (v2.0.0 candidate)
+
+**Concept**: After reload, agent uses MCP tools to record project analysis and generate project-specific hook customizations.
+
+**Current Approach (v1.0.5):**
+- Agent analyzes project during --init
+- Selects preset based on analysis
+- Generic hooks installed (same for all projects)
+- No project-specific customization
+- Analysis exists only in agent's memory (not persisted)
+
+**Proposed Enhancement:**
+- Step 1-6: Current --init flow (analysis, preset selection, generic hook installation)
+- Step 7: Configure settings.json and install server
+- Step 8: **Reload Claude/IDE** (MCP tools now available)
+- Step 9: **Post-Reload Customization Phase** (NEW):
+  - Agent continues with analysis data from --init
+  - Uses `record_experience` to save project characteristics to database
+  - Uses `search_experiences` to find similar projects
+  - Generates project-specific hook messages based on discovered context
+  - Examples of customization:
+    - Reference actual file counts discovered
+    - Mention .cursorrules if found
+    - Reference CONTRIBUTING.md if present
+    - Suggest tags based on project type
+    - Link to similar projects in database
+  - Validates customized hooks (syntax, logic, safety)
+  - Supplements generic hooks with custom guidance (generic remains as fallback)
+- Step 10: Verification test with customized workflow
+
+**Benefits:**
+- Project analysis persists in database (searchable forever)
+- Agent uses tools to configure itself (dogfooding)
+- Hook messages reference actual project discoveries
+- Knowledge accumulates across projects
+- Similar projects get similar configurations
+
+**Example Customization:**
+```javascript
+// Generic hook (always active, never replaced):
+⚠️  WORKFLOW ENFORCEMENT ACTIVE
+
+// Custom supplement (added based on analysis):
+This project has 152 files across 12 directories.
+Discovered configuration:
+  • .cursorrules found → Review for project conventions
+  • CONTRIBUTING.md found → Check workflow requirements
+
+Before file operations:
+✓ LEARN: Search for patterns in this codebase
+✓ REASON: Analyze impact on existing architecture
+✓ TEACH: Record your approach with tags: [discovered-tags]
+```
+
+**MANDATORY SAFETY REQUIREMENTS (ZERO-TOLERANCE):**
+
+**1. Deadlock Prevention: ABSOLUTE REQUIREMENT**
+- **Deadlock rate MUST be 0.00% in dry testing**
+- Test with 100+ sub-agent scenarios minimum
+- Test all failure modes (syntax errors, logic errors, broken config)
+- **If ANY deadlock occurs in testing → REJECT FEATURE ENTIRELY**
+- No exceptions, no "acceptable risk" threshold
+- Feature is abandoned if deadlocks cannot be eliminated
+
+**2. Built-in Escape Hatch: MANDATORY**
+```javascript
+// Every hook MUST include:
+if (process.env.BYPASS_HOOKS === 'true') {
+  console.log('⚠️  BYPASS MODE: Hooks disabled for recovery');
+  process.exit(0); // Allow all operations
+}
+```
+- User can run: `BYPASS_HOOKS=true` to disable all hooks
+- Must be documented prominently in error messages
+- Must be tested in every dry test scenario
+
+**3. Fallback Architecture: REQUIRED**
+```
+~/.unified-mcp/hooks/
+  ├── user-prompt-submit.cjs         ← Generic (NEVER replaced)
+  ├── user-prompt-submit.custom.cjs  ← Custom (optional supplement)
+```
+- Generic hooks are immutable foundation
+- Customization only adds supplementary messages
+- If custom fails → automatic fallback to generic
+- System remains functional even if customization completely breaks
+
+**4. Validation Pipeline: MANDATORY BEFORE ACTIVATION**
+```javascript
+// Before activating custom hooks:
+1. Syntax validation (can Node.js parse it?)
+2. Dry run execution (does it run without error?)
+3. Safety checks (escape hatch present? no infinite loops?)
+4. Deadlock testing (can operations complete?)
+5. Rollback testing (can it be undone?)
+// Only activate if ALL checks pass
+```
+
+**5. Recovery Mechanisms: REQUIRED**
+- `npx mpalpha/unified-mcp-server --rollback` command
+- Restores generic hooks, removes all customization
+- Must work even if hooks are broken
+- Tested in every scenario
+
+**6. Progressive Enhancement: REQUIRED ARCHITECTURE**
+- Customization adds guidance, never replaces logic
+- Generic enforcement remains active always
+- Custom messages are additive, not substitutive
+- Failure of custom part does not break generic part
+
+**DRY TESTING VALIDATION (PREREQUISITE):**
+
+Before any implementation, spawn 100+ sub-agents testing:
+
+**Test Scenarios (minimum):**
+1. Generic hooks only (baseline)
+2. Simple customization (file counts)
+3. Medium customization (+.cursorrules reference)
+4. Complex customization (full discovery context)
+5. Minimal customization (project name only)
+6. **Broken syntax in custom hook** → Must fallback gracefully
+7. **Logic error causing potential deadlock** → Must be caught in validation
+8. **Agent misconfiguration** → Must be recoverable via bypass
+9. **Cascading failures** → Must isolate and not break system
+10. **Recovery testing** → Agent must fix broken config using bypass mode
+
+**Metrics Required for Go/No-Go:**
+- **Deadlock Rate**: MUST be 0.00% (single deadlock = feature rejected)
+- **Fallback Success**: 100% (custom failure must always fallback)
+- **Recovery Success**: 100% (agent must fix via bypass mode)
+- **Compliance Improvement**: Custom > Generic by measurable margin
+- **Token Overhead**: <20% increase vs. generic
+- **Error Rate**: <1% (excluding intentionally broken tests)
+
+**GO/NO-GO DECISION CRITERIA:**
+```
+IF deadlock_rate == 0.00%
+AND fallback_success == 100%
+AND recovery_success == 100%
+AND compliance_improvement > 10%
+AND all_escape_hatches_work == true
+THEN: Proceed with careful implementation
+ELSE: Reject feature permanently
+```
+
+**Implementation Approach (IF APPROVED BY TESTING):**
+1. Build extensive dry testing framework (100+ scenarios)
+2. Test all failure modes exhaustively
+3. Validate zero-deadlock guarantee mathematically
+4. Implement escape hatches and test thoroughly
+5. Build fallback architecture (generic never replaced)
+6. Implement validation pipeline
+7. Add rollback command
+8. Test recovery mechanisms
+9. Document bypass mode prominently
+10. Monitor initial deployments closely
+
+**Considerations:**
+- Requires Task tool for spawning test sub-agents
+- Extensive testing increases token cost (run in background)
+- Feature may be rejected if deadlock-free cannot be proven
+- Even with 0% deadlock in testing, real-world edge cases exist
+- Documentation must prominently feature bypass mode
+- Users must understand recovery procedures
+
+**Priority**: **BLOCKED until exhaustive dry testing proves zero-deadlock**
+- Cannot proceed without validation framework
+- Testing cost is significant but necessary
+- Feature may be permanently rejected if safety cannot be guaranteed
+- Safety > Features, always
+
 ### v1.0.4 - 2026-01-30 (Patch Release)
 **User Feedback: Agent Auto-Configuration Guidance**
 - **Issue**: Agents needed to "figure out" optimal configuration from clear guidance
