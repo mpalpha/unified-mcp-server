@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Unified MCP Server v1.0.5
+ * Unified MCP Server v1.1.0
  *
  * Combines memory-augmented reasoning and protocol enforcement with modern tool ergonomics.
  * - 25 atomic, composable tools (not monolithic)
@@ -9,7 +9,7 @@
  * - Automated hook installation
  * - Comprehensive documentation
  *
- * Version: 1.0.5
+ * Version: 1.1.0
  * License: MIT
  * Author: Jason Lusk <jason@jasonlusk.com>
  */
@@ -20,7 +20,7 @@ const path = require('path');
 const os = require('os');
 const readline = require('readline');
 
-const VERSION = '1.0.5';
+const VERSION = '1.1.0';
 
 // Consolidated namespace: ~/.unified-mcp/
 const MCP_DIR = path.join(os.homedir(), '.unified-mcp');
@@ -2631,8 +2631,38 @@ Migrate old database? [Y/n] (default: Yes - preserve your knowledge): `, (answer
         console.log('    • Claude Desktop: Restart the application');
         console.log('    • CLI: Exit and restart claude-code\n');
 
-        // Step 4: Verify installation
-        console.log(`STEP ${nextStep + 1}: Verify Installation\n`);
+        // Step 4: Post-Reload Customization (NEW)
+        console.log(`STEP ${nextStep + 1}: Propose Configuration Customization\n`);
+        console.log('  After restart, MCP tools are now available!\n');
+        console.log('  Copy and paste this customization prompt:\n');
+        console.log('  ┌─────────────────────────────────────────────────────────────┐');
+        console.log('  │ Review the project analysis from installation and propose  │');
+        console.log('  │ customization options:                                      │');
+        console.log('  │                                                             │');
+        console.log('  │ 1. Analyze what you discovered during installation:        │');
+        console.log('  │    - File counts, directory structure                      │');
+        console.log('  │    - .cursorrules, CONTRIBUTING.md, special files          │');
+        console.log('  │    - Patterns, project type, complexity                    │');
+        console.log('  │                                                             │');
+        console.log('  │ 2. Propose customization options with benefits:            │');
+        console.log('  │    - Record analysis to database? (benefits: searchable,   │');
+        console.log('  │      persistent knowledge, reusable across sessions)       │');
+        console.log('  │    - Customize hooks with project context? (benefits:      │');
+        console.log('  │      relevant reminders, project-specific guidance)        │');
+        console.log('  │    - Search for similar projects? (benefits: learn from    │');
+        console.log('  │      patterns used in comparable codebases)                │');
+        console.log('  │                                                             │');
+        console.log('  │ 3. Explain benefits and wait for approval before proceeding│');
+        console.log('  └─────────────────────────────────────────────────────────────┘\n');
+        console.log('  This step enables:');
+        console.log('    ✓ Agent proposes options based on actual analysis');
+        console.log('    ✓ User approves customizations before they happen');
+        console.log('    ✓ Benefits clearly explained for informed decisions');
+        console.log('    ✓ Project-specific knowledge persisted with consent\n');
+        console.log('  💡 NOTE: Generic hooks remain active. Customization supplements them.\n');
+
+        // Step 5: Verify installation
+        console.log(`STEP ${nextStep + 2}: Verify Installation\n`);
         console.log('  After restart, copy and paste this test prompt:\n');
 
         if (setupState.hooksInstalled) {
@@ -2674,8 +2704,8 @@ Migrate old database? [Y/n] (default: Yes - preserve your knowledge): `, (answer
           console.log('    ⚠️  Workflow enforcement is NOT active (hooks not installed)\n');
         }
 
-        // Step 5: Start using
-        console.log(`STEP ${nextStep + 2}: Start Using the System\n`);
+        // Step 6: Start using
+        console.log(`STEP ${nextStep + 3}: Start Using the System\n`);
         console.log('  WORKFLOW: TEACH → LEARN → REASON → ACT\n');
         console.log('  Example task: "Add a login button to my React app"\n');
         console.log('    1. Claude searches past experiences: search_experiences("login button")\n');

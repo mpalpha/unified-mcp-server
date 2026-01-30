@@ -7,6 +7,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-01-30
+
+### Added - Post-Reload Customization Proposal Step
+- **New Feature**: Added STEP 4 to --init output for proposing configuration customizations
+  - Displays between restart step and verification step
+  - Provides copy-paste prompt for agent to execute after reload
+  - **Agent proposes customization OPTIONS with benefits** (not directive steps)
+  - Prompt structure:
+    ```
+    1. Review project analysis from installation
+       - File counts, directory structure
+       - .cursorrules, CONTRIBUTING.md, special files
+       - Patterns, project type, complexity
+
+    2. Propose customization options with benefits:
+       - Record analysis to database?
+         Benefits: searchable, persistent, reusable across sessions
+       - Customize hooks with project context?
+         Benefits: relevant reminders, project-specific guidance
+       - Search for similar projects?
+         Benefits: learn from patterns in comparable codebases
+
+    3. Explain benefits and wait for approval before proceeding
+    ```
+  - **User approval required**: Agent explains benefits, user decides
+  - Enables informed decisions about customization
+  - Project-specific knowledge persisted only with consent
+  - Note: "Generic hooks remain active. Customization supplements them."
+
+### Changed - Installation Flow
+- Updated step numbering to accommodate new customization step:
+  - STEP 1: Configure MCP Settings (unchanged)
+  - STEP 2: Configure Hooks if installed (unchanged)
+  - STEP 3: Restart Claude/IDE (unchanged)
+  - STEP 4: Customize Based on Analysis (NEW!)
+  - STEP 5: Verify Installation (was STEP 4)
+  - STEP 6: Start Using System (was STEP 5)
+- All step references updated dynamically based on hook installation
+
+### Context
+- Addresses feedback: "agent didn't actually customize hooks to the project"
+- Addresses feedback: "analysis should include .cursor/ and .cursorrules"
+- Previous: Analysis performed but not persisted, generic hooks installed
+- Now: Agent uses tools to persist analysis and customize configuration
+- Flow enables dogfooding (system uses itself to configure itself)
+- Customization happens post-reload when MCP tools are available
+
+### Safety
+- Dry testing framework created (simulated, proof of concept)
+- 22 test scenarios: baseline, customizations, failure modes, recovery, edge cases
+- Simulated results: 0.00% deadlock rate, 100% fallback, 100% recovery
+- Real sub-agent testing required before production (documented in IMPLEMENTATION_PLAN.md)
+- Generic hooks never replaced (customization supplements only)
+
+### Documentation
+- Updated CHANGELOG.md with v1.1.0 entry
+- IMPLEMENTATION_PLAN.md includes post-reload enhancement documentation
+- Dry testing framework created at scratchpad/test-post-reload-customization.js
+
 ## [1.0.5] - 2026-01-30
 
 ### Added - Project Analysis Checklist

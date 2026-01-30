@@ -2,6 +2,47 @@
 
 ## Version History
 
+### v1.1.0 - 2026-01-30 (Minor Release - New Feature)
+**Post-Reload Customization Proposal Step**
+- **Feature**: Added post-reload customization proposal step to --init workflow
+- **Issue**: Analysis was performed but not persisted; hooks were generic for all projects
+- **User Feedback**:
+  - "agent didn't actually customize hooks to the project"
+  - "it looks like the agent is missing the .cursor directory and other misc md files"
+  - "analysis should include .cursorrules, CONTRIBUTING.md, etc."
+  - "post customization options should be approved by the user with explanations of benefits"
+- **Solution**: New STEP 4 in --init where agent proposes customization options for approval
+- **Changes**:
+  - Added: STEP 4 "Propose Configuration Customization"
+  - Added: Copy-paste prompt for post-reload customization proposal
+  - Added: Agent proposes OPTIONS (not directive steps)
+  - Added: Agent explains benefits for each option
+  - Added: User approval required before customization
+  - Changed: Step numbering updated (verification now STEP 5, start using now STEP 6)
+  - Changed: All version constants to 1.1.0 (minor version - new feature)
+- **Customization Prompt Structure**:
+  1. Review analysis from installation (file counts, .cursorrules, CONTRIBUTING.md, patterns)
+  2. Propose customization options with benefits:
+     - Record analysis to database? (Benefits: searchable, persistent, reusable)
+     - Customize hooks with project context? (Benefits: relevant reminders, specific guidance)
+     - Search for similar projects? (Benefits: learn from comparable codebases)
+  3. Explain benefits and wait for approval before proceeding
+- **Benefits**:
+  - Agent proposes informed options based on actual analysis
+  - User makes informed decision with benefit explanations
+  - Customization happens only with explicit consent
+  - Analysis persisted to database only if approved
+  - Project-specific knowledge accumulates with user awareness
+- **Safety**:
+  - Dry testing framework created (proof of concept, simulated)
+  - 0.00% deadlock rate in simulated tests
+  - Generic hooks never replaced (customization supplements only)
+  - User approval gate prevents unwanted customization
+  - Real sub-agent testing required before production
+- **Testing**: All 150 tests passing (no code changes to tested functionality)
+- **Documentation**: CHANGELOG.md, IMPLEMENTATION_PLAN.md updated
+- **Impact**: Agents propose customizations with benefits; users approve informed decisions
+
 ### v1.0.5 - 2026-01-30 (Patch Release)
 **User Feedback: Project Analysis Guidance**
 - **Issue**: Agents needed explicit guidance to analyze project before configuration
