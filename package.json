@@ -4,6 +4,14 @@
   "description": "Unified MCP server combining memory-augmented reasoning and protocol enforcement with modern tool ergonomics",
   "author": "Jason Lusk <jason@jasonlusk.com>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mpalpha/unified-mcp-server.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mpalpha/unified-mcp-server/issues"
+  },
+  "homepage": "https://github.com/mpalpha/unified-mcp-server#readme",
   "main": "index.js",
   "bin": {
     "unified-mcp-server": "./index.js"

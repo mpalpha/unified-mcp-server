@@ -23,10 +23,10 @@ Unified MCP Server is a Model Context Protocol server that enforces research-bas
 
 ```bash
 # Via NPX (recommended)
-npx unified-mcp-server --init
+npx mpalpha/unified-mcp-server --init
 
 # Or clone and install
-git clone <repository-url>
+git clone https://github.com/mpalpha/unified-mcp-server.git
 cd unified-mcp-server
 npm install
 node index.js --init
@@ -392,7 +392,7 @@ MIT © Jason Lusk
 
 ## Support
 
-- Issues: https://github.com/anthropics/unified-mcp-server/issues
+- Issues: https://github.com/mpalpha/unified-mcp-server/issues
 - Documentation: [docs/](docs/)
 - Migration Guide: [docs/MIGRATION_GUIDE.md](docs/MIGRATION_GUIDE.md)
 
@@ -409,5 +409,5 @@ Built on research from:
 **Ready to enforce research-based workflows?**
 
 ```bash
-npx unified-mcp-server --init
+npx mpalpha/unified-mcp-server --init
 ```

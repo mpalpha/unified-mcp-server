@@ -267,7 +267,7 @@ Run Full Test Suite (ensure no breakage)
 - ✅ `npx . --init` works (provides setup information)
 - ✅ `npx . --health` works (runs health check)
 - ✅ `npx . --validate` works (validates configuration)
-- ✅ Deployed to gist 494c7c5acaad6a13ae5666244e6fbcd2
+- ✅ Deployed to GitHub repository https://github.com/mpalpha/unified-mcp-server
 - ✅ Gist includes CLI argument parsing
 - ✅ All validation checks pass
 - ✅ System operational

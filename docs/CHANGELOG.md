@@ -153,4 +153,4 @@ npx mpalpha/unified-mcp-server --help
 
 ---
 
-[1.0.0]: https://gist.github.com/mpalpha/494c7c5acaad6a13ae5666244e6fbcd2
+[1.0.0]: https://github.com/mpalpha/unified-mcp-server/releases/tag/v1.0.0

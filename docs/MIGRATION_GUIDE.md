@@ -421,7 +421,7 @@ If you encounter issues:
 
 1. Run with `--dry-run --verbose` to see detailed output
 2. Check this guide's Troubleshooting section
-3. File an issue at: https://github.com/anthropics/unified-mcp-server/issues
+3. File an issue at: https://github.com/mpalpha/unified-mcp-server/issues
 
 Include:
 - The exact command you ran

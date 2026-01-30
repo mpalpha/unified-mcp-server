@@ -4,7 +4,7 @@
 
 ### Option 1: NPX (Recommended - No Installation Required)
 
-Run directly from GitHub Gist:
+Run directly from GitHub:
 
 ```bash
 # Run the server
