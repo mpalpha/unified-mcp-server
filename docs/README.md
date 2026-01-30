@@ -19,16 +19,16 @@ A comprehensive MCP (Model Context Protocol) server combining memory-augmented r
 
 ```bash
 # Run directly from GitHub Gist - no installation needed!
-npx gist:494c7c5acaad6a13ae5666244e6fbcd2
+npx mpalpha/unified-mcp-server
 
 # Show help
-npx gist:494c7c5acaad6a13ae5666244e6fbcd2 --help
+npx mpalpha/unified-mcp-server --help
 
 # Show version
-npx gist:494c7c5acaad6a13ae5666244e6fbcd2 --version
+npx mpalpha/unified-mcp-server --version
 
 # Interactive setup
-npx gist:494c7c5acaad6a13ae5666244e6fbcd2 --init
+npx mpalpha/unified-mcp-server --init
 ```
 
 ### Claude Code Integration
@@ -40,7 +40,7 @@ Add to your MCP settings:
   "mcpServers": {
     "unified-mcp": {
       "command": "npx",
-      "args": ["gist:494c7c5acaad6a13ae5666244e6fbcd2"]
+      "args": ["mpalpha/unified-mcp-server"]
     }
   }
 }
@@ -50,7 +50,7 @@ Add to your MCP settings:
 
 ```bash
 # Clone repository
-npx gist:494c7c5acaad6a13ae5666244e6fbcd2
+npx mpalpha/unified-mcp-server
 cd unified-mcp-server
 
 # Install dependencies

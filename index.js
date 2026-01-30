@@ -2292,7 +2292,7 @@ USAGE:
 
 INSTALLATION:
   # From gist (recommended)
-  npx gist:494c7c5acaad6a13ae5666244e6fbcd2
+  npx mpalpha/unified-mcp-server
 
   # Or install globally
   npm install -g unified-mcp-server
@@ -2302,7 +2302,7 @@ CONFIGURATION:
   Token Dir:     ${TOKEN_DIR}
 
 DOCUMENTATION:
-  https://gist.github.com/494c7c5acaad6a13ae5666244e6fbcd2
+  https://github.com/mpalpha/unified-mcp-server
 
 25 TOOLS AVAILABLE:
   Knowledge Management (6 tools):
@@ -2499,7 +2499,7 @@ Migrate old database? [y/N]: `, (answer) => {
         console.log('     "mcpServers": {');
         console.log('       "unified-mcp": {');
         console.log('         "command": "npx",');
-        console.log('         "args": ["gist:494c7c5acaad6a13ae5666244e6fbcd2"]');
+        console.log('         "args": ["mpalpha/unified-mcp-server"]');
         console.log('       }');
         console.log('     }');
         console.log('   }\n');
@@ -2519,7 +2519,7 @@ Migrate old database? [y/N]: `, (answer) => {
         console.log(`${setupState.hooksInstalled ? '3' : '2'}. Restart Claude Code to apply changes\n`);
         console.log(`${setupState.hooksInstalled ? '4' : '3'}. Record your first experience using the 'record_experience' tool\n`);
         console.log('For detailed documentation, visit:');
-        console.log('  https://gist.github.com/494c7c5acaad6a13ae5666244e6fbcd2/tree/main/docs\n');
+        console.log('  https://github.com/mpalpha/unified-mcp-server/tree/main/docs\n');
 
         } catch (e) {
           console.error(`\n✗ Setup failed: ${e.message}`);

@@ -8,22 +8,22 @@ Run directly from GitHub Gist:
 
 ```bash
 # Run the server
-npx gist:494c7c5acaad6a13ae5666244e6fbcd2
+npx mpalpha/unified-mcp-server
 
 # Show help
-npx gist:494c7c5acaad6a13ae5666244e6fbcd2 --help
+npx mpalpha/unified-mcp-server --help
 
 # Show version
-npx gist:494c7c5acaad6a13ae5666244e6fbcd2 --version
+npx mpalpha/unified-mcp-server --version
 
 # Interactive setup wizard
-npx gist:494c7c5acaad6a13ae5666244e6fbcd2 --init
+npx mpalpha/unified-mcp-server --init
 ```
 
 ### Option 2: Local Development
 
 ```bash
-npx gist:494c7c5acaad6a13ae5666244e6fbcd2
+npx mpalpha/unified-mcp-server
 cd unified-mcp-server
 npm install
 ```
@@ -37,7 +37,7 @@ Add to your Claude Code MCP settings (`~/.config/claude/settings.json`):
   "mcpServers": {
     "unified-mcp": {
       "command": "npx",
-      "args": ["gist:494c7c5acaad6a13ae5666244e6fbcd2"]
+      "args": ["mpalpha/unified-mcp-server"]
     }
   }
 }

@@ -130,7 +130,7 @@ The system enforces a **three-gate workflow** that ensures agents:
 - Active voice descriptions clear
 
 ✅ **Deployment Ready**
-- NPX works: `npx gist:494c7c5acaad6a13ae5666244e6fbcd2`
+- NPX works: `npx mpalpha/unified-mcp-server`
 - Interactive --init wizard
 - Hooks install automatically
 - Zero-config database creation
@@ -233,13 +233,13 @@ unified-mcp-server/
 ### NPX Distribution ✅
 ```bash
 # Install and run
-npx gist:494c7c5acaad6a13ae5666244e6fbcd2
+npx mpalpha/unified-mcp-server
 
 # Interactive setup
-npx gist:494c7c5acaad6a13ae5666244e6fbcd2 --init
+npx mpalpha/unified-mcp-server --init
 
 # Help
-npx gist:494c7c5acaad6a13ae5666244e6fbcd2 --help
+npx mpalpha/unified-mcp-server --help
 ```
 
 ### Claude Code Integration ✅
@@ -248,7 +248,7 @@ npx gist:494c7c5acaad6a13ae5666244e6fbcd2 --help
   "mcpServers": {
     "unified-mcp": {
       "command": "npx",
-      "args": ["gist:494c7c5acaad6a13ae5666244e6fbcd2"]
+      "args": ["mpalpha/unified-mcp-server"]
     }
   }
 }
@@ -362,7 +362,7 @@ The system builds a knowledge base where agents:
 
 ### For Production Use
 1. Run `npm test` to verify all tests pass
-2. Deploy via NPX: `npx gist:494c7c5acaad6a13ae5666244e6fbcd2 --init`
+2. Deploy via NPX: `npx mpalpha/unified-mcp-server --init`
 3. Follow manual testing guide to verify with real agent
 4. Monitor `~/.unified-mcp/data.db` for knowledge accumulation
 

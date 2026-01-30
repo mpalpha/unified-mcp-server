@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 #### NPX Compatibility (Primary Feature)
-- **Zero-installation deployment** via `npx gist:494c7c5acaad6a13ae5666244e6fbcd2`
+- **Zero-installation deployment** via `npx mpalpha/unified-mcp-server`
 - Shebang line (`#!/usr/bin/env node`) for direct execution
 - Executable permissions configured
 - Package.json bin field for NPX compatibility
@@ -96,7 +96,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **License**: MIT
 - **Database**: SQLite with FTS5
 - **Protocol**: MCP JSON-RPC 2.0
-- **Deployment**: GitHub Gist (gist:494c7c5acaad6a13ae5666244e6fbcd2)
+- **Deployment**: GitHub Gist (mpalpha/unified-mcp-server)
 
 ### Performance
 - Database operations: < 10ms per query
@@ -136,7 +136,7 @@ This is the initial public release of the Unified MCP Server, featuring a comple
 
 **Getting Started:**
 ```bash
-npx gist:494c7c5acaad6a13ae5666244e6fbcd2 --help
+npx mpalpha/unified-mcp-server --help
 ```
 
 **Integration with Claude Code:**
@@ -145,7 +145,7 @@ npx gist:494c7c5acaad6a13ae5666244e6fbcd2 --help
   "mcpServers": {
     "unified-mcp": {
       "command": "npx",
-      "args": ["gist:494c7c5acaad6a13ae5666244e6fbcd2"]
+      "args": ["mpalpha/unified-mcp-server"]
     }
   }
 }

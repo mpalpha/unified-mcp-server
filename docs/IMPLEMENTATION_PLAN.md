@@ -515,7 +515,7 @@ echo '{"jsonrpc":"2.0","method":"initialize","params":{},"id":1}' | npx .
 # Expected: Valid JSON-RPC response
 
 # 7. Gist deployment verified (AFTER NPX IMPLEMENTED)
-npx gist:494c7c5acaad6a13ae5666244e6fbcd2 --version
+npx mpalpha/unified-mcp-server --version
 # Expected: Version matches local
 ```
 
@@ -588,7 +588,7 @@ npx gist:494c7c5acaad6a13ae5666244e6fbcd2 --version
 6. ✅ MCP vs CLI mode detection working
 7. ✅ NPX test suite (10 tests, all passing)
 8. ✅ Local npx functionality verified
-9. ✅ Gist deployed with NPX support (gist:494c7c5acaad6a13ae5666244e6fbcd2)
+9. ✅ Gist deployed with NPX support (mpalpha/unified-mcp-server)
 10. ✅ install_hooks fully implemented (creates 5 .cjs files, updates Claude Code settings)
 11. ✅ uninstall_hooks fully implemented (removes files, updates settings)
 12. ✅ 5 hook files created with executable permissions
@@ -640,7 +640,7 @@ npx gist:494c7c5acaad6a13ae5666244e6fbcd2 --version
 - ✅ Token system: Operational (5min operation tokens, 60min session tokens)
 - ✅ Health check: Passing
 - ✅ NPX compatibility: Fully deployed
-- ✅ Gist deployment: gist:494c7c5acaad6a13ae5666244e6fbcd2
+- ✅ Gist deployment: mpalpha/unified-mcp-server
 - ✅ Hooks framework: 5 .cjs files with research citations
 - ✅ CLI flags: All 5 implemented (--help, --version, --init, --health, --validate)
 - ✅ Interactive setup wizard: --init fully interactive with preset selection
@@ -931,7 +931,7 @@ Additional:            63/63 scenarios (100% pass rate) ✅
 
 **Deployment ready:**
 - ✅ Published as GitHub Gist
-- ✅ Works via `npx gist:494c7c5acaad6a13ae5666244e6fbcd2`
+- ✅ Works via `npx mpalpha/unified-mcp-server`
 - ✅ Hooks install to ~/.unified-mcp/hooks
 - ✅ Database auto-creates at ~/.unified-mcp/data.db
 - ✅ All tests pass
