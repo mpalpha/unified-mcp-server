@@ -1,0 +1,23 @@
+{
+  "name": "strict",
+  "description": "Strict enforcement with all validations",
+  "gates": {
+    "teach": {
+      "required_tools": ["record_experience", "tag_experience", "export_experiences"],
+      "description": "Must record and document knowledge"
+    },
+    "learn": {
+      "required_tools": ["search_experiences", "get_experience", "gather_context"],
+      "description": "Must search and gather full context"
+    },
+    "reason": {
+      "required_tools": ["analyze_problem", "reason_through", "finalize_decision"],
+      "description": "Must analyze, reason, and conclude"
+    }
+  },
+  "token_ttl": {
+    "operation": 180000,
+    "session": 1800000
+  },
+  "enforcement": "strict"
+}

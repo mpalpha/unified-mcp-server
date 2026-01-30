@@ -1,0 +1,23 @@
+{
+  "name": "three-gate",
+  "description": "Standard TEACH → LEARN → REASON workflow",
+  "gates": {
+    "teach": {
+      "required_tools": ["record_experience", "tag_experience"],
+      "description": "Record working patterns and knowledge"
+    },
+    "learn": {
+      "required_tools": ["search_experiences", "gather_context"],
+      "description": "Gather context from past experiences"
+    },
+    "reason": {
+      "required_tools": ["reason_through", "finalize_decision"],
+      "description": "Think through problem and make decision"
+    }
+  },
+  "token_ttl": {
+    "operation": 300000,
+    "session": 3600000
+  },
+  "enforcement": "moderate"
+}

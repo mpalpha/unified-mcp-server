@@ -1,0 +1,23 @@
+{
+  "name": "minimal",
+  "description": "Lightweight workflow with minimal gates",
+  "gates": {
+    "teach": {
+      "required_tools": [],
+      "description": "Optional knowledge recording"
+    },
+    "learn": {
+      "required_tools": [],
+      "description": "Optional context gathering"
+    },
+    "reason": {
+      "required_tools": [],
+      "description": "Optional reasoning"
+    }
+  },
+  "token_ttl": {
+    "operation": 600000,
+    "session": 7200000
+  },
+  "enforcement": "lenient"
+}

@@ -1,0 +1,24 @@
+{
+  "name": "custom",
+  "description": "Template for custom workflows - modify this file to create your own preset",
+  "gates": {
+    "teach": {
+      "required_tools": [],
+      "description": "Customize as needed - add tools like: record_experience, tag_experience"
+    },
+    "learn": {
+      "required_tools": [],
+      "description": "Customize as needed - add tools like: search_experiences, gather_context"
+    },
+    "reason": {
+      "required_tools": [],
+      "description": "Customize as needed - add tools like: analyze_problem, reason_through"
+    }
+  },
+  "token_ttl": {
+    "operation": 300000,
+    "session": 3600000
+  },
+  "enforcement": "custom",
+  "_comment": "Copy this file to create your own preset. Modify gates, required_tools, token_ttl, and enforcement level to suit your workflow."
+}

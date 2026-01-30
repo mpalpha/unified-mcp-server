@@ -1,0 +1,241 @@
+#!/usr/bin/env node
+/**
+ * Hook Execution Tests - Actually execute hooks and verify blocking behavior
+ * These tests run the real hook scripts to verify they work correctly
+ */
+
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+const { execSync, spawn } = require('child_process');
+const { colors, callMCP, parseJSONRPC, test, assertTrue, getStats } = require('./test-utils');
+
+const HOOKS_DIR = path.join(os.homedir(), '.unified-mcp', 'hooks');
+const TOKEN_DIR = path.join(os.homedir(), '.unified-mcp', 'tokens');
+const TEST_DB = path.join(os.homedir(), '.unified-mcp', 'data.db');
+
+async function runTests() {
+  console.log(colors.bold + '\nHOOK EXECUTION TESTS (5 tests)' + colors.reset);
+  console.log(colors.cyan + '======================================================================' + colors.reset);
+  console.log('These tests execute real hooks and verify blocking behavior\n');
+
+  try {
+    if (fs.existsSync(TEST_DB)) fs.unlinkSync(TEST_DB);
+    if (fs.existsSync(TOKEN_DIR)) {
+      fs.readdirSync(TOKEN_DIR).forEach(f => fs.unlinkSync(path.join(TOKEN_DIR, f)));
+    }
+    console.log('🗑️  Cleaned test environment\n');
+  } catch (e) {
+    // Ignore
+  }
+
+  // Install hooks first
+  await callMCP('install_hooks', { hooks: ['all'] });
+  console.log('✓ Hooks installed\n');
+
+  // Test 1: pre-tool-use hook blocks Write without token
+  await test('Hook BLOCKS Write tool without session token', () => {
+    console.log('\n  📋 Testing: Write operation with no token');
+    console.log('  ─────────────────────────────────────────');
+
+    // Ensure no tokens exist
+    if (fs.existsSync(TOKEN_DIR)) {
+      fs.readdirSync(TOKEN_DIR).forEach(f => {
+        if (f.startsWith('session-')) fs.unlinkSync(path.join(TOKEN_DIR, f));
+      });
+    }
+
+    const hookPath = path.join(HOOKS_DIR, 'pre-tool-use.cjs');
+    assertTrue(fs.existsSync(hookPath), 'Hook file must exist');
+
+    // Execute hook with Write tool
+    const hookInput = JSON.stringify({
+      toolName: 'Write',
+      arguments: { file_path: '/tmp/test.txt', content: 'test' }
+    });
+
+    try {
+      execSync(`echo '${hookInput}' | node "${hookPath}"`, {
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+      throw new Error('Hook should have blocked operation (exit 1)');
+    } catch (error) {
+      assertTrue(error.status === 1, 'Hook should exit with code 1 to block operation');
+      console.log('  ✅ Hook correctly BLOCKED Write operation (exit code 1)');
+    }
+  });
+
+  // Test 2: pre-tool-use hook allows Write WITH valid token
+  await test('Hook ALLOWS Write tool with valid session token', async () => {
+    console.log('\n  📋 Testing: Write operation with valid token');
+    console.log('  ────────────────────────────────────────────');
+
+    // Create a valid session token
+    const sessionToken = `session-${Date.now()}-test`;
+    const tokenPath = path.join(TOKEN_DIR, `${sessionToken}.json`);
+    const tokenData = {
+      token_id: sessionToken,
+      created_at: Date.now(),
+      expires_at: Date.now() + (60 * 60 * 1000), // 60 minutes
+      type: 'session'
+    };
+    fs.writeFileSync(tokenPath, JSON.stringify(tokenData, null, 2));
+    console.log('  ✓ Created valid session token');
+
+    const hookPath = path.join(HOOKS_DIR, 'pre-tool-use.cjs');
+    const hookInput = JSON.stringify({
+      toolName: 'Write',
+      arguments: { file_path: '/tmp/test.txt', content: 'test' }
+    });
+
+    // Execute hook - should NOT block (exit 0)
+    try {
+      const output = execSync(`echo '${hookInput}' | node "${hookPath}"`, {
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+      console.log('  ✅ Hook correctly ALLOWED Write operation (exit code 0)');
+    } catch (error) {
+      throw new Error(`Hook should have allowed operation with valid token, but exited with ${error.status}`);
+    }
+
+    // Cleanup
+    fs.unlinkSync(tokenPath);
+  });
+
+  // Test 3: pre-tool-use hook blocks Edit without token
+  await test('Hook BLOCKS Edit tool without session token', () => {
+    console.log('\n  📋 Testing: Edit operation with no token');
+    console.log('  ───────────────────────────────────────');
+
+    // Remove all tokens
+    if (fs.existsSync(TOKEN_DIR)) {
+      fs.readdirSync(TOKEN_DIR).forEach(f => {
+        if (f.startsWith('session-')) fs.unlinkSync(path.join(TOKEN_DIR, f));
+      });
+    }
+
+    const hookPath = path.join(HOOKS_DIR, 'pre-tool-use.cjs');
+    const hookInput = JSON.stringify({
+      toolName: 'Edit',
+      arguments: {
+        file_path: '/tmp/test.txt',
+        old_string: 'old',
+        new_string: 'new'
+      }
+    });
+
+    try {
+      execSync(`echo '${hookInput}' | node "${hookPath}"`, {
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+      throw new Error('Hook should have blocked Edit operation');
+    } catch (error) {
+      assertTrue(error.status === 1, 'Hook should exit with code 1');
+      console.log('  ✅ Hook correctly BLOCKED Edit operation (exit code 1)');
+    }
+  });
+
+  // Test 4: pre-tool-use hook allows non-file-operation tools
+  await test('Hook ALLOWS non-file operations (search_experiences)', () => {
+    console.log('\n  📋 Testing: Non-file operation (no token needed)');
+    console.log('  ───────────────────────────────────────────────');
+
+    // Remove all tokens
+    if (fs.existsSync(TOKEN_DIR)) {
+      fs.readdirSync(TOKEN_DIR).forEach(f => {
+        if (f.startsWith('session-')) fs.unlinkSync(path.join(TOKEN_DIR, f));
+      });
+    }
+
+    const hookPath = path.join(HOOKS_DIR, 'pre-tool-use.cjs');
+    const hookInput = JSON.stringify({
+      toolName: 'search_experiences',
+      arguments: { query: 'test' }
+    });
+
+    // Should NOT block - search doesn't require tokens
+    try {
+      execSync(`echo '${hookInput}' | node "${hookPath}"`, {
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+      console.log('  ✅ Hook correctly ALLOWED search_experiences (exit code 0)');
+    } catch (error) {
+      throw new Error(`Hook should allow search_experiences, but exited with ${error.status}`);
+    }
+  });
+
+  // Test 5: Full workflow - get token, verify hook allows operation
+  await test('Complete workflow: Verify → Authorize → Hook Allows', async () => {
+    console.log('\n  📋 Testing: Complete authorization workflow');
+    console.log('  ──────────────────────────────────────────────');
+
+    const sessionId = `hook-workflow-${Date.now()}`;
+
+    // Step 1: Verify compliance and get operation token
+    console.log('  1️⃣  Verifying compliance...');
+    const verifyResult = await callMCP('verify_compliance', {
+      session_id: sessionId,
+      current_phase: 'reason',
+      action: 'edit_file'
+    });
+    const verifyData = JSON.parse(parseJSONRPC(verifyResult.stdout).find(r => r.id === 2).result.content[0].text);
+    assertTrue(verifyData.operation_token, 'Should get operation token');
+    console.log('  ✓ Operation token received');
+
+    // Step 2: Authorize and create session token
+    console.log('  2️⃣  Authorizing operation...');
+    const authResult = await callMCP('authorize_operation', {
+      operation_token: verifyData.operation_token,
+      create_session_token: true
+    });
+    const authData = JSON.parse(parseJSONRPC(authResult.stdout).find(r => r.id === 2).result.content[0].text);
+    assertTrue(authData.session_token, 'Should get session token');
+    console.log('  ✓ Session token created');
+
+    // Step 3: Verify token file exists
+    const tokenFiles = fs.readdirSync(TOKEN_DIR).filter(f => f.startsWith('session-'));
+    assertTrue(tokenFiles.length > 0, 'Session token file should exist');
+    console.log(`  ✓ Token file exists: ${tokenFiles[0]}`);
+
+    // Step 4: Test hook allows operation with this token
+    console.log('  3️⃣  Testing hook with valid token...');
+    const hookPath = path.join(HOOKS_DIR, 'pre-tool-use.cjs');
+    const hookInput = JSON.stringify({
+      toolName: 'Write',
+      arguments: { file_path: '/tmp/authorized.txt', content: 'authorized' }
+    });
+
+    try {
+      execSync(`echo '${hookInput}' | node "${hookPath}"`, {
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+      console.log('  ✅ Hook allowed operation after full authorization workflow');
+    } catch (error) {
+      throw new Error(`Hook should allow operation after authorization, but exited with ${error.status}`);
+    }
+
+    // Cleanup
+    tokenFiles.forEach(f => fs.unlinkSync(path.join(TOKEN_DIR, f)));
+  });
+
+  const stats = getStats();
+  console.log('\n' + colors.cyan + '======================================================================' + colors.reset);
+  console.log(colors.bold + 'HOOK EXECUTION TESTS SUMMARY' + colors.reset);
+  console.log(colors.cyan + '======================================================================' + colors.reset);
+  console.log(colors.green + `Tests Passed: ${stats.testsPassed}` + colors.reset);
+  console.log(colors.red + `Tests Failed: ${stats.testsFailed}` + colors.reset);
+  console.log(`Total: ${stats.testsRun} tests`);
+
+  if (stats.testsPassed === stats.testsRun) {
+    console.log('\n' + colors.green + '✅ All hooks execute correctly and enforce workflow!' + colors.reset);
+  }
+
+  process.exit(stats.testsFailed > 0 ? 1 : 0);
+}
+
+runTests().catch(console.error);

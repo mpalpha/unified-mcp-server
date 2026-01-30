@@ -1,0 +1,8 @@
+node_modules/
+*.log
+.DS_Store
+.env
+*.db
+!test/fixtures/test-migration-source.db
+test/fixtures/test-migration-target.db
+.unified-mcp/
