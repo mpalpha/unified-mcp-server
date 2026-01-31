@@ -21,7 +21,7 @@ const os = require('os');
 const readline = require('readline');
 const crypto = require('crypto');
 
-const VERSION = '1.2.6';
+const VERSION = '1.2.7';
 
 // Consolidated namespace: ~/.unified-mcp/
 const MCP_DIR = path.join(os.homedir(), '.unified-mcp');
@@ -2766,6 +2766,10 @@ Migrate old database? [Y/n] (default: Yes - preserve your knowledge): `, (answer
         }
 
         // Write post-install prompt file for hook to inject after restart
+        const promptsDir = path.join(MCP_DIR, 'post-install-prompts');
+        const projectHash = crypto.createHash('md5').update(process.cwd()).digest('hex');
+        const promptFilePath = path.join(promptsDir, `${projectHash}.md`);
+
         const promptContent = `Review the project analysis from installation and propose customization options:
 
 1. Analyze what you discovered during installation:
@@ -2795,11 +2799,14 @@ Migrate old database? [Y/n] (default: Yes - preserve your knowledge): `, (answer
    Option C: Search for similar projects
    Benefits: Learn from patterns in comparable codebases using search_experiences tool
 
-3. Explain benefits and wait for user approval before executing any customizations`;
+3. Explain benefits and wait for user approval before executing any customizations
 
-        const promptsDir = path.join(MCP_DIR, 'post-install-prompts');
-        const projectHash = crypto.createHash('md5').update(process.cwd()).digest('hex');
-        const promptFilePath = path.join(promptsDir, `${projectHash}.md`);
+4. After completing customization, delete this prompt file:
+
+   AGENT: Run this command to dismiss the prompt:
+     rm ~/.unified-mcp/post-install-prompts/${projectHash}.md
+
+   USER: If you ran the installation manually, delete the file above to stop seeing this prompt.`;
         try {
           // Ensure prompts directory exists
           if (!fs.existsSync(promptsDir)) {
@@ -2831,10 +2838,10 @@ Migrate old database? [Y/n] (default: Yes - preserve your knowledge): `, (answer
         console.log('  💡 HOW IT WORKS:');
         console.log(`    ✓ Prompt saved to ~/.unified-mcp/post-install-prompts/${projectHash}.md`);
         console.log('    ✓ Hook injects prompt automatically after restart');
-        console.log('    ✓ File deleted after injection (self-cleaning)');
-        console.log('    ✓ No manual copy/paste needed\n');
+        console.log('    ✓ Agent/user deletes file after completing customization');
+        console.log('    ✓ If not deleted, prompt re-appears on next session (retry safety)\n');
         console.log('  ⚠️  AGENT: After restart, you will receive this prompt automatically.');
-        console.log('      Execute it to complete project-specific configuration.\n');
+        console.log('      Execute it, then delete the prompt file as instructed.\n');
         console.log('  💡 SAFETY: Data-driven approach (no code generation)');
         console.log('    ✓ Context stored as JSON data');
         console.log('    ✓ Hooks read data safely (no code execution)');

@@ -585,51 +585,85 @@ Building a research-based MCP server with 25 tools in phases. **Target: 150 auto
 **ALL changes propagate through entire system:**
 
 ```
-Code Change →
-  ↓
-Update Tests (verify new behavior) →
-  ↓
-Update Documentation (reflect changes) →
-  ↓
-Update Examples (if affected) →
-  ↓
-Update CHANGELOG (track changes) →
-  ↓
-Run Full Test Suite (ensure no breakage)
+1. Documentation FIRST (CHANGELOG.md) →
+   ↓
+2. Implementation (code changes) →
+   ↓
+3. Run TARGETED Tests (change-aware, see mapping below) →
+   ↓
+4. Version bump (package.json + index.js VERSION) →
+   ↓
+5. Commit (local) →
+   ↓
+[Repeat steps 1-5 for additional related changes]
+   ↓
+6. Run FULL Test Suite (before push - safety check) →
+   ↓
+7. Push (only after full suite passes)
 ```
+
+**Change-Aware Test Mapping:**
+| Change Type | Targeted Test Command |
+|------------|----------------------|
+| Hook changes | `npm run test:hook-execution` |
+| Tool implementation | `npm run test:tools` |
+| Workflow logic | `npm run test:workflows` |
+| Compliance/enforcement | `npm run test:enforcement && npm run test:compliance` |
+| Configuration | `npm run test:config` |
+| Version changes | `npm run test:version-sync` |
+| Agent workflows | `npm run test:agent-workflows` |
+| Project context | `npm run test:project-context` |
+| NPX compatibility | `npm run test:npx` |
+| Integration | `npm run test:integration` |
+
+**Why this approach:**
+- **Targeted tests during development**: Fast feedback, don't wait for full suite
+- **Full suite before push**: Safety net catches cross-cutting regressions
+- **Multiple commits per session**: Batch related changes efficiently
+- **Documentation FIRST**: Forces thinking before coding
 
 **Examples of cascading updates:**
 
 1. **Add new tool** →
+   - Update CHANGELOG.md FIRST
    - Implement tool function
    - Add case statement in index.js
    - Add to tools/list response
    - Write tool tests (3-5 tests minimum)
    - Update TOOL_REFERENCE.md
    - Update README.md tool count
-   - Add to appropriate test suite
-   - Run npm test to verify
+   - Run `npm run test:tools` (targeted)
+   - Version bump + commit locally
+   - Full test suite before push
 
 2. **Fix bug** →
+   - Update CHANGELOG.md FIRST
    - Fix code
    - Update or add regression test
-   - Update CHANGELOG.md
-   - Check if docs need clarification
-   - Verify all tests still pass
+   - Run targeted tests for affected area
+   - Version bump
+   - Commit locally
+   - [If more fixes, repeat]
+   - Full test suite before push
+   - Push
 
 3. **Change behavior** →
+   - Update CHANGELOG.md FIRST
    - Update implementation
    - Update ALL affected tests
-   - Update documentation
-   - Update examples if any
-   - Verify no tests broken
+   - Update documentation/examples
+   - Run targeted tests
+   - Version bump + commit locally
+   - Full test suite before push
 
 4. **Update requirements** →
+   - Update CHANGELOG.md FIRST
    - Update implementation
    - Update tests to verify new requirements
    - Update documentation
-   - Update validation checklist
-   - Full test suite must pass
+   - Run targeted tests
+   - Version bump + commit locally
+   - Full test suite before push
 
 **No Partial Updates Allowed:**
 - ❌ Code changed, tests not updated
@@ -638,14 +672,15 @@ Run Full Test Suite (ensure no breakage)
 - ❌ Tests failing, code shipped anyway
 
 **Change Verification Checklist:**
+- [ ] CHANGELOG updated FIRST (document before code)
 - [ ] Implementation complete
-- [ ] Tests written/updated
-- [ ] All tests passing
-- [ ] Documentation updated
-- [ ] Examples updated (if applicable)
-- [ ] CHANGELOG updated
-- [ ] Full test suite run
-- [ ] No broken functionality
+- [ ] Tests written/updated (if needed)
+- [ ] Targeted tests passing (change-aware)
+- [ ] Version bumped (package.json + index.js)
+- [ ] Committed locally
+- [ ] [If more changes needed, repeat above]
+- [ ] Full test suite passing (before push)
+- [ ] Pushed to remote
 
 ## Phase Breakdown
 

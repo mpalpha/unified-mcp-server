@@ -31,7 +31,10 @@ console.log('Use apply_preset to change workflow enforcement.\n');
 // Check for post-install prompt file
 const MCP_DIR = path.join(os.homedir(), '.unified-mcp');
 const promptsDir = path.join(MCP_DIR, 'post-install-prompts');
-const projectHash = crypto.createHash('md5').update(process.cwd()).digest('hex');
+
+// Use PWD env var if available (more reliable than process.cwd() in hooks)
+const projectDir = process.env.PWD || process.cwd();
+const projectHash = crypto.createHash('md5').update(projectDir).digest('hex');
 const promptFilePath = path.join(promptsDir, `${projectHash}.md`);
 
 if (fs.existsSync(promptFilePath)) {
@@ -47,12 +50,10 @@ if (fs.existsSync(promptFilePath)) {
     console.log(promptContent);
     console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-    // Delete the file after injection
-    fs.unlinkSync(promptFilePath);
+    // DO NOT auto-delete - prompt content contains deletion instructions
 
   } catch (err) {
     // Silent fail - don't block session start if file operations fail
-    // File will remain and can be manually handled
   }
 }
 

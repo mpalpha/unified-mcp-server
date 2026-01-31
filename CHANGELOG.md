@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.7] - 2026-01-31
+
+### Fixed - Post-install prompt: Agent-controlled deletion instead of auto-delete
+- **Issue**: Post-install prompt file was auto-deleted by hook, but content sometimes not shown
+- **Root Cause**: Hook deleted file immediately after reading, before confirming output was displayed
+- **Solution**:
+  - Hook no longer auto-deletes the prompt file
+  - Prompt content includes deletion instructions with actual file path
+  - Agent/user deletes file after completing customization
+  - If prompt not processed, it re-triggers on next session
+- **Benefits**:
+  - Resilient to output truncation
+  - Explicit confirmation of processing
+  - Works for both agent-driven and user-driven installs
+- **Files Modified**:
+  - `hooks/session-start.cjs` (remove auto-delete)
+  - `index.js` (add deletion instructions to prompt content)
+
+### Changed - Cascading Updates: Improved testing approach
+- **Issue**: Full test suite ran for every small change (inefficient)
+- **Solution**: Change-aware testing during development, full suite before push
+- **New Flow**: Doc FIRST → Implement → Targeted tests → Version → Commit → [repeat] → Full suite → Push
+- **File Modified**: `docs/IMPLEMENTATION_PLAN.md`
+
 ## [1.2.6] - 2026-01-31
 
 ### Fixed - --init STEP 4: Correct Post-Install Prompt File Path in Message
