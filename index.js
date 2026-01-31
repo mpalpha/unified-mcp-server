@@ -21,7 +21,7 @@ const os = require('os');
 const readline = require('readline');
 const crypto = require('crypto');
 
-const VERSION = '1.2.8';
+const VERSION = '1.2.9';
 
 // Consolidated namespace: ~/.unified-mcp/
 const MCP_DIR = path.join(os.homedir(), '.unified-mcp');
@@ -1891,8 +1891,8 @@ function installHooks(params) {
   let settingsPath = params.settings_path;
   if (!settingsPath) {
     const possiblePaths = [
-      path.join(os.homedir(), '.config', 'claude', 'settings.json'),
       path.join(os.homedir(), '.claude', 'settings.json'),
+      path.join(os.homedir(), '.config', 'claude', 'settings.json'),
       path.join(os.homedir(), 'Library', 'Application Support', 'Claude', 'settings.json')
     ];
 
@@ -2025,8 +2025,8 @@ function uninstallHooks(params) {
   let settingsPath = params.settings_path;
   if (!settingsPath) {
     const possiblePaths = [
-      path.join(os.homedir(), '.config', 'claude', 'settings.json'),
       path.join(os.homedir(), '.claude', 'settings.json'),
+      path.join(os.homedir(), '.config', 'claude', 'settings.json'),
       path.join(os.homedir(), 'Library', 'Application Support', 'Claude', 'settings.json')
     ];
 
@@ -2266,11 +2266,8 @@ function importData(params) {
  * Update project-specific context (data-only, no code execution)
  */
 function updateProjectContext(params) {
-  const crypto = require('crypto');
-
   // Get project path
   const projectPath = params.project_path || process.env.PWD || process.cwd();
-  const projectHash = crypto.createHash('md5').update(projectPath).digest('hex');
 
   // Validate required fields
   if (params.enabled === undefined || params.enabled === null) {
@@ -2323,10 +2320,10 @@ function updateProjectContext(params) {
     }
   }
 
-  // Create context directory
-  const contextDir = path.join(MCP_DIR, 'project-contexts');
-  if (!fs.existsSync(contextDir)) {
-    fs.mkdirSync(contextDir, { recursive: true });
+  // Create .claude directory in project root
+  const claudeDir = path.join(projectPath, '.claude');
+  if (!fs.existsSync(claudeDir)) {
+    fs.mkdirSync(claudeDir, { recursive: true });
   }
 
   // Build context object
@@ -2339,14 +2336,13 @@ function updateProjectContext(params) {
     updated_at: new Date().toISOString()
   };
 
-  // Write to file
-  const contextPath = path.join(contextDir, `${projectHash}.json`);
+  // Write to .claude/project-context.json in project root
+  const contextPath = path.join(claudeDir, 'project-context.json');
   fs.writeFileSync(contextPath, JSON.stringify(context, null, 2));
 
   return {
     success: true,
     project_path: projectPath,
-    project_hash: projectHash,
     context_file: contextPath,
     enabled: context.enabled,
     message: context.enabled ? 'Project context enabled' : 'Project context disabled'
@@ -2358,20 +2354,16 @@ function updateProjectContext(params) {
  * Get current project context configuration
  */
 function getProjectContext(params) {
-  const crypto = require('crypto');
-
   // Get project path
   const projectPath = params.project_path || process.env.PWD || process.cwd();
-  const projectHash = crypto.createHash('md5').update(projectPath).digest('hex');
 
-  // Load context
-  const contextPath = path.join(MCP_DIR, 'project-contexts', `${projectHash}.json`);
+  // Load context from .claude/project-context.json in project root
+  const contextPath = path.join(projectPath, '.claude', 'project-context.json');
 
   if (!fs.existsSync(contextPath)) {
     return {
       exists: false,
       project_path: projectPath,
-      project_hash: projectHash,
       message: 'No project context configured'
     };
   }
@@ -2381,7 +2373,6 @@ function getProjectContext(params) {
   return {
     exists: true,
     project_path: projectPath,
-    project_hash: projectHash,
     context_file: contextPath,
     enabled: context.enabled,
     summary: context.summary,
@@ -2730,7 +2721,7 @@ Migrate old database? [Y/n] (default: Yes - preserve your knowledge): `, (answer
         console.log('\n📋 NEXT STEPS FOR AUTOMATIC CONFIGURATION:\n');
 
         // Step 1: Configure MCP Settings
-        const settingsPath = path.join(os.homedir(), '.config', 'claude-code', 'settings.json');
+        const settingsPath = path.join(os.homedir(), '.claude', 'settings.json');
         console.log('STEP 1: Configure Claude Code MCP Settings\n');
         console.log(`  File Location: ${settingsPath}\n`);
         console.log('  Action: Add the following to your settings.json:\n');

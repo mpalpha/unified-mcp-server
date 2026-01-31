@@ -12,19 +12,16 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const crypto = require('crypto');
 const { spawn } = require('child_process');
 
 // Test configuration
 const HOME_DIR = path.join(os.homedir(), '.unified-mcp');
-const CONTEXT_DIR = path.join(HOME_DIR, 'project-contexts');
 const TOKEN_DIR = path.join(HOME_DIR, 'tokens');
 const HOOK_PATH = path.join(__dirname, '..', 'hooks', 'user-prompt-submit.cjs');
 
 // Test project directory
 const TEST_PROJECT = path.join(os.tmpdir(), 'test-protocol-context');
-const PROJECT_HASH = crypto.createHash('md5').update(TEST_PROJECT).digest('hex');
-const CONTEXT_PATH = path.join(CONTEXT_DIR, `${PROJECT_HASH}.json`);
+const CONTEXT_PATH = path.join(TEST_PROJECT, '.claude', 'project-context.json');
 
 let passCount = 0;
 let failCount = 0;
@@ -74,14 +71,10 @@ function runHook(input, env = {}) {
  * Setup test environment
  */
 function setup() {
-  // Create test project directory
-  if (!fs.existsSync(TEST_PROJECT)) {
-    fs.mkdirSync(TEST_PROJECT, { recursive: true });
-  }
-
-  // Ensure context directory exists
-  if (!fs.existsSync(CONTEXT_DIR)) {
-    fs.mkdirSync(CONTEXT_DIR, { recursive: true });
+  // Create test project directory with .claude subdirectory
+  const claudeDir = path.join(TEST_PROJECT, '.claude');
+  if (!fs.existsSync(claudeDir)) {
+    fs.mkdirSync(claudeDir, { recursive: true });
   }
 
   // Clean up any existing test tokens

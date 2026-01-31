@@ -18,7 +18,6 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 const os = require('os');
-const crypto = require('crypto');
 
 // Test configuration
 const TEST_CONFIG = {
@@ -154,16 +153,10 @@ async function runTest(scenario, testDir) {
     try {
       // Create unique project directory for this test
       const projectDir = path.join(testDir, `project-${scenario.id}`);
-      fs.mkdirSync(projectDir, { recursive: true });
+      const claudeDir = path.join(projectDir, '.claude');
+      fs.mkdirSync(claudeDir, { recursive: true });
 
-      const projectHash = crypto.createHash('md5').update(projectDir).digest('hex');
-      const contextDir = path.join(os.homedir(), '.unified-mcp', 'project-contexts');
-      const contextPath = path.join(contextDir, `${projectHash}.json`);
-
-      // Ensure context directory exists
-      if (!fs.existsSync(contextDir)) {
-        fs.mkdirSync(contextDir, { recursive: true });
-      }
+      const contextPath = path.join(claudeDir, 'project-context.json');
 
       // Setup context based on scenario type
       if (scenario.type === 'malformed') {

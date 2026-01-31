@@ -28,11 +28,10 @@ try {
     config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
   }
 
-  // Load project context if available
+  // Load project context from .claude/project-context.json in project root
   let projectContext = null;
   const cwd = process.env.PWD || process.cwd();
-  const projectHash = require('crypto').createHash('md5').update(cwd).digest('hex');
-  const contextPath = path.join(homeDir, 'project-contexts', `${projectHash}.json`);
+  const contextPath = path.join(cwd, '.claude', 'project-context.json');
 
   if (fs.existsSync(contextPath)) {
     try {

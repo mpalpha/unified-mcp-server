@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.9] - 2026-01-31
+
+### Changed - Configuration: Align with Claude Code standard paths
+- **Research**: Claude Code uses hierarchical settings (user → project shared → project local)
+- **Settings Search Order**: Now prioritizes `~/.claude/settings.json` over `.config/claude`
+- **Project Context**: Moved from `~/.unified-mcp/project-contexts/{hash}.json` to `.claude/project-context.json` in project root
+- **Benefits**:
+  - Project context is now visible, editable, version-controllable
+  - Aligns with Claude Code's standard `.claude/` directory structure
+  - No more hash-based lookups
+- **Files Modified**:
+  - `index.js` - settings paths, project context tools
+  - `hooks/user-prompt-submit.cjs` - read project context from new location
+  - `src/tools/automation.js` - settings search order
+  - `README.md`, `docs/GETTING_STARTED.md` - documentation
+  - Test files updated accordingly
+
+### Fixed - --init wizard: Incorrect settings.json path
+- **Issue**: --init told users to edit `~/.config/claude-code/settings.json`
+- **Actual Path**: Claude Code reads from `~/.claude/settings.json`
+- **Fix**: Updated path to `~/.claude/settings.json`
+
 ## [1.2.8] - 2026-01-31
 
 ### Changed - CHORES Framework: Strengthened with actionable guidance

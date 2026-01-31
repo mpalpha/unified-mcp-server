@@ -10,28 +10,16 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const crypto = require('crypto');
 const { colors, callMCP, parseJSONRPC, test, assertTrue, assertEquals, getStats } = require('./test-utils');
-
-const CONTEXT_DIR = path.join(os.homedir(), '.unified-mcp', 'project-contexts');
 
 async function runTests() {
   console.log(colors.bold + '\nPROJECT CONTEXT TESTS (10 tests)' + colors.reset);
   console.log(colors.cyan + '======================================================================' + colors.reset);
 
-  // Clean any test context files
-  if (fs.existsSync(CONTEXT_DIR)) {
-    const files = fs.readdirSync(CONTEXT_DIR);
-    files.forEach(file => {
-      if (file.startsWith('test-') || file.includes('temp')) {
-        try {
-          fs.unlinkSync(path.join(CONTEXT_DIR, file));
-        } catch (e) {}
-      }
-    });
-  }
+  // Note: Context files are now stored in .claude/project-context.json per project
+  // Cleanup happens automatically as test projects use /tmp paths
 
-  console.log('\n🗑️  Cleaned test data\n');
+  console.log('\n📁  Using per-project .claude/project-context.json format\n');
 
   console.log(colors.bold + 'Project Context Tools' + colors.reset);
   console.log(colors.cyan + '======================================================================' + colors.reset);
@@ -248,7 +236,7 @@ async function runTests() {
   });
 
   // Test 10: Context file in correct location
-  await test('Context file created in ~/.unified-mcp/project-contexts/', async () => {
+  await test('Context file created in .claude/project-context.json', async () => {
     const testProjectPath = '/tmp/test-project-location-' + Date.now();
 
     const result = await callMCP('update_project_context', {
@@ -263,16 +251,14 @@ async function runTests() {
     const response = responses.find(r => r.id === 2);
     const data = JSON.parse(response.result.content[0].text);
 
-    // Verify location
-    assertTrue(data.context_file.includes('.unified-mcp/project-contexts/'), 'Should be in correct directory');
-
-    // Verify filename is hash
-    const filename = path.basename(data.context_file, '.json');
-    const expectedHash = crypto.createHash('md5').update(testProjectPath).digest('hex');
-    assertEquals(filename, expectedHash, 'Filename should be hash of project path');
+    // Verify location is .claude/project-context.json in project root
+    const expectedPath = path.join(testProjectPath, '.claude', 'project-context.json');
+    assertEquals(data.context_file, expectedPath, 'Should be at .claude/project-context.json');
+    assertTrue(data.context_file.endsWith('.claude/project-context.json'), 'Should end with .claude/project-context.json');
 
     // Cleanup
     fs.unlinkSync(data.context_file);
+    fs.rmdirSync(path.join(testProjectPath, '.claude'));
   });
 
   // Summary
