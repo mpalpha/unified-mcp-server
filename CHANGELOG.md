@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed - update_project_context: Undefined Constant
+- **CRITICAL**: Fixed `update_project_context` and `get_project_context` tools failing with "UNIFIED_MCP_DIR is not defined"
+- **Error**: `ReferenceError: UNIFIED_MCP_DIR is not defined`
+- **Root Cause**: Used wrong constant name `UNIFIED_MCP_DIR` instead of `MCP_DIR`
+- **Fix**: Changed to `MCP_DIR` (lines 2303, 2344)
+- **Impact**: Option B in post-install prompt now works (add project context to hooks)
+- **Files Modified**: `index.js` lines 2303, 2344
+
 ### Fixed - Installation Crash: Missing crypto Import
 - **CRITICAL**: Fixed crash at end of `--init` when writing post-install prompt
 - **Error**: `crypto.createHash is not a function`

@@ -2300,7 +2300,7 @@ function updateProjectContext(params) {
   }
 
   // Create context directory
-  const contextDir = path.join(UNIFIED_MCP_DIR, 'project-contexts');
+  const contextDir = path.join(MCP_DIR, 'project-contexts');
   if (!fs.existsSync(contextDir)) {
     fs.mkdirSync(contextDir, { recursive: true });
   }
@@ -2341,7 +2341,7 @@ function getProjectContext(params) {
   const projectHash = crypto.createHash('md5').update(projectPath).digest('hex');
 
   // Load context
-  const contextPath = path.join(UNIFIED_MCP_DIR, 'project-contexts', `${projectHash}.json`);
+  const contextPath = path.join(MCP_DIR, 'project-contexts', `${projectHash}.json`);
 
   if (!fs.existsSync(contextPath)) {
     return {
