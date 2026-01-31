@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed - Installation Crash: Missing crypto Import
+- **CRITICAL**: Fixed crash at end of `--init` when writing post-install prompt
+- **Error**: `crypto.createHash is not a function`
+- **Root Cause**: Missing `const crypto = require('crypto');` import at top of index.js
+- **Fix**: Added crypto import to index.js line 21
+- **Impact**: Installation now completes without errors at prompt file creation step
+- **File Modified**: `index.js` line 21
+
 ### Fixed - Installation Crash: setupState.cwd Undefined
 - **CRITICAL**: Fixed crash during `--init` that broke installation
 - **Error**: `TypeError: The "path" argument must be of type string. Received undefined`
