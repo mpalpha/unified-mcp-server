@@ -156,7 +156,14 @@ Store structured data and configure protocols:
 - `create_system_json`, `get_system_json`, `search_system_json`, `list_system_json`
 - `initialize_protocol_config`, `get_protocol_config`, `get_compliance_status`
 
-**Total: 25 tools**
+### Project Context (2 tools)
+
+Customize workflow reminders with project-specific context:
+
+- **`update_project_context`** - Store project context as JSON data (summary, highlights, reminders)
+- **`get_project_context`** - Retrieve current project context configuration
+
+**Total: 27 tools**
 
 ## Hooks
 

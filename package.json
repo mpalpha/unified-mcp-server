@@ -18,7 +18,7 @@
   },
   "scripts": {
     "postinstall": "node scripts/check-native-modules.js || echo 'Warning: Native module check failed'",
-    "test": "node test/test-tools.js && node test/test-workflows.js && node test/test-compliance.js && node test/test-config.js && node test/test-integration.js && node test/test-enforcement.js && node test/test-agent-workflows.js && node test/test-hook-execution.js && node test/test-tool-guidance.js && node test/test-npx.js",
+    "test": "node test/test-tools.js && node test/test-workflows.js && node test/test-compliance.js && node test/test-config.js && node test/test-integration.js && node test/test-enforcement.js && node test/test-agent-workflows.js && node test/test-hook-execution.js && node test/test-protocol-with-context.js && node test/test-tool-guidance.js && node test/test-npx.js",
     "test:tools": "node test/test-tools.js",
     "test:workflows": "node test/test-workflows.js",
     "test:compliance": "node test/test-compliance.js",
@@ -27,6 +27,7 @@
     "test:enforcement": "node test/test-enforcement.js",
     "test:agent-workflows": "node test/test-agent-workflows.js",
     "test:hook-execution": "node test/test-hook-execution.js",
+    "test:protocol-with-context": "node test/test-protocol-with-context.js",
     "test:tool-guidance": "node test/test-tool-guidance.js",
     "test:npx": "node test/test-npx.js"
   },

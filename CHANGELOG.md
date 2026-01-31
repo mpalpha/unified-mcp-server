@@ -48,6 +48,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Results: 20/20 tests passed, 0.00% deadlock rate, 100% fallback success
 - Real-world testing replaces simulated framework from v1.1.0
 
+### Testing - Protocol Enforcement Verification
+- Created `test/test-protocol-with-context.js` (5 scenarios)
+- **Critical**: Verified project context does NOT interfere with workflow enforcement
+- Test coverage:
+  - Hook blocks without token (no context) ✅
+  - Hook blocks without token (with context) ✅
+  - Hook allows with valid token (with context) ✅
+  - Hook handles malformed context gracefully ✅
+  - Hook respects disabled context ✅
+- Results: 5/5 tests passed
+- Confirms: TEACH → LEARN → REASON workflow enforcement remains intact
+- Total test suite: 228 tests (was 223)
+
 ### Context - Why This Change
 - v1.1.0 approach (custom hook code generation) tested with 100 real sub-agent scenarios
 - Found critical safety issues:

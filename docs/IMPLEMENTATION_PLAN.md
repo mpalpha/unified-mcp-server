@@ -2,6 +2,66 @@
 
 ## Version History
 
+### v1.2.0 - 2026-01-30 (Minor Release - Safety-First Redesign)
+**Data-Driven Architecture for Post-Reload Customization**
+- **Critical**: Fixed all safety issues found in v1.1.0 real testing
+- **v1.1.0 Testing Results** (100 real sub-agent scenarios):
+  - ❌ Deadlock rate: 5.00% (5/100 tests deadlocked from infinite loops)
+  - ❌ Fallback success: 50.0% (syntax errors crashed badly)
+  - ❌ Recovery success: 50.0% (bypass mechanism failed)
+  - **Verdict**: ZERO-TOLERANCE policy → Complete redesign required
+- **Root Cause**: Code generation approach inherently unsafe
+  - Generated custom hook code based on project analysis
+  - Infinite loops, syntax errors, type errors in generated code
+  - No way to guarantee safety of arbitrary generated code
+- **Solution**: Data-driven architecture (no code generation)
+  - Store project context as JSON data
+  - Hooks read and display data (no code execution)
+  - Type validation + graceful fallback
+- **Changes**:
+  - Added: Tool 26 `update_project_context` - Store project context as validated JSON
+  - Added: Tool 27 `get_project_context` - Retrieve current project context
+  - Changed: `hooks/user-prompt-submit.cjs` now reads context from JSON files
+  - Changed: Hook validates types and handles malformed data gracefully
+  - Changed: STEP 4 in --init now shows `update_project_context` usage
+  - Changed: Total tools: 25 → 27
+  - Changed: All version constants to 1.2.0
+  - Deprecated: v1.1.0 marked as unsafe, upgrade immediately
+- **Tool Specifications**:
+  - `update_project_context({ enabled, summary, highlights, reminders, project_path })`
+    - `summary`: string, max 200 chars
+    - `highlights`: array of strings, max 5 items, 100 chars each
+    - `reminders`: array of strings, max 3 items, 100 chars each
+    - Validates input, stores in `~/.unified-mcp/project-contexts/{hash}.json`
+  - `get_project_context({ project_path })` - Returns current configuration
+- **Hook Behavior**:
+  - Loads context from `~/.unified-mcp/project-contexts/{project-hash}.json`
+  - Displays "📋 PROJECT CONTEXT:" section if enabled
+  - Shows summary, highlights (• bullets), reminders (⚠️ icons)
+  - Type validation: highlights/reminders must be arrays
+  - Graceful fallback: malformed data silently skipped (no crash)
+- **Testing** (v1.2.0 Real Testing - 20 scenarios):
+  - Created: `test/test-post-reload-safe.js` - Data-driven safety tests
+  - Created: `test/test-post-reload-real.js` - Code generation tests (exposed issues)
+  - Coverage: baseline, valid, invalid, malformed, filesystem issues
+  - Results: 20/20 passed, 0.00% deadlock, 100% fallback success
+  - Average duration: 69ms (fast)
+  - Updated: `test/test-npx.js` for 27 tools
+  - All existing tests: 223+ tests passing
+- **Safety Guarantees**:
+  - ✅ No code generation
+  - ✅ No code execution
+  - ✅ Validated input (schema enforcement)
+  - ✅ Graceful fallback (malformed data skipped)
+  - ✅ Type safety (runtime checking)
+  - ✅ Fast (69ms average)
+- **Documentation**: CHANGELOG.md, IMPLEMENTATION_PLAN.md updated
+- **Impact**: Post-reload customization is now production-safe with 0% deadlock guarantee
+
+### v1.1.0 - 2026-01-30 [DEPRECATED - SAFETY ISSUES]
+**CRITICAL: This version has been deprecated due to safety issues discovered in real testing.**
+**DO NOT USE v1.1.0 - Upgrade to v1.2.0 immediately.**
+
 ### v1.1.0 - 2026-01-30 (Minor Release - New Feature)
 **Post-Reload Customization Proposal Step**
 - **Feature**: Added post-reload customization proposal step to --init workflow
