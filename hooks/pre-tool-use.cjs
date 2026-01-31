@@ -20,6 +20,7 @@ try {
 
   // CHORES reference - verify before every tool use
   console.log('⚠️  Verify CHORES before tool use\n');
+  console.log('State why this action is compliant.\n');
 
   // Check if tool is a file modification tool
   const fileTools = ['Write', 'Edit', 'NotebookEdit'];

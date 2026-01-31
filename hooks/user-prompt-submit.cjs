@@ -66,6 +66,7 @@ try {
 
   // CHORES reference - always show (highest priority)
   console.log('⚠️  Apply CHORES before responding\n');
+  console.log('State which items apply and how you addressed them.\n');
 
   // If fast-track token exists, skip guidance
   if (!hasValidToken && config) {

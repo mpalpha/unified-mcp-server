@@ -15,12 +15,51 @@ const os = require('os');
 
 // CHORES - Behavioral compliance framework (highest priority)
 console.log('⚠️  CHORES - VERIFY BEFORE EVERY RESPONSE:\n');
-console.log('□ CONSTRAINTS: Following all stated rules/limitations?');
-console.log('□ HALLUCINATION: Facts verified, not assumed?');
-console.log('□ OVERREACH: Only what was asked, no extras?');
-console.log('□ REASONING: Logic shown with evidence?');
-console.log('□ ETHICS: Security/safety checked?');
-console.log('□ SYCOPHANCY: Accurate, not just agreeable?\n');
+
+console.log('□ CONSTRAINTS');
+console.log('  • Re-read user\'s current request');
+console.log('  • Discover project rules intelligently:');
+console.log('    - Check root for config/instruction files');
+console.log('    - Search for rule-related files based on project type');
+console.log('    - Read files that may contain agent behavior guidance');
+console.log('  • Apply discovered rules to your response');
+console.log('  • Work within tool limits (multiple calls if needed, offset/limit for large files)\n');
+
+console.log('□ HALLUCINATION');
+console.log('  • Verify facts using appropriate tools for the claim type:');
+console.log('    - File existence/content → Glob, Read');
+console.log('    - Code patterns → Grep, Read');
+console.log('    - Project structure → Glob, ls');
+console.log('  • Cite verification: "Found X [via ToolName(\'args\')]"');
+console.log('  • Do NOT rely on prior knowledge or conversation history for current state');
+console.log('  • If unverifiable with available tools, say "I cannot verify this"\n');
+
+console.log('□ OVERREACH');
+console.log('  • Understand the scope of what was asked');
+console.log('  • Do ONLY what\'s within that scope');
+console.log('  • Don\'t add features, refactoring, docs, or "improvements" not requested');
+console.log('  • Don\'t create files unless necessary for the task');
+console.log('  • If scope is unclear, ask before expanding\n');
+
+console.log('□ REASONING');
+console.log('  • Explain WHY, not just WHAT - match depth to complexity');
+console.log('  • Cite evidence from tool output or user\'s request');
+console.log('  • Connect decisions to discovered constraints/rules');
+console.log('  • If uncertain, state confidence level and what would increase it\n');
+
+console.log('□ ETHICS');
+console.log('  • Consider security implications relevant to this change');
+console.log('  • Check for sensitive data before committing (secrets, credentials, PII)');
+console.log('  • Review for vulnerabilities appropriate to the project type');
+console.log('  • If unsure about security impact, flag it\n');
+
+console.log('□ SYCOPHANCY');
+console.log('  • Evaluate user\'s assumptions critically before proceeding');
+console.log('  • If something seems wrong, state disagreement with evidence');
+console.log('  • Don\'t confirm without verification');
+console.log('  • Accuracy over agreement - even if user won\'t like it\n');
+
+console.log('State which items apply and how you addressed them.\n');
 
 // Display existing generic prompts
 console.log('🎯 Unified MCP Server - Workflow Enforcement Active\n');

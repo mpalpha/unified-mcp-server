@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.8] - 2026-01-31
+
+### Changed - CHORES Framework: Strengthened with actionable guidance
+- **Issue**: Agents were relying on prior knowledge instead of fresh analysis
+- **Research**: Grounding techniques, verification checks, self-questioning (arXiv, CloudBabble, Moveworks)
+- **Solution**: Made all CHORES items actionable with explicit tool usage and verification
+- **Key Changes**:
+  - CONSTRAINTS: Intelligent discovery of project rules (not hardcoded patterns)
+  - HALLUCINATION: Verify facts via tools, cite output, no prior knowledge reliance
+  - OVERREACH: Understand scope, ask before expanding
+  - REASONING: Explain why with evidence, state confidence
+  - ETHICS: Security review appropriate to project type
+  - SYCOPHANCY: Evaluate assumptions critically, disagree with evidence
+- **Enforcement**: All hooks now require stating which items apply and how addressed
+- **Files Modified**: `hooks/session-start.cjs`, `hooks/user-prompt-submit.cjs`, `hooks/pre-tool-use.cjs`
+
 ## [1.2.7] - 2026-01-31
 
 ### Fixed - Post-install prompt: Agent-controlled deletion instead of auto-delete
