@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed - Installation Flow: Automatic Prompt Injection
+- **CRITICAL**: Post-install prompts now automatically injected via hook after restart
+- **Issue**: Agents saw customization prompts during installation but couldn't execute them
+- **Root Cause**: Prompts displayed as console output before restart; lost after restart when tools become available
+- **User Feedback**: "this prompt wasn't actually passed to the user when the agent ran the init steps, the agent saw it and then did nothing"
+- **Solution**: Persistent prompt file + hook auto-injection mechanism
+- **Implementation**:
+  1. During installation: Write `.mcp-post-install-prompt.md` to project root
+  2. STEP 3: Agent instructed to tell user to restart ("⚠️ AGENT: Instruct user to restart Claude Code now")
+  3. After restart: `session-start.cjs` hook detects prompt file, reads and injects content
+  4. Agent receives prompt automatically (tools now available)
+  5. Hook deletes file after injection (self-cleaning)
+- **Files Modified**:
+  - `index.js`: Write prompt file during installation, update STEP 3/4 guidance
+  - `hooks/session-start.cjs`: Add prompt file detection, injection, and cleanup logic
+- **Benefits**:
+  - No reliance on agent memory across restart
+  - Prompts aren't lost console output
+  - Automatic via hook mechanism
+  - Self-cleaning (file deleted after use)
+- **Impact**: Agents now automatically receive and execute post-install customization prompts
+
 ### Added - Version Synchronization Validation
 - **New Test**: `test/test-version-sync.js` - Automated version synchronization validation
   - Validates package.json version matches index.js VERSION constant

@@ -5,11 +5,41 @@
  *
  * Runs when Claude Code session starts.
  * Displays welcome message and available presets.
+ * Auto-injects post-install prompt if present.
  */
 
+const fs = require('fs');
+const path = require('path');
+
+// Display existing generic prompts
 console.log('🎯 Unified MCP Server - Workflow Enforcement Active\n');
 console.log('Available presets: three-gate (default), minimal, strict, custom\n');
 console.log('Use list_presets to see configuration options.');
 console.log('Use apply_preset to change workflow enforcement.\n');
+
+// Check for post-install prompt file
+const promptFilePath = path.join(process.cwd(), '.mcp-post-install-prompt.md');
+
+if (fs.existsSync(promptFilePath)) {
+  try {
+    // Read and inject the post-install prompt
+    const promptContent = fs.readFileSync(promptFilePath, 'utf8');
+
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+    console.log('🎉 POST-INSTALLATION CONFIGURATION\n');
+    console.log('The following prompt was generated during installation.');
+    console.log('Please review and respond:\n');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+    console.log(promptContent);
+    console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
+    // Delete the file after injection
+    fs.unlinkSync(promptFilePath);
+
+  } catch (err) {
+    // Silent fail - don't block session start if file operations fail
+    // File will remain and can be manually handled
+  }
+}
 
 process.exit(0);

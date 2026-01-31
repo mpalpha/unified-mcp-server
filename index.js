@@ -2740,55 +2740,70 @@ Migrate old database? [Y/n] (default: Yes - preserve your knowledge): `, (answer
           console.log('  }\n');
         }
 
+        // Write post-install prompt file for hook to inject after restart
+        const promptContent = `Review the project analysis from installation and propose customization options:
+
+1. Analyze what you discovered during installation:
+   - File counts, directory structure
+   - .cursorrules, CONTRIBUTING.md, special files
+   - Patterns, project type, complexity
+
+2. Propose customization options with benefits:
+
+   Option A: Record analysis to database
+   Benefits: Searchable, persistent, reusable across sessions using record_experience tool
+
+   Option B: Add project context to hooks
+   Benefits: Hooks display project-specific reminders
+   Use update_project_context tool with:
+     - summary: "One-line project description"
+     - highlights: ["Key fact 1", "Key fact 2"]
+     - reminders: ["Important note"]
+   Example:
+     update_project_context({
+       enabled: true,
+       summary: "React app with 500 files",
+       highlights: [".cursorrules found"],
+       reminders: ["Check CONTRIBUTING.md"]
+     })
+
+   Option C: Search for similar projects
+   Benefits: Learn from patterns in comparable codebases using search_experiences tool
+
+3. Explain benefits and wait for user approval before executing any customizations`;
+
+        const promptFilePath = path.join(setupState.cwd, '.mcp-post-install-prompt.md');
+        try {
+          fs.writeFileSync(promptFilePath, promptContent, 'utf8');
+        } catch (err) {
+          console.log(`  ⚠️  Warning: Could not write post-install prompt file: ${err.message}\n`);
+        }
+
         // Step 3: Restart Claude Code
         const nextStep = setupState.hooksInstalled ? 3 : 2;
         console.log(`STEP ${nextStep}: Restart Claude Code\n`);
+        console.log('  ⚠️  AGENT: Instruct the user to restart Claude Code now.\n');
         console.log('  WHY: Claude Code must be restarted to load the new MCP server.\n');
         console.log('  HOW TO RESTART:\n');
         console.log('    • VSCode: Run "Developer: Reload Window" command (Cmd/Ctrl+Shift+P)');
         console.log('    • Claude Desktop: Restart the application');
         console.log('    • CLI: Exit and restart claude-code\n');
 
-        // Step 4: Post-Reload Customization (NEW)
-        console.log(`STEP ${nextStep + 1}: Customize Project Context (Optional)\n`);
-        console.log('  After restart, MCP tools are now available!\n');
-        console.log('  Copy and paste this customization prompt:\n');
-        console.log('  ┌─────────────────────────────────────────────────────────────┐');
-        console.log('  │ Review the project analysis from installation and propose  │');
-        console.log('  │ customization options:                                      │');
-        console.log('  │                                                             │');
-        console.log('  │ 1. Analyze what you discovered during installation:        │');
-        console.log('  │    - File counts, directory structure                      │');
-        console.log('  │    - .cursorrules, CONTRIBUTING.md, special files          │');
-        console.log('  │    - Patterns, project type, complexity                    │');
-        console.log('  │                                                             │');
-        console.log('  │ 2. Propose customization options with benefits:            │');
-        console.log('  │                                                             │');
-        console.log('  │    Option A: Record analysis to database                   │');
-        console.log('  │    Benefits: Searchable, persistent, reusable across       │');
-        console.log('  │    sessions using record_experience tool                   │');
-        console.log('  │                                                             │');
-        console.log('  │    Option B: Add project context to hooks                  │');
-        console.log('  │    Benefits: Hooks display project-specific reminders      │');
-        console.log('  │    Use update_project_context tool with:                   │');
-        console.log('  │      - summary: "One-line project description"             │');
-        console.log('  │      - highlights: ["Key fact 1", "Key fact 2"]            │');
-        console.log('  │      - reminders: ["Important note"]                       │');
-        console.log('  │    Example:                                                 │');
-        console.log('  │      update_project_context({                              │');
-        console.log('  │        enabled: true,                                      │');
-        console.log('  │        summary: "React app with 500 files",                │');
-        console.log('  │        highlights: [".cursorrules found"],                 │');
-        console.log('  │        reminders: ["Check CONTRIBUTING.md"]                │');
-        console.log('  │      })                                                     │');
-        console.log('  │                                                             │');
-        console.log('  │    Option C: Search for similar projects                   │');
-        console.log('  │    Benefits: Learn from patterns in comparable codebases  │');
-        console.log('  │    using search_experiences tool                           │');
-        console.log('  │                                                             │');
-        console.log('  │ 3. Explain benefits and wait for user approval             │');
-        console.log('  │    before executing any customizations                     │');
-        console.log('  └─────────────────────────────────────────────────────────────┘\n');
+        // Step 4: Post-Reload Customization (AUTOMATIC)
+        console.log(`STEP ${nextStep + 1}: Customize Project Context (Automatic)\n`);
+        console.log('  🤖 WHAT HAPPENS AFTER RESTART:\n');
+        console.log('  The session_start hook will automatically present a customization prompt.\n');
+        console.log('  This prompt asks you to:\n');
+        console.log('    1. Review project analysis from installation');
+        console.log('    2. Propose customization options (record to database, add to hooks, or search)');
+        console.log('    3. Wait for user approval before executing\n');
+        console.log('  💡 HOW IT WORKS:');
+        console.log('    ✓ Prompt saved to .mcp-post-install-prompt.md');
+        console.log('    ✓ Hook injects prompt automatically after restart');
+        console.log('    ✓ File deleted after injection (self-cleaning)');
+        console.log('    ✓ No manual copy/paste needed\n');
+        console.log('  ⚠️  AGENT: After restart, you will receive this prompt automatically.');
+        console.log('      Execute it to complete project-specific configuration.\n');
         console.log('  💡 SAFETY: Data-driven approach (no code generation)');
         console.log('    ✓ Context stored as JSON data');
         console.log('    ✓ Hooks read data safely (no code execution)');
@@ -2797,7 +2812,8 @@ Migrate old database? [Y/n] (default: Yes - preserve your knowledge): `, (answer
 
         // Step 5: Verify installation
         console.log(`STEP ${nextStep + 2}: Verify Installation\n`);
-        console.log('  After restart, copy and paste this test prompt:\n');
+        console.log('  ⚠️  AGENT/USER ACTION REQUIRED:\n');
+        console.log('  SUBMIT this prompt to verify the system is working:\n');
 
         if (setupState.hooksInstalled) {
           // With hooks: demonstrate full workflow enforcement
@@ -2837,6 +2853,11 @@ Migrate old database? [Y/n] (default: Yes - preserve your knowledge): `, (answer
           console.log('    ✓ Database is working');
           console.log('    ⚠️  Workflow enforcement is NOT active (hooks not installed)\n');
         }
+
+        console.log('  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+        console.log('  ⏭️  AFTER VERIFICATION SUCCEEDS:\n');
+        console.log('  Installation is complete! System is ready for normal use.\n');
+        console.log(`  See STEP ${nextStep + 3} below for workflow examples.\n`);
 
         // Step 6: Start using
         console.log(`STEP ${nextStep + 3}: Start Using the System\n`);

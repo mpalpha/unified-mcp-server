@@ -2090,6 +2090,102 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
    - [ ] No hardcoded 60min values remaining
    - [ ] Update CHANGELOG.md with breaking change note
 
+### Example 4: Installation UX Improvement
+
+**Change:** Make installation prompts automatically execute after restart via hook injection
+
+**Issue Identified:**
+- Agents saw STEP 4/5 prompts but treated them as informational, not actionable
+- User feedback: "this prompt wasn't actually passed to the user when the agent ran the init steps, the agent saw it and then did nothing"
+- Root cause: Prompts displayed as console output that disappears after restart; no mechanism for agent to access them when tools become available
+
+**Solution Architecture:**
+- Write prompt to persistent file during installation
+- Hook auto-injects prompt after restart
+- Self-cleaning (file deleted after injection)
+
+**Required Cascading Updates:**
+
+1. **Documentation (FIRST):**
+   - [x] Update CHANGELOG.md with issue description and solution
+   - [x] Document the change in IMPLEMENTATION_PLAN.md (this section)
+   - [x] Explain user impact and agent behavior issue
+   - [ ] Document new `.mcp-post-install-prompt.md` file in architecture docs
+
+2. **Implementation:**
+   - [ ] Add function to write `.mcp-post-install-prompt.md` during installation
+     - File contains STEP 4 customization prompt
+     - Written after project analysis completes
+     - Stored in project root directory
+   - [ ] Update session-start.cjs hook to handle post-install prompt
+     - Execute existing generic prompts first
+     - Check if `.mcp-post-install-prompt.md` exists
+     - If exists: read file and inject prompt content
+     - Delete file after injection
+   - [ ] Update index.js STEP 3 (restart instruction)
+     - Changed: "STEP 3: Restart Claude Code"
+     - To: "⚠️ AGENT: Instruct user to restart Claude Code now"
+     - Add explicit instruction for agent to communicate to user
+   - [ ] Update index.js STEP 4 guidance
+     - Remove "AGENT/USER ACTION REQUIRED AFTER RESTART" (now automatic)
+     - Update to explain automatic hook injection
+     - Note: "This prompt will be automatically presented after restart"
+   - [ ] Update index.js STEP 5 guidance (verification)
+     - Keep explicit "AGENT/USER ACTION REQUIRED" (not automatic)
+     - This step requires manual execution to verify
+
+3. **Testing (REQUIRED):**
+   - [ ] Test: File created during installation
+   - [ ] Test: Hook detects and reads file
+   - [ ] Test: Hook injects prompt correctly
+   - [ ] Test: File deleted after injection
+   - [ ] Test: Hook doesn't error if file missing
+   - [ ] Test: Full installation flow with restart simulation
+   - [ ] Run `npm test` to verify no regressions
+
+4. **Verification:**
+   - [ ] All existing tests pass
+   - [ ] Prompt file created in correct location
+   - [ ] Hook reads and injects prompt correctly
+   - [ ] File cleaned up after use
+   - [ ] Agent receives prompt automatically after restart
+   - [ ] Update CHANGELOG.md confirms change
+
+5. **Impact Analysis:**
+   - [ ] New file: `.mcp-post-install-prompt.md` (temporary, self-cleaning)
+   - [ ] Modified: hooks/session-start.cjs (add file detection logic)
+   - [ ] Modified: index.js (add file writing, update guidance)
+   - [ ] No breaking changes - existing installations unaffected
+   - [ ] Improves UX: automatic prompt injection vs. manual copy/paste
+
+6. **Deployment:**
+   - [ ] Commit with descriptive message
+   - [ ] Push to GitHub repository
+   - [ ] Monitor user feedback on improved flow
+   - [ ] Document in next release notes
+
+**Implementation Flow:**
+
+1. **During Installation (before restart):**
+   - Project analysis completes
+   - Write `.mcp-post-install-prompt.md` to project root
+   - Console: "⚠️ AGENT: Instruct user to restart Claude Code now"
+   - Agent tells user to restart
+
+2. **After Restart:**
+   - session_start hook fires
+   - Hook executes existing generic prompts
+   - Hook checks: `.mcp-post-install-prompt.md` exists?
+   - If yes: Read file, inject prompt
+   - Delete file
+   - Agent receives and executes customization prompt
+
+**Key Learnings:**
+- Agents can't remember console output across restarts
+- Persistent files + hook injection = reliable prompt delivery
+- Self-cleaning files prevent prompt file accumulation
+- Explicit agent instructions needed ("AGENT: Instruct user to...")
+
 ---
 
 ## Version Release Checklist
