@@ -2266,11 +2266,18 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 4. **Verification:**
    - [x] Version command works (basic syntax check)
-   - [ ] Manually test update_project_context with sample data
-   - [ ] Manually test get_project_context retrieval
-   - [ ] Verify hooks can read context file
+   - [x] Manually test update_project_context with sample data
+   - [x] Manually test get_project_context retrieval
+   - [x] Verify hooks can read context file
    - [x] Grep confirms no remaining UNIFIED_MCP_DIR references
-   - **ACTUAL**: Minimal verification only
+   - **UPDATE (2026-01-31)**: Completed end-to-end verification
+   - **Verification Steps:**
+     1. Created test context with update_project_context
+     2. Verified context file created at ~/.unified-mcp/project-contexts/{hash}.json
+     3. Ran user-prompt-submit.cjs hook with test input
+     4. Confirmed hook displays "📋 PROJECT CONTEXT:" section
+     5. Verified summary, highlights (•), and reminders (⚠️) display correctly
+   - **Result**: Option B fully functional ✅
 
 5. **Impact Analysis:**
    - [x] Affects: update_project_context, get_project_context tools
@@ -2302,7 +2309,8 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 - ✅ Added to package.json test suite
 - ✅ Fixed bugs discovered during testing (validation, field names)
 - ✅ Documented test creation in IMPLEMENTATION_PLAN.md
-- ⏳ Next: End-to-end verification of Option B in real installation
+- ✅ Completed end-to-end verification of Option B (update_project_context → hooks display context)
+- ✅ All cascading tasks complete in real installation
 
 **Lesson Learned:**
 Even for "simple" constant name fixes, the cascading approach matters:

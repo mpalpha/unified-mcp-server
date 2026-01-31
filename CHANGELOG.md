@@ -85,6 +85,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Fixed test expectations (flat response vs nested context object)
   - **Status**: All 10 tests passing ✅
   - **Integration**: Added to package.json test suite as `npm run test:project-context`
+  - **End-to-End Verification**: Completed manual testing of Option B workflow
+    - update_project_context creates context file successfully
+    - user-prompt-submit.cjs hook reads and displays context
+    - Format displays correctly: summary, highlights (•), reminders (⚠️)
+    - Type validation working, graceful fallback for malformed data
 - **Motivation**: Bug fix (UNIFIED_MCP_DIR) lacked test coverage, causing repeated issues
 - **Impact**: Prevents regressions in project context functionality
 
