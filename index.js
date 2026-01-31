@@ -21,7 +21,7 @@ const os = require('os');
 const readline = require('readline');
 const crypto = require('crypto');
 
-const VERSION = '1.2.4';
+const VERSION = '1.2.5';
 
 // Consolidated namespace: ~/.unified-mcp/
 const MCP_DIR = path.join(os.homedir(), '.unified-mcp');
@@ -2755,6 +2755,8 @@ Migrate old database? [Y/n] (default: Yes - preserve your knowledge): `, (answer
           console.log('  Action: Add the following to your settings.json:\n');
           console.log('  {');
           console.log('    "hooks": {');
+          console.log('      "SessionStart": [{ "hooks": [{ "type": "command",');
+          console.log(`        "command": "${path.join(MCP_DIR, 'hooks', 'session-start.cjs')}" }] }],`);
           console.log('      "UserPromptSubmit": [{ "hooks": [{ "type": "command",');
           console.log(`        "command": "${path.join(MCP_DIR, 'hooks', 'user-prompt-submit.cjs')}" }] }],`);
           console.log('      "PreToolUse": [{ "hooks": [{ "type": "command",');

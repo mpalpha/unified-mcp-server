@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.5] - 2026-01-31
+
+### Fixed - --init Example: Added SessionStart Hook to Example Output
+- **Issue**: --init wizard example only showed UserPromptSubmit and PreToolUse hooks
+- **Missing**: SessionStart hook (which displays full CHORES checklist) was not in example
+- **Impact**: Users following --init instructions wouldn't configure SessionStart hook
+- **Fix**: Added SessionStart hook to the example hooks configuration in --init wizard
+- **File Modified**: `index.js` (lines 2757-2763)
+
 ## [1.2.4] - 2026-01-31
 
 ### Fixed - Hook Settings Format: Use Correct Nested Array Structure
