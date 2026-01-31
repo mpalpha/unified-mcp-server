@@ -2251,6 +2251,121 @@ function importData(params) {
   };
 }
 
+/**
+ * Tool 26: update_project_context
+ * Update project-specific context (data-only, no code execution)
+ */
+function updateProjectContext(params) {
+  const crypto = require('crypto');
+
+  // Get project path
+  const projectPath = params.project_path || process.env.PWD || process.cwd();
+  const projectHash = crypto.createHash('md5').update(projectPath).digest('hex');
+
+  // Validate data
+  if (params.summary && params.summary.length > 200) {
+    throw new ValidationError(
+      'Summary too long',
+      'Summary must be 200 characters or less'
+    );
+  }
+
+  if (params.highlights) {
+    if (!Array.isArray(params.highlights)) {
+      throw new ValidationError('Highlights must be an array');
+    }
+    if (params.highlights.length > 5) {
+      throw new ValidationError('Maximum 5 highlights allowed');
+    }
+    for (const highlight of params.highlights) {
+      if (highlight.length > 100) {
+        throw new ValidationError('Each highlight must be 100 characters or less');
+      }
+    }
+  }
+
+  if (params.reminders) {
+    if (!Array.isArray(params.reminders)) {
+      throw new ValidationError('Reminders must be an array');
+    }
+    if (params.reminders.length > 3) {
+      throw new ValidationError('Maximum 3 reminders allowed');
+    }
+    for (const reminder of params.reminders) {
+      if (reminder.length > 100) {
+        throw new ValidationError('Each reminder must be 100 characters or less');
+      }
+    }
+  }
+
+  // Create context directory
+  const contextDir = path.join(UNIFIED_MCP_DIR, 'project-contexts');
+  if (!fs.existsSync(contextDir)) {
+    fs.mkdirSync(contextDir, { recursive: true });
+  }
+
+  // Build context object
+  const context = {
+    enabled: params.enabled,
+    summary: params.summary || null,
+    highlights: params.highlights || [],
+    reminders: params.reminders || [],
+    project_path: projectPath,
+    updated_at: new Date().toISOString()
+  };
+
+  // Write to file
+  const contextPath = path.join(contextDir, `${projectHash}.json`);
+  fs.writeFileSync(contextPath, JSON.stringify(context, null, 2));
+
+  return {
+    success: true,
+    project_path: projectPath,
+    project_hash: projectHash,
+    context_file: contextPath,
+    enabled: context.enabled,
+    message: context.enabled ? 'Project context enabled' : 'Project context disabled'
+  };
+}
+
+/**
+ * Tool 27: get_project_context
+ * Get current project context configuration
+ */
+function getProjectContext(params) {
+  const crypto = require('crypto');
+
+  // Get project path
+  const projectPath = params.project_path || process.env.PWD || process.cwd();
+  const projectHash = crypto.createHash('md5').update(projectPath).digest('hex');
+
+  // Load context
+  const contextPath = path.join(UNIFIED_MCP_DIR, 'project-contexts', `${projectHash}.json`);
+
+  if (!fs.existsSync(contextPath)) {
+    return {
+      exists: false,
+      project_path: projectPath,
+      project_hash: projectHash,
+      message: 'No project context configured'
+    };
+  }
+
+  const context = JSON.parse(fs.readFileSync(contextPath, 'utf8'));
+
+  return {
+    exists: true,
+    project_path: projectPath,
+    project_hash: projectHash,
+    context_file: contextPath,
+    enabled: context.enabled,
+    summary: context.summary,
+    highlights: context.highlights,
+    reminders: context.reminders,
+    updated_at: context.updated_at
+  };
+}
+
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
@@ -2313,7 +2428,7 @@ CONFIGURATION:
 DOCUMENTATION:
   https://github.com/mpalpha/unified-mcp-server
 
-25 TOOLS AVAILABLE:
+27 TOOLS AVAILABLE:
   Knowledge Management (6 tools):
     - record_experience, search_experiences, get_experience
     - update_experience, tag_experience, export_experiences
@@ -2330,6 +2445,9 @@ DOCUMENTATION:
 
   Automation (5 tools):
     - install_hooks, uninstall_hooks, get_session_state, health_check, import_data
+
+  Project Context (2 tools):
+    - update_project_context, get_project_context
 `);
   process.exit(0);
 }
@@ -2632,7 +2750,7 @@ Migrate old database? [Y/n] (default: Yes - preserve your knowledge): `, (answer
         console.log('    • CLI: Exit and restart claude-code\n');
 
         // Step 4: Post-Reload Customization (NEW)
-        console.log(`STEP ${nextStep + 1}: Propose Configuration Customization\n`);
+        console.log(`STEP ${nextStep + 1}: Customize Project Context (Optional)\n`);
         console.log('  After restart, MCP tools are now available!\n');
         console.log('  Copy and paste this customization prompt:\n');
         console.log('  ┌─────────────────────────────────────────────────────────────┐');
@@ -2645,21 +2763,37 @@ Migrate old database? [Y/n] (default: Yes - preserve your knowledge): `, (answer
         console.log('  │    - Patterns, project type, complexity                    │');
         console.log('  │                                                             │');
         console.log('  │ 2. Propose customization options with benefits:            │');
-        console.log('  │    - Record analysis to database? (benefits: searchable,   │');
-        console.log('  │      persistent knowledge, reusable across sessions)       │');
-        console.log('  │    - Customize hooks with project context? (benefits:      │');
-        console.log('  │      relevant reminders, project-specific guidance)        │');
-        console.log('  │    - Search for similar projects? (benefits: learn from    │');
-        console.log('  │      patterns used in comparable codebases)                │');
         console.log('  │                                                             │');
-        console.log('  │ 3. Explain benefits and wait for approval before proceeding│');
+        console.log('  │    Option A: Record analysis to database                   │');
+        console.log('  │    Benefits: Searchable, persistent, reusable across       │');
+        console.log('  │    sessions using record_experience tool                   │');
+        console.log('  │                                                             │');
+        console.log('  │    Option B: Add project context to hooks                  │');
+        console.log('  │    Benefits: Hooks display project-specific reminders      │');
+        console.log('  │    Use update_project_context tool with:                   │');
+        console.log('  │      - summary: "One-line project description"             │');
+        console.log('  │      - highlights: ["Key fact 1", "Key fact 2"]            │');
+        console.log('  │      - reminders: ["Important note"]                       │');
+        console.log('  │    Example:                                                 │');
+        console.log('  │      update_project_context({                              │');
+        console.log('  │        enabled: true,                                      │');
+        console.log('  │        summary: "React app with 500 files",                │');
+        console.log('  │        highlights: [".cursorrules found"],                 │');
+        console.log('  │        reminders: ["Check CONTRIBUTING.md"]                │');
+        console.log('  │      })                                                     │');
+        console.log('  │                                                             │');
+        console.log('  │    Option C: Search for similar projects                   │');
+        console.log('  │    Benefits: Learn from patterns in comparable codebases  │');
+        console.log('  │    using search_experiences tool                           │');
+        console.log('  │                                                             │');
+        console.log('  │ 3. Explain benefits and wait for user approval             │');
+        console.log('  │    before executing any customizations                     │');
         console.log('  └─────────────────────────────────────────────────────────────┘\n');
-        console.log('  This step enables:');
-        console.log('    ✓ Agent proposes options based on actual analysis');
-        console.log('    ✓ User approves customizations before they happen');
-        console.log('    ✓ Benefits clearly explained for informed decisions');
-        console.log('    ✓ Project-specific knowledge persisted with consent\n');
-        console.log('  💡 NOTE: Generic hooks remain active. Customization supplements them.\n');
+        console.log('  💡 SAFETY: Data-driven approach (no code generation)');
+        console.log('    ✓ Context stored as JSON data');
+        console.log('    ✓ Hooks read data safely (no code execution)');
+        console.log('    ✓ Can be enabled/disabled anytime');
+        console.log('    ✓ Generic hooks remain active (context supplements)\n');
 
         // Step 5: Verify installation
         console.log(`STEP ${nextStep + 2}: Verify Installation\n`);
@@ -3181,6 +3315,39 @@ rl.on('line', (line) => {
                 },
                 required: ['source_file']
               }
+            },
+            {
+              name: 'update_project_context',
+              description: 'Update project-specific context (data-only, no code execution)',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  enabled: { type: 'boolean', description: 'Enable/disable project context display' },
+                  summary: { type: 'string', description: 'One-line project summary (max 200 chars)' },
+                  highlights: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description: 'Key project highlights (max 5 items, 100 chars each)'
+                  },
+                  reminders: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description: 'Important reminders (max 3 items, 100 chars each)'
+                  },
+                  project_path: { type: 'string', description: 'Project directory path (optional, defaults to cwd)' }
+                },
+                required: ['enabled']
+              }
+            },
+            {
+              name: 'get_project_context',
+              description: 'Get current project context configuration',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  project_path: { type: 'string', description: 'Project directory path (optional, defaults to cwd)' }
+                }
+              }
             }
           ]
         });
@@ -3267,6 +3434,12 @@ rl.on('line', (line) => {
               break;
             case 'import_data':
               result = importData(toolParams);
+              break;
+            case 'update_project_context':
+              result = updateProjectContext(toolParams);
+              break;
+            case 'get_project_context':
+              result = getProjectContext(toolParams);
               break;
             default:
               sendError(id, -32601, `Unknown tool: ${toolName}`);

@@ -78,7 +78,7 @@ test('--help flag works', () => {
   if (!output.includes('USAGE:')) {
     throw new Error('Help output missing USAGE section');
   }
-  if (!output.includes('25 TOOLS AVAILABLE:')) {
+  if (!output.includes('27 TOOLS AVAILABLE:')) {
     throw new Error('Help output missing tools list');
   }
 });
@@ -160,8 +160,8 @@ test('Database auto-creation', () => {
   }
 });
 
-// Test 10: All 25 tools accessible via MCP
-test('All 25 tools accessible via MCP', () => {
+// Test 10: All 27 tools accessible via MCP
+test('All 27 tools accessible via MCP', () => {
   const input = JSON.stringify({
     jsonrpc: '2.0',
     method: 'tools/list',
@@ -182,8 +182,8 @@ test('All 25 tools accessible via MCP', () => {
   }
 
   const toolCount = response.result.tools.length;
-  if (toolCount !== 25) {
-    throw new Error(`Expected 25 tools, got ${toolCount}`);
+  if (toolCount !== 27) {
+    throw new Error(`Expected 27 tools, got ${toolCount}`);
   }
 });
 

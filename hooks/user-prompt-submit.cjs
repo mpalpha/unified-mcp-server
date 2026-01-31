@@ -28,6 +28,20 @@ try {
     config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
   }
 
+  // Load project context if available
+  let projectContext = null;
+  const cwd = process.env.PWD || process.cwd();
+  const projectHash = require('crypto').createHash('md5').update(cwd).digest('hex');
+  const contextPath = path.join(homeDir, 'project-contexts', `${projectHash}.json`);
+
+  if (fs.existsSync(contextPath)) {
+    try {
+      projectContext = JSON.parse(fs.readFileSync(contextPath, 'utf8'));
+    } catch (e) {
+      // Invalid context file, skip
+    }
+  }
+
   // Check for valid session token (fast-track)
   const tokenDir = path.join(homeDir, 'tokens');
   let hasValidToken = false;
@@ -77,6 +91,45 @@ try {
       if (hasTeachGate) {
         console.log('✓ TEACH: Record your solution after completion');
         console.log('  → record_experience({ type: "effective", ... })\n');
+      }
+
+      // Display project-specific context if available
+      if (projectContext && projectContext.enabled) {
+        try {
+          // Validate types before displaying
+          if (projectContext.highlights && !Array.isArray(projectContext.highlights)) {
+            throw new TypeError('highlights must be an array');
+          }
+          if (projectContext.reminders && !Array.isArray(projectContext.reminders)) {
+            throw new TypeError('reminders must be an array');
+          }
+
+          console.log('📋 PROJECT CONTEXT:\n');
+
+          if (projectContext.summary && typeof projectContext.summary === 'string') {
+            console.log(`${projectContext.summary}\n`);
+          }
+
+          if (projectContext.highlights && projectContext.highlights.length > 0) {
+            projectContext.highlights.forEach(highlight => {
+              if (typeof highlight === 'string') {
+                console.log(`  • ${highlight}`);
+              }
+            });
+            console.log('');
+          }
+
+          if (projectContext.reminders && projectContext.reminders.length > 0) {
+            projectContext.reminders.forEach(reminder => {
+              if (typeof reminder === 'string') {
+                console.log(`  ⚠️  ${reminder}`);
+              }
+            });
+            console.log('');
+          }
+        } catch (typeError) {
+          // Skip malformed context silently
+        }
       }
 
       console.log('After completing workflow: Authorization granted for 60 minutes\n');
