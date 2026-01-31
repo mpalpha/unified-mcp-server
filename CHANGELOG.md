@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.6] - 2026-01-31
+
+### Fixed - --init STEP 4: Correct Post-Install Prompt File Path in Message
+- **Issue**: STEP 4 message showed incorrect path `.mcp-post-install-prompt.md`
+- **Actual Path**: `~/.unified-mcp/post-install-prompts/{projectHash}.md`
+- **Root Cause**: Path changed in commit d594776 but user-facing message wasn't updated
+- **Fix**: Updated message to show correct path with actual project hash
+- **File Modified**: `index.js` (line 2832)
+
 ## [1.2.5] - 2026-01-31
 
 ### Fixed - --init Example: Added SessionStart Hook to Example Output

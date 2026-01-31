@@ -21,7 +21,7 @@ const os = require('os');
 const readline = require('readline');
 const crypto = require('crypto');
 
-const VERSION = '1.2.5';
+const VERSION = '1.2.6';
 
 // Consolidated namespace: ~/.unified-mcp/
 const MCP_DIR = path.join(os.homedir(), '.unified-mcp');
@@ -2829,7 +2829,7 @@ Migrate old database? [Y/n] (default: Yes - preserve your knowledge): `, (answer
         console.log('    2. Propose customization options (record to database, add to hooks, or search)');
         console.log('    3. Wait for user approval before executing\n');
         console.log('  💡 HOW IT WORKS:');
-        console.log('    ✓ Prompt saved to .mcp-post-install-prompt.md');
+        console.log(`    ✓ Prompt saved to ~/.unified-mcp/post-install-prompts/${projectHash}.md`);
         console.log('    ✓ Hook injects prompt automatically after restart');
         console.log('    ✓ File deleted after injection (self-cleaning)');
         console.log('    ✓ No manual copy/paste needed\n');
