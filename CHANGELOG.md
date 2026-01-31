@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed - Installation Crash: setupState.cwd Undefined
+- **CRITICAL**: Fixed crash during `--init` that broke installation
+- **Error**: `TypeError: The "path" argument must be of type string. Received undefined`
+- **Root Cause**: Used `setupState.cwd` which doesn't exist (setupState only has preset, installHooks, hooksInstalled)
+- **Fix**: Changed to `process.cwd()` directly (consistent with rest of codebase)
+- **Impact**: Installation now completes successfully
+- **File Modified**: `index.js` line 2775
+
 ### Changed - Installation Flow: Automatic Prompt Injection
 - **CRITICAL**: Post-install prompts now automatically injected via hook after restart
 - **Issue**: Agents saw customization prompts during installation but couldn't execute them
@@ -14,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **User Feedback**: "this prompt wasn't actually passed to the user when the agent ran the init steps, the agent saw it and then did nothing"
 - **Solution**: Persistent prompt file + hook auto-injection mechanism
 - **Implementation**:
-  1. During installation: Write `.mcp-post-install-prompt.md` to project root
+  1. During installation: Write `~/.unified-mcp/post-install-prompts/{project-hash}.md`
   2. STEP 3: Agent instructed to tell user to restart ("⚠️ AGENT: Instruct user to restart Claude Code now")
   3. After restart: `session-start.cjs` hook detects prompt file, reads and injects content
   4. Agent receives prompt automatically (tools now available)
@@ -27,6 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Prompts aren't lost console output
   - Automatic via hook mechanism
   - Self-cleaning (file deleted after use)
+  - No permission prompts (uses existing ~/.unified-mcp namespace)
+  - Project-specific via hash (supports multiple projects)
 - **Impact**: Agents now automatically receive and execute post-install customization prompts
 
 ### Added - Version Synchronization Validation

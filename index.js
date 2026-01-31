@@ -2772,8 +2772,14 @@ Migrate old database? [Y/n] (default: Yes - preserve your knowledge): `, (answer
 
 3. Explain benefits and wait for user approval before executing any customizations`;
 
-        const promptFilePath = path.join(setupState.cwd, '.mcp-post-install-prompt.md');
+        const promptsDir = path.join(MCP_DIR, 'post-install-prompts');
+        const projectHash = crypto.createHash('md5').update(process.cwd()).digest('hex');
+        const promptFilePath = path.join(promptsDir, `${projectHash}.md`);
         try {
+          // Ensure prompts directory exists
+          if (!fs.existsSync(promptsDir)) {
+            fs.mkdirSync(promptsDir, { recursive: true });
+          }
           fs.writeFileSync(promptFilePath, promptContent, 'utf8');
         } catch (err) {
           console.log(`  ⚠️  Warning: Could not write post-install prompt file: ${err.message}\n`);

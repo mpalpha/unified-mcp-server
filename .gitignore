@@ -6,4 +6,3 @@ node_modules/
 !test/fixtures/test-migration-source.db
 test/fixtures/test-migration-target.db
 .unified-mcp/
-.mcp-post-install-prompt.md
