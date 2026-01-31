@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.4] - 2026-01-31
+
+### Fixed - Hook Settings Format: Use Correct Nested Array Structure
+- **Issue**: Claude Code rejected simple hook format with "Expected array, but received object"
+- **Root Cause**: `install_hooks` wrote `{ command: "..." }` but Claude Code expects nested array structure
+- **Correct Format**:
+  ```json
+  "HookName": [{ "hooks": [{ "type": "command", "command": "/path/to/hook.cjs" }] }]
+  ```
+- **Fix**: Updated `install_hooks` function to generate correct nested structure
+- **File Modified**: `index.js` (lines 1970-1972)
+
 ## [1.2.3] - 2026-01-31
 
 ### Added - CHORES Behavioral Compliance Framework

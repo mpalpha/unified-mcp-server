@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Unified MCP Server v1.2.3
+ * Unified MCP Server v1.2.4
  *
  * Combines memory-augmented reasoning and protocol enforcement with modern tool ergonomics.
  * - 25 atomic, composable tools (not monolithic)
@@ -9,7 +9,7 @@
  * - Automated hook installation
  * - Comprehensive documentation
  *
- * Version: 1.2.3
+ * Version: 1.2.4
  * License: MIT
  * Author: Jason Lusk <jason@jasonlusk.com>
  */
@@ -21,7 +21,7 @@ const os = require('os');
 const readline = require('readline');
 const crypto = require('crypto');
 
-const VERSION = '1.2.3';
+const VERSION = '1.2.4';
 
 // Consolidated namespace: ~/.unified-mcp/
 const MCP_DIR = path.join(os.homedir(), '.unified-mcp');
@@ -1967,9 +1967,18 @@ function installHooks(params) {
       }
 
       for (const hook of installedHooks) {
-        settings.hooks[hook.name] = {
-          command: hook.path
-        };
+        // Claude Code expects nested array structure:
+        // "HookName": [{ "hooks": [{ "type": "command", "command": "..." }] }]
+        settings.hooks[hook.name] = [
+          {
+            hooks: [
+              {
+                type: "command",
+                command: hook.path
+              }
+            ]
+          }
+        ];
       }
 
       // Ensure directory exists
@@ -2746,12 +2755,10 @@ Migrate old database? [Y/n] (default: Yes - preserve your knowledge): `, (answer
           console.log('  Action: Add the following to your settings.json:\n');
           console.log('  {');
           console.log('    "hooks": {');
-          console.log('      "UserPromptSubmit": {');
-          console.log(`        "command": "${path.join(MCP_DIR, 'hooks', 'user-prompt-submit.cjs')}"`);
-          console.log('      },');
-          console.log('      "PreToolUse": {');
-          console.log(`        "command": "${path.join(MCP_DIR, 'hooks', 'pre-tool-use.cjs')}"`);
-          console.log('      }');
+          console.log('      "UserPromptSubmit": [{ "hooks": [{ "type": "command",');
+          console.log(`        "command": "${path.join(MCP_DIR, 'hooks', 'user-prompt-submit.cjs')}" }] }],`);
+          console.log('      "PreToolUse": [{ "hooks": [{ "type": "command",');
+          console.log(`        "command": "${path.join(MCP_DIR, 'hooks', 'pre-tool-use.cjs')}" }] }]`);
           console.log('    }');
           console.log('  }\n');
         }
