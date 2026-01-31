@@ -656,8 +656,8 @@ async function runTests() {
     const result = await callMCP('install_hooks', {});
     const data = JSON.parse(parseJSONRPC(result.stdout).find(r => r.id === 2).result.content[0].text);
     const hookNames = data.hooks.map(h => h.name);
-    assertTrue(hookNames.includes('pre_tool_use'), 'Should include pre_tool_use hook');
-    assertTrue(hookNames.includes('session_start'), 'Should include session_start hook');
+    assertTrue(hookNames.includes('PreToolUse'), 'Should include PreToolUse hook');
+    assertTrue(hookNames.includes('SessionStart'), 'Should include SessionStart hook');
   });
 
   await test('install_hooks - returns location', async () => {

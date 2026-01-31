@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Unified MCP Server v1.2.1
+ * Unified MCP Server v1.2.2
  *
  * Combines memory-augmented reasoning and protocol enforcement with modern tool ergonomics.
  * - 25 atomic, composable tools (not monolithic)
@@ -9,7 +9,7 @@
  * - Automated hook installation
  * - Comprehensive documentation
  *
- * Version: 1.2.1
+ * Version: 1.2.2
  * License: MIT
  * Author: Jason Lusk <jason@jasonlusk.com>
  */
@@ -21,7 +21,7 @@ const os = require('os');
 const readline = require('readline');
 const crypto = require('crypto');
 
-const VERSION = '1.2.1';
+const VERSION = '1.2.2';
 
 // Consolidated namespace: ~/.unified-mcp/
 const MCP_DIR = path.join(os.homedir(), '.unified-mcp');
@@ -1873,13 +1873,13 @@ function installHooks(params) {
     );
   }
 
-  // Available hooks
+  // Available hooks - MUST use PascalCase for Claude Code to recognize them
   const availableHooks = {
-    'user_prompt_submit': 'user-prompt-submit.cjs',
-    'pre_tool_use': 'pre-tool-use.cjs',
-    'post_tool_use': 'post-tool-use.cjs',
-    'stop': 'stop.cjs',
-    'session_start': 'session-start.cjs'
+    'UserPromptSubmit': 'user-prompt-submit.cjs',
+    'PreToolUse': 'pre-tool-use.cjs',
+    'PostToolUse': 'post-tool-use.cjs',
+    'Stop': 'stop.cjs',
+    'SessionStart': 'session-start.cjs'
   };
 
   // Determine hooks to install
@@ -2746,10 +2746,10 @@ Migrate old database? [Y/n] (default: Yes - preserve your knowledge): `, (answer
           console.log('  Action: Add the following to your settings.json:\n');
           console.log('  {');
           console.log('    "hooks": {');
-          console.log('      "user_prompt_submit": {');
+          console.log('      "UserPromptSubmit": {');
           console.log(`        "command": "${path.join(MCP_DIR, 'hooks', 'user-prompt-submit.cjs')}"`);
           console.log('      },');
-          console.log('      "pre_tool_use": {');
+          console.log('      "PreToolUse": {');
           console.log(`        "command": "${path.join(MCP_DIR, 'hooks', 'pre-tool-use.cjs')}"`);
           console.log('      }');
           console.log('    }');

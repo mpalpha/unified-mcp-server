@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-01-31
+
+### Fixed - Hook Event Names: Changed from snake_case to PascalCase
+- **CRITICAL**: Hooks were never being called - Claude Code didn't recognize snake_case event names
+- **Root Cause**: `availableHooks` object used snake_case (e.g., `user_prompt_submit`) but Claude Code expects PascalCase (e.g., `UserPromptSubmit`)
+- **Impact**: All hooks (user_prompt_submit, pre_tool_use, post_tool_use, session_start, stop) were silently ignored
+- **Fix**: Changed all hook event names to PascalCase in:
+  - `availableHooks` object (line 1877-1883)
+  - Example output in --init wizard (lines 2749-2754)
+- **Files Modified**: `index.js`
+- **User Action Required**: Users must reinstall hooks or manually update their `~/.claude/settings.json` to use PascalCase event names
+
 ## [1.2.1] - 2026-01-31
 
 ### Fixed - Hook Output Format: Removed Incorrect Prompt Re-output
