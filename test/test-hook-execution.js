@@ -2,6 +2,8 @@
 /**
  * Hook Execution Tests - Actually execute hooks and verify blocking behavior
  * These tests run the real hook scripts to verify they work correctly
+ *
+ * v1.2.1: Added test for user-prompt-submit output format (should not re-echo prompt)
  */
 
 const fs = require('fs');
@@ -15,7 +17,7 @@ const TOKEN_DIR = path.join(os.homedir(), '.unified-mcp', 'tokens');
 const TEST_DB = path.join(os.homedir(), '.unified-mcp', 'data.db');
 
 async function runTests() {
-  console.log(colors.bold + '\nHOOK EXECUTION TESTS (5 tests)' + colors.reset);
+  console.log(colors.bold + '\nHOOK EXECUTION TESTS (6 tests)' + colors.reset);
   console.log(colors.cyan + '======================================================================' + colors.reset);
   console.log('These tests execute real hooks and verify blocking behavior\n');
 
@@ -221,6 +223,41 @@ async function runTests() {
 
     // Cleanup
     tokenFiles.forEach(f => fs.unlinkSync(path.join(TOKEN_DIR, f)));
+  });
+
+  // Test 6: user-prompt-submit hook output format (v1.2.1 fix)
+  await test('user-prompt-submit outputs ONLY context, not original prompt', () => {
+    console.log('\n  📋 Testing: user-prompt-submit output format');
+    console.log('  ─────────────────────────────────────────────');
+
+    const hookPath = path.join(HOOKS_DIR, 'user-prompt-submit.cjs');
+    assertTrue(fs.existsSync(hookPath), 'user-prompt-submit.cjs must exist');
+
+    // Use a unique test string that should NOT appear in output
+    const testPrompt = 'UNIQUE_TEST_PROMPT_12345_SHOULD_NOT_APPEAR';
+    const hookInput = JSON.stringify({ userPrompt: testPrompt });
+
+    try {
+      const output = execSync(`echo '${hookInput}' | node "${hookPath}"`, {
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+
+      // Output should NOT contain the original prompt
+      assertTrue(
+        !output.includes(testPrompt),
+        `Hook output should NOT contain original prompt. Found: "${testPrompt}" in output`
+      );
+      console.log('  ✅ Hook output does NOT contain original prompt');
+
+      // Output SHOULD contain workflow guidance (if config exists)
+      // Note: May not show guidance if no config, but should never show prompt
+      console.log('  ✅ Hook correctly outputs only context');
+
+    } catch (error) {
+      // Hook should exit 0 for user-prompt-submit
+      throw new Error(`user-prompt-submit hook should exit 0, but exited with ${error.status}`);
+    }
   });
 
   const stats = getStats();

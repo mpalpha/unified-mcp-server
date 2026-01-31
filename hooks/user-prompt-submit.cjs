@@ -136,9 +136,8 @@ try {
     }
   }
 
-  // Return original prompt (required by Claude Code hook protocol)
-  console.log('---\n');
-  console.log(data.userPrompt || data.prompt || '');
+  // Hook complete - stdout is added as context by Claude Code
+  // Do NOT re-output the prompt; Claude Code handles it separately
 
 } catch (e) {
   // If hook fails, pass through original prompt

@@ -2344,6 +2344,58 @@ Even for "simple" constant name fixes, the cascading approach matters:
 
 ---
 
+### Example 6: Bug Fix - Hook Output Format
+
+**Change:** Fix `user-prompt-submit.cjs` hook not showing guidance to Claude agent
+
+**Issue Identified:**
+- User feedback: Agent in another project reported hook runs but output not shown
+- Agent observation: "Hook works correctly... outputs guidance... but I'm not seeing this in my input"
+- Root cause: Hook incorrectly re-outputs the original prompt after guidance text
+
+**Documentation Reference:**
+- Claude Code hooks documentation: "Hooks can only ADD context, not modify the original prompt itself"
+- Hook stdout is added as additional context
+- Original prompt is handled separately by Claude Code
+
+**Problem Code (lines 139-141):**
+```javascript
+// Return original prompt (required by Claude Code hook protocol)  ← Comment is WRONG
+console.log('---\n');
+console.log(data.userPrompt || data.prompt || '');  // ❌ Should NOT output prompt
+```
+
+**Required Cascading Updates:**
+
+1. **Documentation (FIRST):**
+   - [x] Update CHANGELOG.md with issue description and fix
+   - [x] Document in IMPLEMENTATION_PLAN.md (this section)
+   - [x] Explain root cause and Claude Code hook behavior
+
+2. **Implementation:**
+   - [x] Remove lines 140-141 from `hooks/user-prompt-submit.cjs`
+   - [x] Update comment on line 139 to explain correct behavior
+
+3. **Testing (REQUIRED):**
+   - [x] Verify hook outputs only guidance text (not prompt)
+   - [x] Test hook with sample input: `echo '{"userPrompt":"test"}' | node hooks/user-prompt-submit.cjs`
+   - [x] Verify output does NOT contain "test" (the original prompt)
+   - [x] Added Test 6 to test-hook-execution.js for regression prevention
+   - [x] Run full test suite to ensure no regressions (all tests pass)
+
+4. **Verification:**
+   - [x] Version bump: 1.2.0 → 1.2.1 (package.json, index.js)
+   - [x] CHANGELOG.md has [1.2.1] entry
+   - [ ] Manual test in real project with hooks installed (user verification)
+
+5. **Impact Analysis:**
+   - Affects: `hooks/user-prompt-submit.cjs` only
+   - User impact: Hook guidance now visible to Claude agents
+   - No breaking changes (was already broken)
+   - Fix aligns with Claude Code hook documentation
+
+---
+
 ## Version Release Checklist
 
 **MANDATORY: Version Synchronization Validation**

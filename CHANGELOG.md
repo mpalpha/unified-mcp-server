@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-01-31
+
+### Fixed - Hook Output Format: Removed Incorrect Prompt Re-output
+- **Issue**: `user-prompt-submit.cjs` hook output wasn't being shown to Claude agent
+- **Root Cause**: Hook incorrectly re-output the original prompt after guidance text
+- **Documentation**: Claude Code hooks can only ADD context, not modify/re-output the original prompt
+- **Wrong Code** (lines 140-141):
+  ```javascript
+  console.log('---\n');
+  console.log(data.userPrompt || data.prompt || '');  // ❌ Should not output prompt
+  ```
+- **Fix**: Removed lines 140-141; hook now only outputs guidance context
+- **Impact**: Hook guidance now correctly appears in Claude's context
+- **File Modified**: `hooks/user-prompt-submit.cjs`
+
 ### Fixed - update_project_context: Undefined Constant
 - **CRITICAL**: Fixed `update_project_context` and `get_project_context` tools failing with "UNIFIED_MCP_DIR is not defined"
 - **Error**: `ReferenceError: UNIFIED_MCP_DIR is not defined`
