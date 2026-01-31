@@ -64,6 +64,9 @@ try {
     }
   }
 
+  // CHORES reference - always show (highest priority)
+  console.log('⚠️  Apply CHORES before responding\n');
+
   // If fast-track token exists, skip guidance
   if (!hasValidToken && config) {
     // Determine required gates based on config

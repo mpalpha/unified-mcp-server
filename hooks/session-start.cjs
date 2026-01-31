@@ -13,6 +13,15 @@ const path = require('path');
 const crypto = require('crypto');
 const os = require('os');
 
+// CHORES - Behavioral compliance framework (highest priority)
+console.log('⚠️  CHORES - VERIFY BEFORE EVERY RESPONSE:\n');
+console.log('□ CONSTRAINTS: Following all stated rules/limitations?');
+console.log('□ HALLUCINATION: Facts verified, not assumed?');
+console.log('□ OVERREACH: Only what was asked, no extras?');
+console.log('□ REASONING: Logic shown with evidence?');
+console.log('□ ETHICS: Security/safety checked?');
+console.log('□ SYCOPHANCY: Accurate, not just agreeable?\n');
+
 // Display existing generic prompts
 console.log('🎯 Unified MCP Server - Workflow Enforcement Active\n');
 console.log('Available presets: three-gate (default), minimal, strict, custom\n');

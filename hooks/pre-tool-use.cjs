@@ -18,6 +18,9 @@ try {
   const input = fs.readFileSync(0, 'utf-8');
   const data = JSON.parse(input);
 
+  // CHORES reference - verify before every tool use
+  console.log('⚠️  Verify CHORES before tool use\n');
+
   // Check if tool is a file modification tool
   const fileTools = ['Write', 'Edit', 'NotebookEdit'];
   if (!fileTools.includes(data.toolName)) {

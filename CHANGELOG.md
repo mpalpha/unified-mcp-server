@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.3] - 2026-01-31
+
+### Added - CHORES Behavioral Compliance Framework
+- **Feature**: Added Anti-CHORES protocol reminders to prevent common AI behavioral quirks
+- **Problem**: Agents were taking shortcuts (e.g., relying on prior knowledge instead of fresh analysis)
+- **Solution**: Three-layer verification system with CHORES checklist
+- **CHORES Categories**:
+  - **C**onstraints: Following all stated rules/limitations?
+  - **H**allucination: Facts verified, not assumed?
+  - **O**verreach: Only what was asked, no extras?
+  - **R**easoning: Logic shown with evidence?
+  - **E**thics: Security/safety checked?
+  - **S**ycophancy: Accurate, not just agreeable?
+- **Implementation**:
+  - `SessionStart`: Full CHORES checklist (establishes rules)
+  - `UserPromptSubmit`: "Apply CHORES before responding" (reference back)
+  - `PreToolUse`: "Verify CHORES before tool use" (reference back)
+- **Files Modified**: `hooks/session-start.cjs`, `hooks/user-prompt-submit.cjs`, `hooks/pre-tool-use.cjs`
+- **Research**: Based on Anti-CHORES Protocol (behavioral quirks directives for AI models)
+
 ## [1.2.2] - 2026-01-31
 
 ### Fixed - Hook Event Names: Changed from snake_case to PascalCase
