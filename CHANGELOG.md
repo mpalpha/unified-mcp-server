@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - Version Synchronization Validation
+- **New Test**: `test/test-version-sync.js` - Automated version synchronization validation
+  - Validates package.json version matches index.js VERSION constant
+  - Validates version format is valid semver (X.Y.Z)
+  - Validates CHANGELOG.md has entry for current version
+  - Prevents deployment bugs where versions don't match
+  - Added to npm test suite (runs first, before all other tests)
+- **New Documentation**: "Version Release Checklist" section in IMPLEMENTATION_PLAN.md
+  - Comprehensive checklist for version releases
+  - Pre-release validation steps
+  - Automated validation commands
+  - Prevention strategies for version mismatch bugs
+  - Documents the v1.2.0 VERSION constant bug that motivated this addition
+
+### Fixed - Version Constant Mismatch
+- **CRITICAL**: Fixed VERSION constant in index.js (was '1.1.0', should be '1.2.0')
+- **Impact**: Users running `npx mpalpha/unified-mcp-server --version` were seeing 1.1.0 instead of 1.2.0
+- **Root Cause**: Updated package.json but forgot to update VERSION constant in index.js
+- **Prevention**: Added automated test to catch this before future deployments
+- **Total Tests**: 238 (was 228) - includes 10 new version sync tests
+
 ## [1.2.0] - 2026-01-30
 
 ### Changed - Safety-First Redesign

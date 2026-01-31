@@ -2092,6 +2092,120 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 ---
 
+## Version Release Checklist
+
+**MANDATORY: Version Synchronization Validation**
+
+### The Problem
+
+Version numbers exist in **multiple locations** that must stay synchronized:
+1. `package.json` - "version" field
+2. `index.js` - VERSION constant (~line 23)
+3. `CHANGELOG.md` - New version entry
+4. `IMPLEMENTATION_PLAN.md` - Version history entry
+
+**Critical Issue:** If these don't match, users get the wrong version.
+
+**Real Example (v1.2.0 deployment bug):**
+- `package.json`: "1.2.0" ✅
+- `index.js`: VERSION = '1.1.0' ❌
+- Result: `npx mpalpha/unified-mcp-server --version` showed "1.1.0"
+- Impact: Users couldn't access v1.2.0 features
+
+### Pre-Release Checklist
+
+**Before committing any version change, verify ALL locations:**
+
+```bash
+# 1. Check package.json version
+grep '"version"' package.json
+
+# 2. Check index.js VERSION constant
+grep "const VERSION" index.js
+
+# 3. Check CHANGELOG.md has new version entry
+head -20 CHANGELOG.md | grep "\[.*\]"
+
+# 4. Check IMPLEMENTATION_PLAN.md has version history
+grep "^### v" docs/IMPLEMENTATION_PLAN.md | head -5
+```
+
+**All version numbers must match exactly.**
+
+### Version Release Workflow
+
+**When releasing version X.Y.Z:**
+
+1. **Update Code:**
+   - [ ] `package.json`: Set `"version": "X.Y.Z"`
+   - [ ] `index.js`: Set `const VERSION = 'X.Y.Z'`
+
+2. **Update Documentation:**
+   - [ ] `CHANGELOG.md`: Add `## [X.Y.Z] - YYYY-MM-DD` entry at top
+   - [ ] `docs/IMPLEMENTATION_PLAN.md`: Add version history entry
+   - [ ] Update tool counts if changed (README, docs)
+
+3. **Test Everything:**
+   - [ ] Run `npm test` (all tests must pass)
+   - [ ] Run `node index.js --version` (should show X.Y.Z)
+   - [ ] Test new features manually
+
+4. **Verify Synchronization:**
+   - [ ] Run automated version sync test: `npm run test:version-sync`
+   - [ ] Visual check: all version numbers match
+
+5. **Commit and Deploy:**
+   - [ ] Commit with message: "vX.Y.Z: [description]"
+   - [ ] Push to GitHub: `git push origin main`
+   - [ ] Verify deployment: `rm -rf ~/.npm/_npx && npx mpalpha/unified-mcp-server --version`
+
+### Automated Validation
+
+**Test: `test/test-version-sync.js`**
+
+Automatically validates:
+- ✅ package.json version matches index.js VERSION constant
+- ✅ Version format is valid (X.Y.Z semver)
+- ✅ CHANGELOG.md has entry for current version
+- ✅ No version mismatches exist
+
+Run: `npm run test:version-sync`
+
+This test is included in `npm test` to catch version mismatches before deployment.
+
+### Why This Matters
+
+**User Impact:**
+- Wrong version → Users can't access new features
+- Wrong version → Bug reports reference incorrect versions
+- Wrong version → Installation instructions don't work
+
+**Developer Impact:**
+- Version mismatch → Debugging confusion
+- Version mismatch → Lost trust in deployment process
+- Version mismatch → Extra work to fix and redeploy
+
+**Prevention:**
+- Automated test catches mismatches before commit
+- Checklist ensures manual verification
+- Single source of truth would be ideal (future enhancement)
+
+### Future Enhancement: Single Source of Truth
+
+**Consider:** Read version from package.json at runtime instead of hardcoding:
+
+```javascript
+// Current (requires manual sync):
+const VERSION = '1.2.0';
+
+// Future (automatic sync):
+const VERSION = require('./package.json').version;
+```
+
+**Trade-off:** Slight performance overhead for reading file, but eliminates entire class of bugs.
+
+---
+
 ## Fix Priority & Timeline
 
 ### Phase 1: Quick Fixes (35 minutes)
