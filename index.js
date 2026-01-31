@@ -2263,6 +2263,21 @@ function updateProjectContext(params) {
   const projectPath = params.project_path || process.env.PWD || process.cwd();
   const projectHash = crypto.createHash('md5').update(projectPath).digest('hex');
 
+  // Validate required fields
+  if (params.enabled === undefined || params.enabled === null) {
+    throw new ValidationError(
+      'Missing required field: enabled',
+      'The enabled field is required (true or false)'
+    );
+  }
+
+  if (typeof params.enabled !== 'boolean') {
+    throw new ValidationError(
+      'Invalid enabled field type',
+      'The enabled field must be a boolean (true or false)'
+    );
+  }
+
   // Validate data
   if (params.summary && params.summary.length > 200) {
     throw new ValidationError(

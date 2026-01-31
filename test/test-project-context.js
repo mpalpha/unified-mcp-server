@@ -1,0 +1,298 @@
+#!/usr/bin/env node
+
+/**
+ * Project Context Tools Tests
+ *
+ * Tests for update_project_context and get_project_context tools.
+ * Verifies context file creation, storage, and retrieval.
+ */
+
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+const crypto = require('crypto');
+const { colors, callMCP, parseJSONRPC, test, assertTrue, assertEquals, getStats } = require('./test-utils');
+
+const CONTEXT_DIR = path.join(os.homedir(), '.unified-mcp', 'project-contexts');
+
+async function runTests() {
+  console.log(colors.bold + '\nPROJECT CONTEXT TESTS (10 tests)' + colors.reset);
+  console.log(colors.cyan + '======================================================================' + colors.reset);
+
+  // Clean any test context files
+  if (fs.existsSync(CONTEXT_DIR)) {
+    const files = fs.readdirSync(CONTEXT_DIR);
+    files.forEach(file => {
+      if (file.startsWith('test-') || file.includes('temp')) {
+        try {
+          fs.unlinkSync(path.join(CONTEXT_DIR, file));
+        } catch (e) {}
+      }
+    });
+  }
+
+  console.log('\n🗑️  Cleaned test data\n');
+
+  console.log(colors.bold + 'Project Context Tools' + colors.reset);
+  console.log(colors.cyan + '======================================================================' + colors.reset);
+
+  // Test 1: update_project_context with valid data
+  await test('update_project_context - create new context', async () => {
+    const testProjectPath = '/tmp/test-project-' + Date.now();
+    const result = await callMCP('update_project_context', {
+      enabled: true,
+      summary: "Test project summary",
+      highlights: ["Feature A", "Feature B"],
+      reminders: ["Check docs"],
+      project_path: testProjectPath
+    });
+
+    const responses = parseJSONRPC(result.stdout);
+    const response = responses.find(r => r.id === 2);
+    assertTrue(response && response.result, 'Should return result');
+
+    const data = JSON.parse(response.result.content[0].text);
+    assertTrue(data.success, 'Should be successful');
+    assertTrue(data.context_file, 'Should have context_file');
+
+    // Verify file exists
+    assertTrue(fs.existsSync(data.context_file), 'Context file should exist');
+
+    // Cleanup
+    fs.unlinkSync(data.context_file);
+  });
+
+  // Test 2: update_project_context - missing required field
+  await test('update_project_context - missing enabled field', async () => {
+    const result = await callMCP('update_project_context', {
+      summary: "Test",
+      highlights: ["A"],
+      reminders: ["B"]
+    });
+
+    const responses = parseJSONRPC(result.stdout);
+    const response = responses.find(r => r.id === 2);
+    assertTrue(response && response.error, 'Should return error');
+  });
+
+  // Test 3: update_project_context - summary too long
+  await test('update_project_context - summary exceeds 200 chars', async () => {
+    const testProjectPath = '/tmp/test-project-summary-' + Date.now();
+    const longSummary = 'A'.repeat(201);
+
+    const result = await callMCP('update_project_context', {
+      enabled: true,
+      summary: longSummary,
+      highlights: ["A"],
+      reminders: ["B"],
+      project_path: testProjectPath
+    });
+
+    const responses = parseJSONRPC(result.stdout);
+    const response = responses.find(r => r.id === 2);
+    assertTrue(response && response.error, 'Should return error for too long summary');
+  });
+
+  // Test 4: update_project_context - too many highlights
+  await test('update_project_context - highlights exceed 5 items', async () => {
+    const testProjectPath = '/tmp/test-project-highlights-' + Date.now();
+
+    const result = await callMCP('update_project_context', {
+      enabled: true,
+      summary: "Test",
+      highlights: ["A", "B", "C", "D", "E", "F"],
+      reminders: ["X"],
+      project_path: testProjectPath
+    });
+
+    const responses = parseJSONRPC(result.stdout);
+    const response = responses.find(r => r.id === 2);
+    assertTrue(response && response.error, 'Should return error for too many highlights');
+  });
+
+  // Test 5: update_project_context - too many reminders
+  await test('update_project_context - reminders exceed 3 items', async () => {
+    const testProjectPath = '/tmp/test-project-reminders-' + Date.now();
+
+    const result = await callMCP('update_project_context', {
+      enabled: true,
+      summary: "Test",
+      highlights: ["A"],
+      reminders: ["W", "X", "Y", "Z"],
+      project_path: testProjectPath
+    });
+
+    const responses = parseJSONRPC(result.stdout);
+    const response = responses.find(r => r.id === 2);
+    assertTrue(response && response.error, 'Should return error for too many reminders');
+  });
+
+  // Test 6: update_project_context - disabled context
+  await test('update_project_context - create disabled context', async () => {
+    const testProjectPath = '/tmp/test-project-disabled-' + Date.now();
+    const result = await callMCP('update_project_context', {
+      enabled: false,
+      summary: "Disabled project",
+      highlights: [],
+      reminders: [],
+      project_path: testProjectPath
+    });
+
+    const responses = parseJSONRPC(result.stdout);
+    const response = responses.find(r => r.id === 2);
+    assertTrue(response && response.result, 'Should return result');
+
+    const data = JSON.parse(response.result.content[0].text);
+    assertTrue(data.success, 'Should be successful');
+
+    // Verify file and content
+    const content = JSON.parse(fs.readFileSync(data.context_file, 'utf8'));
+    assertEquals(content.enabled, false, 'Context should be disabled');
+
+    // Cleanup
+    fs.unlinkSync(data.context_file);
+  });
+
+  // Test 7: get_project_context - retrieve existing context
+  await test('get_project_context - retrieve existing context', async () => {
+    const testProjectPath = '/tmp/test-project-get-' + Date.now();
+
+    // Create context first
+    const createResult = await callMCP('update_project_context', {
+      enabled: true,
+      summary: "Get test project",
+      highlights: ["H1", "H2"],
+      reminders: ["R1"],
+      project_path: testProjectPath
+    });
+
+    const createResponses = parseJSONRPC(createResult.stdout);
+    const createResponse = createResponses.find(r => r.id === 2);
+    const createData = JSON.parse(createResponse.result.content[0].text);
+
+    // Now retrieve it
+    const getResult = await callMCP('get_project_context', {
+      project_path: testProjectPath
+    });
+
+    const getResponses = parseJSONRPC(getResult.stdout);
+    const getResponse = getResponses.find(r => r.id === 2);
+    assertTrue(getResponse && getResponse.result, 'Should return result');
+
+    const getData = JSON.parse(getResponse.result.content[0].text);
+    assertTrue(getData.exists, 'Context should exist');
+    assertEquals(getData.summary, "Get test project", 'Summary should match');
+    assertEquals(getData.highlights.length, 2, 'Should have 2 highlights');
+
+    // Cleanup
+    fs.unlinkSync(createData.context_file);
+  });
+
+  // Test 8: get_project_context - non-existent context
+  await test('get_project_context - non-existent context', async () => {
+    const testProjectPath = '/tmp/test-project-nonexist-' + Date.now();
+
+    const result = await callMCP('get_project_context', {
+      project_path: testProjectPath
+    });
+
+    const responses = parseJSONRPC(result.stdout);
+    const response = responses.find(r => r.id === 2);
+    assertTrue(response && response.result, 'Should return result');
+
+    const data = JSON.parse(response.result.content[0].text);
+    assertEquals(data.exists, false, 'Context should not exist');
+    assertTrue(data.project_path, 'Should still return project_path');
+  });
+
+  // Test 9: update_project_context - update existing context
+  await test('update_project_context - update existing context', async () => {
+    const testProjectPath = '/tmp/test-project-update-' + Date.now();
+
+    // Create initial context
+    const createResult = await callMCP('update_project_context', {
+      enabled: true,
+      summary: "Original summary",
+      highlights: ["A"],
+      reminders: ["X"],
+      project_path: testProjectPath
+    });
+
+    const createResponses = parseJSONRPC(createResult.stdout);
+    const createData = JSON.parse(createResponses.find(r => r.id === 2).result.content[0].text);
+
+    // Update it
+    const updateResult = await callMCP('update_project_context', {
+      enabled: true,
+      summary: "Updated summary",
+      highlights: ["B", "C"],
+      reminders: ["Y", "Z"],
+      project_path: testProjectPath
+    });
+
+    const updateResponses = parseJSONRPC(updateResult.stdout);
+    assertTrue(updateResponses.find(r => r.id === 2).result, 'Update should succeed');
+
+    // Verify update
+    const getResult = await callMCP('get_project_context', {
+      project_path: testProjectPath
+    });
+
+    const getResponses = parseJSONRPC(getResult.stdout);
+    const getData = JSON.parse(getResponses.find(r => r.id === 2).result.content[0].text);
+    assertEquals(getData.summary, "Updated summary", 'Summary should be updated');
+    assertEquals(getData.highlights.length, 2, 'Should have 2 highlights');
+
+    // Cleanup
+    fs.unlinkSync(createData.context_file);
+  });
+
+  // Test 10: Context file in correct location
+  await test('Context file created in ~/.unified-mcp/project-contexts/', async () => {
+    const testProjectPath = '/tmp/test-project-location-' + Date.now();
+
+    const result = await callMCP('update_project_context', {
+      enabled: true,
+      summary: "Location test",
+      highlights: [],
+      reminders: [],
+      project_path: testProjectPath
+    });
+
+    const responses = parseJSONRPC(result.stdout);
+    const response = responses.find(r => r.id === 2);
+    const data = JSON.parse(response.result.content[0].text);
+
+    // Verify location
+    assertTrue(data.context_file.includes('.unified-mcp/project-contexts/'), 'Should be in correct directory');
+
+    // Verify filename is hash
+    const filename = path.basename(data.context_file, '.json');
+    const expectedHash = crypto.createHash('md5').update(testProjectPath).digest('hex');
+    assertEquals(filename, expectedHash, 'Filename should be hash of project path');
+
+    // Cleanup
+    fs.unlinkSync(data.context_file);
+  });
+
+  // Summary
+  const stats = getStats();
+  console.log('\n' + colors.cyan + '======================================================================' + colors.reset);
+  console.log(colors.bold + 'PROJECT CONTEXT TESTS SUMMARY' + colors.reset);
+  console.log(colors.cyan + '======================================================================' + colors.reset);
+  console.log(colors.green + `Tests Passed: ${stats.testsPassed}` + colors.reset);
+  console.log(colors.red + `Tests Failed: ${stats.testsFailed}` + colors.reset);
+  console.log(`Total: ${stats.testsRun} tests\n`);
+
+  if (stats.testsFailed > 0) {
+    process.exit(1);
+  } else {
+    console.log(colors.green + '✅ All project context tests passed!' + colors.reset + '\n');
+    process.exit(0);
+  }
+}
+
+runTests().catch(err => {
+  console.error('Test runner error:', err);
+  process.exit(1);
+});

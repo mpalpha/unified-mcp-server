@@ -69,6 +69,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Prevention strategies for version mismatch bugs
   - Documents the v1.2.0 VERSION constant bug that motivated this addition
 
+### Added - Project Context Tool Tests
+- **New Test Suite**: `test/test-project-context.js` - Comprehensive tests for project context tools
+  - **Coverage**: 10 tests covering update_project_context and get_project_context tools
+  - **Test Cases**:
+    - Create new context, disabled context, update existing context
+    - Field validations: enabled (required), summary (max 200 chars), highlights (max 5), reminders (max 3)
+    - Retrieve existing context, handle non-existent context
+    - Verify file location: ~/.unified-mcp/project-contexts/{hash}.json
+    - All tests use MCP protocol via callMCP() and parseJSONRPC()
+  - **Bugs Found and Fixed During Testing**:
+    - Added missing validation: `enabled` field is now required
+    - Fixed test framework stats display (testsPassed vs passed)
+    - Fixed test field name mismatches (context_file vs context_path)
+    - Fixed test expectations (flat response vs nested context object)
+  - **Status**: All 10 tests passing ✅
+  - **Integration**: Added to package.json test suite as `npm run test:project-context`
+- **Motivation**: Bug fix (UNIFIED_MCP_DIR) lacked test coverage, causing repeated issues
+- **Impact**: Prevents regressions in project context functionality
+
 ### Fixed - Version Constant Mismatch
 - **CRITICAL**: Fixed VERSION constant in index.js (was '1.1.0', should be '1.2.0')
 - **Impact**: Users running `npx mpalpha/unified-mcp-server --version` were seeing 1.1.0 instead of 1.2.0
