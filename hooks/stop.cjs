@@ -12,8 +12,9 @@ const path = require('path');
 const os = require('os');
 
 try {
-  const homeDir = path.join(os.homedir(), '.unified-mcp');
-  const tokenDir = path.join(homeDir, 'tokens');
+  // v1.4.0: project-scoped tokens
+  const projectDir = process.env.PWD || process.cwd();
+  const tokenDir = path.join(projectDir, '.claude', 'tokens');
 
   if (fs.existsSync(tokenDir)) {
     const tokenFiles = fs.readdirSync(tokenDir);

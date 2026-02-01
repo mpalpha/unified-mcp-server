@@ -1,32 +1,32 @@
 #!/usr/bin/env node
 /**
  * Workflow Tests - Common workflow patterns
+ * v1.4.0: Updated for project-scoped experiences
  */
 
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { colors, callMCP, parseJSONRPC, test, assertTrue, assertEquals, getStats } = require('./test-utils');
+const { colors, callMCP, parseJSONRPC, test, assertTrue, assertEquals, getStats, createTestProject, cleanupTestProject, getTestDbPath } = require('./test-utils');
 
-const TEST_DB = path.join(os.homedir(), '.unified-mcp', 'data.db');
+let testDir;
 
 async function runTests() {
   console.log(colors.bold + '\nWORKFLOW TESTS (10 tests)' + colors.reset);
   console.log(colors.cyan + '======================================================================' + colors.reset);
 
-  try {
-    if (fs.existsSync(TEST_DB)) {
-      fs.unlinkSync(TEST_DB);
-    }
-    console.log('\n🗑️  Cleaned test database\n');
-  } catch (e) {
-    // Ignore
-  }
+  // v1.4.0: Create project-scoped test directory
+  testDir = createTestProject();
+  const TEST_DB = getTestDbPath(testDir);
+  console.log(`\n📁 Test project: ${testDir}\n`);
+
+  // Helper to call MCP with project context
+  const call = (tool, args) => callMCP(tool, args, { cwd: testDir });
 
   // Test 1: Complete reasoning workflow
   await test('Complete reasoning workflow', async () => {
     // Analyze
-    const analyze = await callMCP('analyze_problem', {
+    const analyze = await call('analyze_problem', {
       problem: 'How to implement caching?'
     });
     const analyzeResp = parseJSONRPC(analyze.stdout).find(r => r.id === 2);
@@ -36,7 +36,7 @@ async function runTests() {
     const sessionId = analyzeData.session_id;
     
     // Gather context
-    const gather = await callMCP('gather_context', {
+    const gather = await call('gather_context', {
       session_id: sessionId,
       sources: { related_experiences: ['cache', 'performance'] }
     });
@@ -44,7 +44,7 @@ async function runTests() {
     assertTrue(gatherResp && gatherResp.result, 'Gather should succeed');
     
     // Reason through
-    const reason = await callMCP('reason_through', {
+    const reason = await call('reason_through', {
       session_id: sessionId,
       thought: 'Redis provides fast in-memory caching',
       thought_number: 1,
@@ -54,7 +54,7 @@ async function runTests() {
     assertTrue(reasonResp && reasonResp.result, 'Reason should succeed');
     
     // Finalize
-    const finalize = await callMCP('finalize_decision', {
+    const finalize = await call('finalize_decision', {
       session_id: sessionId,
       conclusion: 'Use Redis for caching',
       rationale: 'Fast and scalable'
@@ -65,7 +65,7 @@ async function runTests() {
 
   // Test 2: Workflow with preset
   await test('Workflow with preset application', async () => {
-    const result = await callMCP('apply_preset', {
+    const result = await call('apply_preset', {
       preset_name: 'three-gate',
       session_id: 'test-preset-session'
     });
@@ -79,7 +79,7 @@ async function runTests() {
   // Test 3: Token workflow
   await test('Token-based workflow', async () => {
     // Verify compliance
-    const verify = await callMCP('verify_compliance', {
+    const verify = await call('verify_compliance', {
       current_phase: 'teach',
       action: 'record_experience'
     });
@@ -89,7 +89,7 @@ async function runTests() {
     const verifyData = JSON.parse(verifyResp.result.content[0].text);
     
     // Authorize operation
-    const auth = await callMCP('authorize_operation', {
+    const auth = await call('authorize_operation', {
       operation_token: verifyData.operation_token
     });
     const authResp = parseJSONRPC(auth.stdout).find(r => r.id === 2);
@@ -99,14 +99,14 @@ async function runTests() {
   // Test 4-10: Add more workflow tests
   await test('Search and record workflow', async () => {
     // Search
-    const search = await callMCP('search_experiences', {
+    const search = await call('search_experiences', {
       query: 'testing patterns'
     });
     const searchResp = parseJSONRPC(search.stdout).find(r => r.id === 2);
     assertTrue(searchResp && searchResp.result, 'Search should work');
     
     // Record
-    const record = await callMCP('record_experience', {
+    const record = await call('record_experience', {
       type: 'effective',
       domain: 'Process',
       situation: 'Need comprehensive test coverage',
@@ -131,7 +131,7 @@ async function runTests() {
       enforcement: 'moderate'
     };
     
-    const result = await callMCP('validate_config', { config });
+    const result = await call('validate_config', { config });
     const resp = parseJSONRPC(result.stdout).find(r => r.id === 2);
     assertTrue(resp && resp.result, 'Validation should work');
     
@@ -140,7 +140,7 @@ async function runTests() {
   });
 
   await test('Health check workflow', async () => {
-    const result = await callMCP('health_check', {});
+    const result = await call('health_check', {});
     const resp = parseJSONRPC(result.stdout).find(r => r.id === 2);
     assertTrue(resp && resp.result, 'Health check should work');
     
@@ -150,7 +150,7 @@ async function runTests() {
 
   await test('Session state workflow', async () => {
     // Create a session first
-    const analyze = await callMCP('analyze_problem', {
+    const analyze = await call('analyze_problem', {
       problem: 'Test session state'
     });
     const analyzeResp = parseJSONRPC(analyze.stdout).find(r => r.id === 2);
@@ -158,7 +158,7 @@ async function runTests() {
     const sessionId = analyzeData.session_id;
     
     // Get session state
-    const result = await callMCP('get_session_state', { session_id: sessionId });
+    const result = await call('get_session_state', { session_id: sessionId });
     const resp = parseJSONRPC(result.stdout).find(r => r.id === 2);
     assertTrue(resp && resp.result, 'Should get session state');
     
@@ -168,7 +168,7 @@ async function runTests() {
 
   await test('Export and import workflow', async () => {
     // Record an experience
-    await callMCP('record_experience', {
+    await call('record_experience', {
       type: 'effective',
       domain: 'Process',
       situation: 'Export test',
@@ -179,7 +179,7 @@ async function runTests() {
     
     // Export
     const exportPath = path.join(os.tmpdir(), `export-test-${Date.now()}.json`);
-    const exportResult = await callMCP('export_experiences', {
+    const exportResult = await call('export_experiences', {
       output_path: exportPath,
       format: 'json'
     });
@@ -187,7 +187,7 @@ async function runTests() {
     assertTrue(exportResp && exportResp.result, 'Export should work');
     
     // Import
-    const importResult = await callMCP('import_data', {
+    const importResult = await call('import_data', {
       source_file: exportPath
     });
     const importResp = parseJSONRPC(importResult.stdout).find(r => r.id === 2);
@@ -200,7 +200,7 @@ async function runTests() {
   });
 
   await test('Hook installation workflow', async () => {
-    const result = await callMCP('install_hooks', {
+    const result = await call('install_hooks', {
       hooks: ['all']
     });
     const resp = parseJSONRPC(result.stdout).find(r => r.id === 2);
@@ -212,7 +212,7 @@ async function runTests() {
   });
 
   await test('Workflow reset', async () => {
-    const result = await callMCP('reset_workflow', {
+    const result = await call('reset_workflow', {
       session_id: 'test-reset'
     });
     const resp = parseJSONRPC(result.stdout).find(r => r.id === 2);
@@ -230,7 +230,14 @@ async function runTests() {
   console.log(colors.red + `Tests Failed: ${stats.testsFailed}` + colors.reset);
   console.log(`Total: ${stats.testsRun} tests`);
 
+  // v1.4.0: Cleanup test project
+  cleanupTestProject(testDir);
+
   process.exit(stats.testsFailed > 0 ? 1 : 0);
 }
 
-runTests().catch(console.error);
+runTests().catch(e => {
+  cleanupTestProject(testDir);
+  console.error(e);
+  process.exit(1);
+});

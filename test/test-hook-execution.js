@@ -4,35 +4,39 @@
  * These tests run the real hook scripts to verify they work correctly
  *
  * v1.2.1: Added test for user-prompt-submit output format (should not re-echo prompt)
+ * v1.4.0: Updated for project-scoped experiences
  */
 
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { execSync, spawn } = require('child_process');
-const { colors, callMCP, parseJSONRPC, test, assertTrue, getStats } = require('./test-utils');
+const { colors, callMCP, parseJSONRPC, test, assertTrue, getStats, createTestProject, cleanupTestProject, getTestClaudeDir, getTestDbPath } = require('./test-utils');
 
-const HOOKS_DIR = path.join(os.homedir(), '.unified-mcp', 'hooks');
-const TOKEN_DIR = path.join(os.homedir(), '.unified-mcp', 'tokens');
-const TEST_DB = path.join(os.homedir(), '.unified-mcp', 'data.db');
+let testDir;
+let CLAUDE_DIR;
+let HOOKS_DIR;
+let TOKEN_DIR;
+let TEST_DB;
 
 async function runTests() {
   console.log(colors.bold + '\nHOOK EXECUTION TESTS (6 tests)' + colors.reset);
   console.log(colors.cyan + '======================================================================' + colors.reset);
   console.log('These tests execute real hooks and verify blocking behavior\n');
 
-  try {
-    if (fs.existsSync(TEST_DB)) fs.unlinkSync(TEST_DB);
-    if (fs.existsSync(TOKEN_DIR)) {
-      fs.readdirSync(TOKEN_DIR).forEach(f => fs.unlinkSync(path.join(TOKEN_DIR, f)));
-    }
-    console.log('🗑️  Cleaned test environment\n');
-  } catch (e) {
-    // Ignore
-  }
+  // v1.4.0: Create project-scoped test directory
+  testDir = createTestProject();
+  CLAUDE_DIR = getTestClaudeDir(testDir);
+  HOOKS_DIR = path.join(CLAUDE_DIR, 'hooks');
+  TOKEN_DIR = path.join(CLAUDE_DIR, 'tokens');
+  TEST_DB = getTestDbPath(testDir);
+  console.log(`📁 Test project: ${testDir}\n`);
+
+  // Helper to call MCP with project context
+  const call = (tool, args) => callMCP(tool, args, { cwd: testDir });
 
   // Install hooks first
-  await callMCP('install_hooks', { hooks: ['all'] });
+  await call('install_hooks', { hooks: ['all'] });
   console.log('✓ Hooks installed\n');
 
   // Test 1: pre-tool-use hook blocks Write without token
@@ -59,7 +63,9 @@ async function runTests() {
     try {
       execSync(`echo '${hookInput}' | node "${hookPath}"`, {
         encoding: 'utf8',
-        stdio: ['pipe', 'pipe', 'pipe']
+        stdio: ['pipe', 'pipe', 'pipe'],
+        cwd: testDir,
+        env: { ...process.env, PWD: testDir }
       });
       throw new Error('Hook should have blocked operation (exit 1)');
     } catch (error) {
@@ -95,7 +101,9 @@ async function runTests() {
     try {
       const output = execSync(`echo '${hookInput}' | node "${hookPath}"`, {
         encoding: 'utf8',
-        stdio: ['pipe', 'pipe', 'pipe']
+        stdio: ['pipe', 'pipe', 'pipe'],
+        cwd: testDir,
+        env: { ...process.env, PWD: testDir }
       });
       console.log('  ✅ Hook correctly ALLOWED Write operation (exit code 0)');
     } catch (error) {
@@ -131,7 +139,9 @@ async function runTests() {
     try {
       execSync(`echo '${hookInput}' | node "${hookPath}"`, {
         encoding: 'utf8',
-        stdio: ['pipe', 'pipe', 'pipe']
+        stdio: ['pipe', 'pipe', 'pipe'],
+        cwd: testDir,
+        env: { ...process.env, PWD: testDir }
       });
       throw new Error('Hook should have blocked Edit operation');
     } catch (error) {
@@ -162,7 +172,9 @@ async function runTests() {
     try {
       execSync(`echo '${hookInput}' | node "${hookPath}"`, {
         encoding: 'utf8',
-        stdio: ['pipe', 'pipe', 'pipe']
+        stdio: ['pipe', 'pipe', 'pipe'],
+        cwd: testDir,
+        env: { ...process.env, PWD: testDir }
       });
       console.log('  ✅ Hook correctly ALLOWED search_experiences (exit code 0)');
     } catch (error) {
@@ -179,7 +191,7 @@ async function runTests() {
 
     // Step 1: Verify compliance and get operation token
     console.log('  1️⃣  Verifying compliance...');
-    const verifyResult = await callMCP('verify_compliance', {
+    const verifyResult = await call('verify_compliance', {
       session_id: sessionId,
       current_phase: 'reason',
       action: 'edit_file'
@@ -190,7 +202,7 @@ async function runTests() {
 
     // Step 2: Authorize and create session token
     console.log('  2️⃣  Authorizing operation...');
-    const authResult = await callMCP('authorize_operation', {
+    const authResult = await call('authorize_operation', {
       operation_token: verifyData.operation_token,
       create_session_token: true
     });
@@ -214,7 +226,9 @@ async function runTests() {
     try {
       execSync(`echo '${hookInput}' | node "${hookPath}"`, {
         encoding: 'utf8',
-        stdio: ['pipe', 'pipe', 'pipe']
+        stdio: ['pipe', 'pipe', 'pipe'],
+        cwd: testDir,
+        env: { ...process.env, PWD: testDir }
       });
       console.log('  ✅ Hook allowed operation after full authorization workflow');
     } catch (error) {
@@ -240,7 +254,9 @@ async function runTests() {
     try {
       const output = execSync(`echo '${hookInput}' | node "${hookPath}"`, {
         encoding: 'utf8',
-        stdio: ['pipe', 'pipe', 'pipe']
+        stdio: ['pipe', 'pipe', 'pipe'],
+        cwd: testDir,
+        env: { ...process.env, PWD: testDir }
       });
 
       // Output should NOT contain the original prompt
@@ -272,7 +288,14 @@ async function runTests() {
     console.log('\n' + colors.green + '✅ All hooks execute correctly and enforce workflow!' + colors.reset);
   }
 
+  // v1.4.0: Cleanup test project
+  cleanupTestProject(testDir);
+
   process.exit(stats.testsFailed > 0 ? 1 : 0);
 }
 
-runTests().catch(console.error);
+runTests().catch(e => {
+  cleanupTestProject(testDir);
+  console.error(e);
+  process.exit(1);
+});

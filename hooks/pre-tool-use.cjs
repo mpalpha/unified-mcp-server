@@ -29,9 +29,9 @@ try {
     process.exit(0);
   }
 
-  // Check for valid session token
-  const homeDir = path.join(os.homedir(), '.unified-mcp');
-  const tokenDir = path.join(homeDir, 'tokens');
+  // Check for valid session token (v1.4.0: project-scoped)
+  const projectDir = process.env.PWD || process.cwd();
+  const tokenDir = path.join(projectDir, '.claude', 'tokens');
 
   let hasValidToken = false;
 

@@ -1,15 +1,16 @@
 #!/usr/bin/env node
 
 /**
- * Unified MCP Server v1.2.4
+ * Unified MCP Server v1.4.0
  *
  * Combines memory-augmented reasoning and protocol enforcement with modern tool ergonomics.
- * - 25 atomic, composable tools (not monolithic)
+ * - 26 atomic, composable tools (not monolithic)
+ * - Project-scoped experiences (v1.4.0)
  * - Zero-config defaults
  * - Automated hook installation
  * - Comprehensive documentation
  *
- * Version: 1.2.4
+ * Version: 1.4.0
  * License: MIT
  * Author: Jason Lusk <jason@jasonlusk.com>
  */
@@ -21,16 +22,86 @@ const os = require('os');
 const readline = require('readline');
 const crypto = require('crypto');
 
-const VERSION = '1.3.0';
+const VERSION = '1.4.0';
 
-// Consolidated namespace: ~/.unified-mcp/
-const MCP_DIR = path.join(os.homedir(), '.unified-mcp');
-const TOKEN_DIR = path.join(MCP_DIR, 'tokens');
-const DB_PATH = path.join(MCP_DIR, 'data.db');
+// v1.4.0: Project-local storage in .claude/ directory
+// All data is stored per-project, no global storage
 
-// Ensure directories exist
-if (!fs.existsSync(MCP_DIR)) fs.mkdirSync(MCP_DIR, { recursive: true });
-if (!fs.existsSync(TOKEN_DIR)) fs.mkdirSync(TOKEN_DIR, { recursive: true });
+/**
+ * Get the project's .claude directory path
+ * @returns {string} Path to .claude directory in current working directory
+ */
+function getProjectDir() {
+  return path.join(process.cwd(), '.claude');
+}
+
+/**
+ * Get the database path for the current project
+ * @returns {string} Path to experiences.db
+ */
+function getDbPath() {
+  return path.join(getProjectDir(), 'experiences.db');
+}
+
+/**
+ * Get the token directory for the current project
+ * @returns {string} Path to tokens directory
+ */
+function getTokenDir() {
+  return path.join(getProjectDir(), 'tokens');
+}
+
+/**
+ * Get the config path for the current project
+ * @returns {string} Path to config.json
+ */
+function getConfigPath() {
+  return path.join(getProjectDir(), 'config.json');
+}
+
+/**
+ * Ensure we're in a valid project context
+ * Creates .claude directory if in a valid project but missing
+ * @throws {ValidationError} If not in a valid project
+ */
+function ensureProjectContext() {
+  const cwd = process.cwd();
+  const claudeDir = path.join(cwd, '.claude');
+  const gitDir = path.join(cwd, '.git');
+  const packageJson = path.join(cwd, 'package.json');
+
+  // Check for project indicators
+  if (!fs.existsSync(claudeDir) && !fs.existsSync(gitDir) && !fs.existsSync(packageJson)) {
+    throw new ValidationError(
+      'No project context detected',
+      'This tool requires a project directory.\n\n' +
+      'Options:\n' +
+      '1. Run from a directory with .claude/, .git/, or package.json\n' +
+      '2. Initialize: npx unified-mcp-server --init\n\n' +
+      'Current directory: ' + cwd
+    );
+  }
+
+  // Create .claude directory if it doesn't exist but we're in a valid project
+  if (!fs.existsSync(claudeDir)) {
+    fs.mkdirSync(claudeDir, { recursive: true });
+    fs.mkdirSync(path.join(claudeDir, 'tokens'), { recursive: true });
+  }
+
+  // Ensure tokens directory exists
+  const tokenDir = path.join(claudeDir, 'tokens');
+  if (!fs.existsSync(tokenDir)) {
+    fs.mkdirSync(tokenDir, { recursive: true });
+  }
+
+  return claudeDir;
+}
+
+// Legacy constants for backward compatibility during transition
+// DEPRECATED: Use getProjectDir(), getDbPath(), getTokenDir() instead
+const MCP_DIR = getProjectDir();
+const TOKEN_DIR = getTokenDir();
+const DB_PATH = getDbPath();
 
 // Custom error class for validation errors
 class ValidationError extends Error {
@@ -43,14 +114,34 @@ class ValidationError extends Error {
 }
 
 // Initialize database
+// v1.4.0: Database is project-local, created in ensureProjectContext or --init
 function initDatabase() {
-  const db = new Database(DB_PATH);
+  // Ensure project context exists before accessing database
+  ensureProjectContext();
+
+  const dbPath = getDbPath();
+  const db = new Database(dbPath);
 
   // Use DELETE mode (default) for better compatibility with short-lived connections
   // WAL mode can cause corruption with rapid open/close cycles in tests
   db.pragma('journal_mode = DELETE');
 
-  // Create experiences table
+  // v1.4.0: Create schema_info table for version tracking
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS schema_info (
+      version INTEGER PRIMARY KEY,
+      applied_at TEXT DEFAULT (datetime('now'))
+    );
+  `);
+
+  // Check and set schema version
+  const versionRow = db.prepare('SELECT MAX(version) as v FROM schema_info').get();
+  if (!versionRow || !versionRow.v) {
+    db.prepare('INSERT INTO schema_info (version) VALUES (?)').run(1);
+  }
+
+  // v1.4.0: Create experiences table WITHOUT scope field
+  // All experiences are project-scoped by their location in .claude/
   db.exec(`
     CREATE TABLE IF NOT EXISTS experiences (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -61,7 +152,6 @@ function initDatabase() {
       outcome TEXT NOT NULL,
       reasoning TEXT NOT NULL,
       confidence REAL CHECK(confidence BETWEEN 0 AND 1),
-      scope TEXT CHECK(scope IN ('user', 'project')),
       tags TEXT,
       revision_of INTEGER,
       created_at INTEGER DEFAULT (strftime('%s', 'now')),
@@ -71,7 +161,6 @@ function initDatabase() {
 
     CREATE INDEX IF NOT EXISTS idx_experiences_type ON experiences(type);
     CREATE INDEX IF NOT EXISTS idx_experiences_domain ON experiences(domain);
-    CREATE INDEX IF NOT EXISTS idx_experiences_scope ON experiences(scope);
     CREATE INDEX IF NOT EXISTS idx_experiences_created ON experiences(created_at);
 
     -- FTS5 virtual table for full-text search with BM25 ranking
@@ -218,11 +307,7 @@ function recordExperience(params) {
     );
   }
 
-  // Auto-detect scope if set to "auto" or not provided
-  let scope = params.scope || 'auto';
-  if (scope === 'auto') {
-    scope = detectScope(params);
-  }
+  // v1.4.0: scope parameter removed - all experiences are project-scoped by location
 
   // Check for duplicates using Dice coefficient
   const duplicate = findDuplicate(params, 0.9);
@@ -235,10 +320,10 @@ function recordExperience(params) {
     };
   }
 
-  // Insert experience
+  // Insert experience (v1.4.0: no scope field)
   const stmt = db.prepare(`
-    INSERT INTO experiences (type, domain, situation, approach, outcome, reasoning, confidence, scope, tags, revision_of)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO experiences (type, domain, situation, approach, outcome, reasoning, confidence, tags, revision_of)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const result = stmt.run(
@@ -249,7 +334,6 @@ function recordExperience(params) {
     params.outcome,
     params.reasoning,
     params.confidence || null,
-    scope,
     params.tags ? JSON.stringify(params.tags) : null,
     params.revision_of || null
   );
@@ -264,33 +348,11 @@ function recordExperience(params) {
   return {
     recorded: true,
     experience_id: result.lastInsertRowid,
-    scope: scope,
     message: `Experience recorded successfully (ID: ${result.lastInsertRowid})`
   };
 }
 
-/**
- * Detect scope (user vs project) from experience content
- */
-function detectScope(params) {
-  const text = `${params.situation} ${params.approach} ${params.outcome}`.toLowerCase();
-
-  // Check for project-specific indicators
-  const projectIndicators = [
-    /\bproject\b/, /\bcodebase\b/, /\brepository\b/, /\brepo\b/,
-    /src\//, /components\//, /\.tsx/, /\.jsx/, /\.ts/, /\.js/,
-    /package\.json/, /tsconfig/, /webpack/, /vite/
-  ];
-
-  for (const pattern of projectIndicators) {
-    if (pattern.test(text)) {
-      return 'project';
-    }
-  }
-
-  // Default to user scope
-  return 'user';
-}
+// v1.4.0: detectScope() removed - all experiences are project-scoped by location
 
 /**
  * Find duplicate experience using Dice coefficient similarity
@@ -509,8 +571,8 @@ function updateExperience(params) {
     );
   }
 
-  // Create new revision
-  const fields = ['type', 'domain', 'situation', 'approach', 'outcome', 'reasoning', 'confidence', 'scope', 'tags'];
+  // Create new revision (v1.4.0: scope field removed)
+  const fields = ['type', 'domain', 'situation', 'approach', 'outcome', 'reasoning', 'confidence', 'tags'];
   const newData = { ...original };
 
   for (const field of fields) {
@@ -520,8 +582,8 @@ function updateExperience(params) {
   }
 
   const stmt = db.prepare(`
-    INSERT INTO experiences (type, domain, situation, approach, outcome, reasoning, confidence, scope, tags, revision_of)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO experiences (type, domain, situation, approach, outcome, reasoning, confidence, tags, revision_of)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const result = stmt.run(
@@ -532,7 +594,6 @@ function updateExperience(params) {
     newData.outcome,
     newData.reasoning,
     newData.confidence,
-    newData.scope,
     newData.tags,
     params.id
   );
@@ -630,10 +691,7 @@ function exportExperiences(params) {
       sql += ' AND type = ?';
       sqlParams.push(params.filter.type);
     }
-    if (params.filter.scope) {
-      sql += ' AND scope = ?';
-      sqlParams.push(params.filter.scope);
-    }
+    // v1.4.0: scope filter removed - all experiences are project-scoped by location
   }
 
   sql += ' ORDER BY created_at DESC';
@@ -665,7 +723,7 @@ function exportExperiences(params) {
       output += `## Experience ${exp.id}: ${exp.domain}\\n\\n`;
       output += `**Type:** ${exp.type}\\n`;
       output += `**Confidence:** ${exp.confidence || 'N/A'}\\n`;
-      output += `**Scope:** ${exp.scope}\\n`;
+      // v1.4.0: scope field removed - all experiences are project-scoped by location
       output += `**Tags:** ${exp.tags && exp.tags.length ? exp.tags.join(', ') : 'None'}\\n\\n`;
       output += `### Situation\\n${exp.situation}\\n\\n`;
       output += `### Approach\\n${exp.approach}\\n\\n`;
@@ -694,6 +752,107 @@ function exportExperiences(params) {
     format: params.format,
     output: output,
     message: `Exported ${experiences.length} experiences`
+  };
+}
+
+/**
+ * Tool 7: import_experiences (v1.4.0)
+ * Import experiences from a JSON file into the current project
+ * Enables cross-project knowledge sharing via export/import workflow
+ */
+function importExperiences(params) {
+  if (!params.filename || typeof params.filename !== 'string') {
+    throw new ValidationError(
+      'Missing or invalid "filename" parameter',
+      'Required: filename = string (path to JSON file from export_experiences)\\n\\n' +
+      'Example:\\n' +
+      JSON.stringify({
+        filename: 'exported-experiences.json'
+      }, null, 2)
+    );
+  }
+
+  // Ensure project context
+  ensureProjectContext();
+
+  // Check file exists
+  if (!fs.existsSync(params.filename)) {
+    throw new ValidationError(
+      `File not found: ${params.filename}`,
+      'Provide the path to a JSON file created by export_experiences.'
+    );
+  }
+
+  // Read and parse file
+  let data;
+  try {
+    const content = fs.readFileSync(params.filename, 'utf8');
+    data = JSON.parse(content);
+  } catch (e) {
+    throw new ValidationError(
+      `Failed to parse JSON file: ${e.message}`,
+      'The file must be valid JSON from export_experiences with format: json'
+    );
+  }
+
+  // Validate structure
+  if (!Array.isArray(data)) {
+    throw new ValidationError(
+      'Invalid export format',
+      'Expected an array of experiences from export_experiences'
+    );
+  }
+
+  // Import each experience
+  let imported = 0;
+  let skipped = 0;
+  const errors = [];
+
+  for (const exp of data) {
+    try {
+      // Validate required fields
+      if (!exp.type || !exp.domain || !exp.situation || !exp.approach || !exp.outcome || !exp.reasoning) {
+        skipped++;
+        continue;
+      }
+
+      // Insert without preserving original ID (let SQLite assign new one)
+      const stmt = db.prepare(`
+        INSERT INTO experiences (type, domain, situation, approach, outcome, reasoning, confidence, tags)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+
+      stmt.run(
+        exp.type,
+        exp.domain,
+        exp.situation,
+        exp.approach,
+        exp.outcome,
+        exp.reasoning,
+        exp.confidence || null,
+        exp.tags ? (typeof exp.tags === 'string' ? exp.tags : JSON.stringify(exp.tags)) : null
+      );
+
+      imported++;
+    } catch (e) {
+      errors.push(`Experience ${exp.id || '?'}: ${e.message}`);
+      skipped++;
+    }
+  }
+
+  logActivity('experiences_imported', null, {
+    filename: params.filename,
+    imported,
+    skipped,
+    total: data.length
+  });
+
+  return {
+    imported,
+    skipped,
+    total: data.length,
+    errors: errors.length > 0 ? errors.slice(0, 5) : undefined, // Show first 5 errors
+    message: `Imported ${imported} experiences (${skipped} skipped)`
   };
 }
 
@@ -1105,8 +1264,8 @@ function finalizeDecision(params) {
         outcome: params.conclusion,
         reasoning: params.rationale || 'Systematic reasoning process',
         confidence: thoughts.length > 0 ?
-          (thoughts.reduce((sum, t) => sum + (t.confidence || 0.5), 0) / thoughts.length) : 0.7,
-        scope: 'auto'
+          (thoughts.reduce((sum, t) => sum + (t.confidence || 0.5), 0) / thoughts.length) : 0.7
+        // v1.4.0: scope parameter removed
       });
 
       if (expResult.recorded) {
@@ -1597,8 +1756,8 @@ function listPresets(params) {
     });
   }
 
-  // Add custom presets from filesystem
-  const PRESETS_DIR = path.join(os.homedir(), '.unified-mcp', 'presets');
+  // v1.4.0: Add custom presets from project-local .claude/presets/
+  const PRESETS_DIR = path.join(getProjectDir(), 'presets');
   try {
     if (fs.existsSync(PRESETS_DIR)) {
       const files = fs.readdirSync(PRESETS_DIR);
@@ -1647,9 +1806,9 @@ function applyPreset(params) {
   // Check built-in presets first
   let preset = BUILT_IN_PRESETS[params.preset_name];
 
-  // If not built-in, check custom presets
+  // If not built-in, check custom presets in project-local .claude/presets/
   if (!preset) {
-    const PRESETS_DIR = path.join(os.homedir(), '.unified-mcp', 'presets');
+    const PRESETS_DIR = path.join(getProjectDir(), 'presets');
     const presetPath = path.join(PRESETS_DIR, `${params.preset_name}.json`);
 
     if (fs.existsSync(presetPath)) {
@@ -1780,8 +1939,8 @@ function getConfig(params) {
   let config = BUILT_IN_PRESETS[activePreset];
 
   if (!config) {
-    // Try custom preset
-    const PRESETS_DIR = path.join(os.homedir(), '.unified-mcp', 'presets');
+    // Try custom preset in project-local .claude/presets/
+    const PRESETS_DIR = path.join(getProjectDir(), 'presets');
     const presetPath = path.join(PRESETS_DIR, `${activePreset}.json`);
 
     if (fs.existsSync(presetPath)) {
@@ -1815,8 +1974,8 @@ function exportConfig(params) {
   let preset = BUILT_IN_PRESETS[params.preset_name];
 
   if (!preset) {
-    // Try custom preset
-    const PRESETS_DIR = path.join(os.homedir(), '.unified-mcp', 'presets');
+    // Try custom preset in project-local .claude/presets/
+    const PRESETS_DIR = path.join(getProjectDir(), 'presets');
     const presetPath = path.join(PRESETS_DIR, `${params.preset_name}.json`);
 
     if (fs.existsSync(presetPath)) {
@@ -1829,12 +1988,12 @@ function exportConfig(params) {
     }
   }
 
-  // Determine export path
+  // Determine export path - v1.4.0: project-local .claude/presets/
   let exportPath;
   if (params.file_path) {
     exportPath = params.file_path;
   } else {
-    const PRESETS_DIR = path.join(os.homedir(), '.unified-mcp', 'presets');
+    const PRESETS_DIR = path.join(getProjectDir(), 'presets');
     if (!fs.existsSync(PRESETS_DIR)) {
       fs.mkdirSync(PRESETS_DIR, { recursive: true });
     }
@@ -2484,10 +2643,10 @@ CONFIGURATION:
 DOCUMENTATION:
   https://github.com/mpalpha/unified-mcp-server
 
-27 TOOLS AVAILABLE:
-  Knowledge Management (6 tools):
+28 TOOLS AVAILABLE:
+  Knowledge Management (7 tools):
     - record_experience, search_experiences, get_experience
-    - update_experience, tag_experience, export_experiences
+    - update_experience, tag_experience, export_experiences, import_experiences
 
   Reasoning (4 tools):
     - analyze_problem, gather_context, reason_through, finalize_decision
@@ -2566,8 +2725,25 @@ TOKEN DIRECTORY:   ${TOKEN_DIR}
 SETUP STATUS:
   ✓ Database directory created
   ✓ Token directory created
-  ✓ Namespace: ~/.unified-mcp/
+  ✓ Namespace: .claude/ (project-local, v1.4.0)
 `);
+
+  // v1.4.0: Check for and cleanup old global storage
+  const oldGlobalDir = path.join(os.homedir(), '.unified-mcp');
+  if (fs.existsSync(oldGlobalDir)) {
+    console.log(`
+╔═══════════════════════════════════════════════════════════╗
+║   v1.4.0 MIGRATION: Old Global Storage Detected           ║
+╚═══════════════════════════════════════════════════════════╝
+
+Found old global storage at: ${oldGlobalDir}
+
+v1.4.0 uses project-local storage (.claude/) instead.
+The old global storage is no longer used and can be safely removed.
+
+To remove: rm -rf ${oldGlobalDir}
+`);
+  }
 
   const setupState = {
     preset: null,
@@ -2694,7 +2870,7 @@ Migrate old database? [Y/n] (default: Yes - preserve your knowledge): `, (answer
         if (setupState.preset) {
           const presetConfig = BUILT_IN_PRESETS[setupState.preset];
           if (presetConfig) {
-            // Save preset to ~/.unified-mcp/config.json
+            // Save preset to .claude/config.json (v1.4.0: project-local)
             const configPath = path.join(MCP_DIR, 'config.json');
             fs.writeFileSync(configPath, JSON.stringify(presetConfig, null, 2));
             console.log(`✓ Applied ${setupState.preset} preset to ${configPath}`);
@@ -2835,7 +3011,7 @@ Migrate old database? [Y/n] (default: Yes - preserve your knowledge): `, (answer
 4. After completing customization, delete this prompt file:
 
    AGENT: Run this command to dismiss the prompt:
-     rm ~/.unified-mcp/post-install-prompts/${projectHash}.md
+     rm .claude/post-install-prompts/${projectHash}.md
 
    USER: If you ran the installation manually, delete the file above to stop seeing this prompt.`;
         try {
@@ -2867,7 +3043,7 @@ Migrate old database? [Y/n] (default: Yes - preserve your knowledge): `, (answer
         console.log('    2. Propose customization options (record to database, add to hooks, or search)');
         console.log('    3. Wait for user approval before executing\n');
         console.log('  💡 HOW IT WORKS:');
-        console.log(`    ✓ Prompt saved to ~/.unified-mcp/post-install-prompts/${projectHash}.md`);
+        console.log(`    ✓ Prompt saved to .claude/post-install-prompts/${projectHash}.md`);
         console.log('    ✓ Hook injects prompt automatically after restart');
         console.log('    ✓ Agent/user deletes file after completing customization');
         console.log('    ✓ If not deleted, prompt re-appears on next session (retry safety)\n');
@@ -2915,7 +3091,7 @@ Migrate old database? [Y/n] (default: Yes - preserve your knowledge): `, (answer
           console.log('  EXPECTED OUTPUT:');
           console.log('    • Experience recorded with an ID');
           console.log('    • Search returns the installation experience');
-          console.log('    • Database path: ~/.unified-mcp/data.db\n');
+          console.log('    • Database path: .claude/experiences.db\n');
           console.log('  This verifies:');
           console.log('    ✓ MCP server is connected');
           console.log('    ✓ Basic tools are accessible (record_experience, search_experiences)');
@@ -2995,9 +3171,9 @@ if (args.includes('--health')) {
 if (args.includes('--validate')) {
   console.log('Validating configuration...\n');
   try {
-    // Try to load config from ~/.unified-mcp/config.json
-    const homeDir = path.join(os.homedir(), '.unified-mcp');
-    const configPath = path.join(homeDir, 'config.json');
+    // v1.4.0: Load config from project-local .claude/config.json
+    const claudeDir = path.join(process.cwd(), '.claude');
+    const configPath = path.join(claudeDir, 'config.json');
 
     if (!fs.existsSync(configPath)) {
       console.log('No configuration file found at:', configPath);
@@ -3112,7 +3288,7 @@ rl.on('line', (line) => {
                   outcome: { type: 'string' },
                   reasoning: { type: 'string' },
                   confidence: { type: 'number', minimum: 0, maximum: 1 },
-                  scope: { type: 'string', enum: ['auto', 'user', 'project'] },
+                  // v1.4.0: scope removed - all experiences are project-scoped by location
                   tags: { type: 'array', items: { type: 'string' } },
                   revision_of: { type: 'number' }
                 },
@@ -3178,10 +3354,22 @@ rl.on('line', (line) => {
                 type: 'object',
                 properties: {
                   format: { type: 'string', enum: ['json', 'markdown'] },
-                  filter: { type: 'object', description: 'Optional filters (domain, type, scope, tags)' },
+                  filter: { type: 'object', description: 'Optional filters (domain, type, tags)' },
                   output_path: { type: 'string', description: 'Optional file path (defaults to stdout)' }
                 },
                 required: ['format']
+              }
+            },
+            {
+              name: 'import_experiences',
+              description: 'Import experiences from a JSON file exported from another project',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  filename: { type: 'string', description: 'Path to JSON file to import' },
+                  filter: { type: 'object', description: 'Optional filters (domain, type)' }
+                },
+                required: ['filename']
               }
             },
             {
@@ -3477,6 +3665,9 @@ rl.on('line', (line) => {
               break;
             case 'export_experiences':
               result = exportExperiences(toolParams);
+              break;
+            case 'import_experiences':
+              result = importExperiences(toolParams);
               break;
             case 'analyze_problem':
               result = analyzeProblem(toolParams);

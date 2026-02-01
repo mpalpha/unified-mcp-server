@@ -224,7 +224,7 @@ async function analyzeEdgeCases() {
   console.log('\n' + colors.bold + 'For production deployment:' + colors.reset);
   console.log('1. ' + colors.green + 'Deploy with confidence' + colors.reset + ' - hooks enforce file operations');
   console.log('2. ' + colors.yellow + 'Manual test' + colors.reset + ' with real Claude Code (see docs/MANUAL_TESTING_GUIDE.md)');
-  console.log('3. ' + colors.cyan + 'Monitor real usage' + colors.reset + ' - check ~/.unified-mcp/data.db for compliance');
+  console.log('3. ' + colors.cyan + 'Monitor real usage' + colors.reset + ' - check .claude/experiences.db for compliance');
   console.log('4. ' + colors.blue + 'Iterate' + colors.reset + ' - improve tool descriptions if agents skip steps');
   console.log('\n' + colors.bold + 'Expected real-world compliance:' + colors.reset);
   console.log(`  Minimum (hooks only): ${colors.green}${fullEnforcementPct}%${colors.reset} of file-modifying requests`);

@@ -1,8 +1,67 @@
 /**
  * Test Utilities - Shared helpers for all test files
+ *
+ * v1.4.0: Added createTestProject/cleanupTestProject for project-scoped experiences
  */
 
 const { spawn } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+
+/**
+ * Create a temporary test project directory with .claude/ structure
+ * @returns {string} Path to the test project directory
+ */
+function createTestProject() {
+  const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'unified-mcp-test-'));
+  const claudeDir = path.join(testDir, '.claude');
+
+  // Create .claude directory structure
+  fs.mkdirSync(claudeDir);
+  fs.mkdirSync(path.join(claudeDir, 'tokens'));
+
+  // Create empty config files
+  fs.writeFileSync(path.join(claudeDir, 'config.json'), JSON.stringify({}, null, 2));
+  fs.writeFileSync(path.join(claudeDir, 'project-context.json'), JSON.stringify({
+    enabled: false,
+    summary: null,
+    highlights: [],
+    reminders: [],
+    preImplementation: [],
+    postImplementation: []
+  }, null, 2));
+
+  return testDir;
+}
+
+/**
+ * Clean up a test project directory
+ * @param {string} testDir - Path to the test project directory
+ */
+function cleanupTestProject(testDir) {
+  if (testDir && testDir.includes('unified-mcp-test-')) {
+    fs.rmSync(testDir, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Get the .claude directory path for a test project
+ * @param {string} testDir - Path to the test project directory
+ * @returns {string} Path to the .claude directory
+ */
+function getTestClaudeDir(testDir) {
+  return path.join(testDir, '.claude');
+}
+
+/**
+ * Get the database path for a test project
+ * @param {string} testDir - Path to the test project directory
+ * @returns {string} Path to the experiences.db file
+ */
+function getTestDbPath(testDir) {
+  return path.join(testDir, '.claude', 'experiences.db');
+}
 
 // ANSI colors
 const colors = {
@@ -19,11 +78,16 @@ let testsPassed = 0;
 let testsFailed = 0;
 
 // Helper: Call MCP tool
-async function callMCP(toolName, args) {
+// v1.4.0: Added optional cwd parameter for project-scoped testing
+async function callMCP(toolName, args, options = {}) {
   return new Promise((resolve, reject) => {
     const path = require('path');
     const indexPath = path.join(__dirname, '..', 'index.js');
-    const server = spawn('node', [indexPath], { stdio: ['pipe', 'pipe', 'pipe'] });
+    const spawnOptions = { stdio: ['pipe', 'pipe', 'pipe'] };
+    if (options.cwd) {
+      spawnOptions.cwd = options.cwd;
+    }
+    const server = spawn('node', [indexPath], spawnOptions);
     let stdout = '';
     let stderr = '';
 
@@ -155,5 +219,10 @@ module.exports = {
   assertEquals,
   assertContains,
   getStats,
-  resetStats
+  resetStats,
+  // v1.4.0: Project-scoped test helpers
+  createTestProject,
+  cleanupTestProject,
+  getTestClaudeDir,
+  getTestDbPath
 };

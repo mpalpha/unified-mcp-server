@@ -1,35 +1,15 @@
 /**
  * Knowledge Management Tools
- * 
+ *
  * Tools for recording, searching, and managing working knowledge patterns.
  * Tracks effective and ineffective approaches across different domains.
+ *
+ * v1.4.0: All experiences are project-scoped by location in .claude/
+ * No scope field or detectScope() - location IS scope.
  */
 
 const { getDatabase, logActivity } = require('../database.js');
 const { ValidationError } = require('../validation.js');
-
-/**
- * Detect scope (user vs project) from experience content
- */
-function detectScope(params) {
-  const text = `${params.situation} ${params.approach} ${params.outcome}`.toLowerCase();
-
-  // Check for project-specific indicators
-  const projectIndicators = [
-    /\bproject\b/, /\bcodebase\b/, /\brepository\b/, /\brepo\b/,
-    /src\//, /components\//, /\.tsx/, /\.jsx/, /\.ts/, /\.js/,
-    /package\.json/, /tsconfig/, /webpack/, /vite/
-  ];
-
-  for (const pattern of projectIndicators) {
-    if (pattern.test(text)) {
-      return 'project';
-    }
-  }
-
-  // Default to user scope
-  return 'user';
-}
 
 /**
  * Calculate Dice coefficient similarity between two strings
@@ -83,7 +63,9 @@ function findDuplicate(params, threshold) {
 
 /**
  * Record a working knowledge pattern (effective or ineffective approach)
- * 
+ *
+ * v1.4.0: Removed scope parameter - all experiences are project-scoped by location
+ *
  * @param {Object} params - Experience parameters
  * @param {string} params.type - Type of experience ('effective' or 'ineffective')
  * @param {string} params.domain - Domain category
@@ -92,14 +74,13 @@ function findDuplicate(params, threshold) {
  * @param {string} params.outcome - The outcome or result
  * @param {string} params.reasoning - Why this approach worked/didn't work
  * @param {number} [params.confidence] - Confidence level (0-1)
- * @param {string} [params.scope] - Scope ('user' or 'project', default 'auto')
  * @param {string[]} [params.tags] - Optional tags
  * @param {number} [params.revision_of] - ID of experience being revised
  * @returns {Object} Result with recorded status and experience ID
  */
 function recordExperience(params) {
   const db = getDatabase();
-  
+
   // Validate required parameters
   if (!params.type || !['effective', 'ineffective'].includes(params.type)) {
     throw new ValidationError(
@@ -134,12 +115,6 @@ function recordExperience(params) {
     );
   }
 
-  // Auto-detect scope if set to "auto" or not provided
-  let scope = params.scope || 'auto';
-  if (scope === 'auto') {
-    scope = detectScope(params);
-  }
-
   // Check for duplicates using Dice coefficient
   const duplicate = findDuplicate(params, 0.9);
   if (duplicate) {
@@ -151,10 +126,10 @@ function recordExperience(params) {
     };
   }
 
-  // Insert experience
+  // v1.4.0: Insert experience WITHOUT scope field
   const stmt = db.prepare(`
-    INSERT INTO experiences (type, domain, situation, approach, outcome, reasoning, confidence, scope, tags, revision_of)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO experiences (type, domain, situation, approach, outcome, reasoning, confidence, tags, revision_of)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const result = stmt.run(
@@ -165,7 +140,6 @@ function recordExperience(params) {
     params.outcome,
     params.reasoning,
     params.confidence || null,
-    scope,
     params.tags ? JSON.stringify(params.tags) : null,
     params.revision_of || null
   );
@@ -180,25 +154,26 @@ function recordExperience(params) {
   return {
     recorded: true,
     experience_id: result.lastInsertRowid,
-    scope: scope,
     message: `Experience recorded successfully (ID: ${result.lastInsertRowid})`
   };
 }
 
 /**
  * Search for relevant working knowledge using natural language queries
- * 
+ *
+ * v1.4.0: Removed scope parameter and source field from results
+ * All experiences are project-scoped by location
+ *
  * @param {Object} params - Search parameters
  * @param {string} params.query - Natural language search query
  * @param {string[]} [params.domains] - Filter by domains
  * @param {string} [params.type] - Filter by type ('effective' or 'ineffective')
- * @param {string} [params.scope] - Filter by scope ('user' or 'project')
  * @param {number} [params.limit] - Maximum results (default 10)
  * @returns {Object} Search results with experiences
  */
 function searchExperiences(params) {
   const db = getDatabase();
-  
+
   if (!params.query) {
     throw new ValidationError(
       'Missing "query" parameter',
@@ -207,6 +182,7 @@ function searchExperiences(params) {
     );
   }
 
+  // v1.4.0: Removed scope from SELECT
   let sql = `
     SELECT
       e.id,
@@ -217,7 +193,6 @@ function searchExperiences(params) {
       e.outcome,
       e.reasoning,
       e.confidence,
-      e.scope,
       e.tags,
       e.created_at,
       fts.rank AS relevance_score
@@ -242,11 +217,7 @@ function searchExperiences(params) {
     queryParams.push(...params.domains);
   }
 
-  // Filter by scope
-  if (params.scope) {
-    conditions.push('e.scope = ?');
-    queryParams.push(params.scope);
-  }
+  // v1.4.0: Removed scope filter - all experiences are project-scoped
 
   if (conditions.length > 0) {
     sql += ' AND ' + conditions.join(' AND ');
@@ -493,17 +464,18 @@ function tagExperience(params) {
 
 /**
  * Export experiences to JSON format
- * 
+ *
+ * v1.4.0: Removed scope parameter - always exports current project
+ *
  * @param {Object} params - Export parameters
  * @param {string[]} [params.domains] - Filter by domains
  * @param {string} [params.type] - Filter by type
- * @param {string} [params.scope] - Filter by scope
  * @param {number} [params.since] - Unix timestamp to filter experiences after
  * @returns {Object} Exported experiences
  */
-function exportExperiences(params) {
+function exportExperiences(params = {}) {
   const db = getDatabase();
-  
+
   let sql = 'SELECT * FROM experiences WHERE 1=1';
   const queryParams = [];
 
@@ -518,10 +490,7 @@ function exportExperiences(params) {
     queryParams.push(...params.domains);
   }
 
-  if (params.scope) {
-    sql += ' AND scope = ?';
-    queryParams.push(params.scope);
-  }
+  // v1.4.0: Removed scope filter - all experiences are project-scoped
 
   if (params.since) {
     sql += ' AND created_at >= ?';
@@ -548,7 +517,6 @@ function exportExperiences(params) {
     filters: {
       type: params.type,
       domains: params.domains,
-      scope: params.scope,
       since: params.since
     }
   });
@@ -559,10 +527,100 @@ function exportExperiences(params) {
     filters: {
       type: params.type,
       domains: params.domains,
-      scope: params.scope,
       since: params.since
     },
     experiences: experiences
+  };
+}
+
+/**
+ * Import experiences from JSON file into current project
+ *
+ * v1.4.0: New tool for cross-project sharing
+ *
+ * @param {Object} params - Import parameters
+ * @param {string} params.filename - Path to JSON file to import
+ * @returns {Object} Import result with count
+ */
+function importExperiences(params) {
+  const fs = require('fs');
+  const db = getDatabase();
+
+  if (!params.filename) {
+    throw new ValidationError(
+      'Missing "filename" parameter',
+      'Required: filename = <path to JSON file>\n\n' +
+      'Example: filename: "exported-experiences.json"'
+    );
+  }
+
+  if (!fs.existsSync(params.filename)) {
+    throw new ValidationError(
+      `File not found: ${params.filename}`,
+      'The specified file does not exist. Check the path and try again.'
+    );
+  }
+
+  let data;
+  try {
+    data = JSON.parse(fs.readFileSync(params.filename, 'utf8'));
+  } catch (e) {
+    throw new ValidationError(
+      'Invalid JSON file',
+      `Could not parse ${params.filename}: ${e.message}`
+    );
+  }
+
+  if (!data.experiences || !Array.isArray(data.experiences)) {
+    throw new ValidationError(
+      'Invalid export format',
+      'The JSON file must have an "experiences" array property.'
+    );
+  }
+
+  let imported = 0;
+  let skipped = 0;
+
+  const insertStmt = db.prepare(`
+    INSERT INTO experiences (type, domain, situation, approach, outcome, reasoning, confidence, tags, revision_of)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  for (const exp of data.experiences) {
+    // Skip invalid experiences
+    if (!exp.type || !exp.domain || !exp.situation || !exp.approach || !exp.outcome || !exp.reasoning) {
+      skipped++;
+      continue;
+    }
+
+    try {
+      insertStmt.run(
+        exp.type,
+        exp.domain,
+        exp.situation,
+        exp.approach,
+        exp.outcome,
+        exp.reasoning,
+        exp.confidence || null,
+        exp.tags ? (typeof exp.tags === 'string' ? exp.tags : JSON.stringify(exp.tags)) : null,
+        null // Don't preserve revision_of relationships across projects
+      );
+      imported++;
+    } catch (e) {
+      skipped++;
+    }
+  }
+
+  logActivity('experiences_imported', null, {
+    filename: params.filename,
+    imported: imported,
+    skipped: skipped
+  });
+
+  return {
+    imported: imported,
+    skipped: skipped,
+    message: `Imported ${imported} experiences (${skipped} skipped)`
   };
 }
 
@@ -572,5 +630,7 @@ module.exports = {
   getExperience,
   updateExperience,
   tagExperience,
-  exportExperiences
+  exportExperiences,
+  // v1.4.0: New tool for cross-project sharing
+  importExperiences
 };

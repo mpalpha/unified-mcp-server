@@ -1,11 +1,15 @@
 /**
  * Configuration Management Tools
- * 
+ *
  * Tools for managing server configuration, presets, and validation.
  * Supports workflow presets and configuration export/import.
+ *
+ * v1.4.0: All presets stored in project-local .claude/presets/
  */
 
-const { getDatabase, logActivity } = require('../database.js');
+const fs = require('fs');
+const path = require('path');
+const { getDatabase, getProjectDir, logActivity } = require('../database.js');
 const { ValidationError } = require('../validation.js');
 
 const BUILT_IN_PRESETS = {
@@ -117,8 +121,8 @@ function listPresets(params) {
     });
   }
 
-  // Add custom presets from filesystem
-  const PRESETS_DIR = path.join(os.homedir(), '.unified-mcp', 'presets');
+  // v1.4.0: Add custom presets from project-local .claude/presets/
+  const PRESETS_DIR = path.join(getProjectDir(), 'presets');
   try {
     if (fs.existsSync(PRESETS_DIR)) {
       const files = fs.readdirSync(PRESETS_DIR);
@@ -167,9 +171,9 @@ function applyPreset(params) {
   // Check built-in presets first
   let preset = BUILT_IN_PRESETS[params.preset_name];
 
-  // If not built-in, check custom presets
+  // If not built-in, check custom presets in project-local .claude/presets/
   if (!preset) {
-    const PRESETS_DIR = path.join(os.homedir(), '.unified-mcp', 'presets');
+    const PRESETS_DIR = path.join(getProjectDir(), 'presets');
     const presetPath = path.join(PRESETS_DIR, `${params.preset_name}.json`);
 
     if (fs.existsSync(presetPath)) {
@@ -300,8 +304,8 @@ function getConfig(params) {
   let config = BUILT_IN_PRESETS[activePreset];
 
   if (!config) {
-    // Try custom preset
-    const PRESETS_DIR = path.join(os.homedir(), '.unified-mcp', 'presets');
+    // Try custom preset in project-local .claude/presets/
+    const PRESETS_DIR = path.join(getProjectDir(), 'presets');
     const presetPath = path.join(PRESETS_DIR, `${activePreset}.json`);
 
     if (fs.existsSync(presetPath)) {
@@ -335,8 +339,8 @@ function exportConfig(params) {
   let preset = BUILT_IN_PRESETS[params.preset_name];
 
   if (!preset) {
-    // Try custom preset
-    const PRESETS_DIR = path.join(os.homedir(), '.unified-mcp', 'presets');
+    // Try custom preset in project-local .claude/presets/
+    const PRESETS_DIR = path.join(getProjectDir(), 'presets');
     const presetPath = path.join(PRESETS_DIR, `${params.preset_name}.json`);
 
     if (fs.existsSync(presetPath)) {
@@ -349,12 +353,12 @@ function exportConfig(params) {
     }
   }
 
-  // Determine export path
+  // v1.4.0: Export to project-local .claude/presets/
   let exportPath;
   if (params.file_path) {
     exportPath = params.file_path;
   } else {
-    const PRESETS_DIR = path.join(os.homedir(), '.unified-mcp', 'presets');
+    const PRESETS_DIR = path.join(getProjectDir(), 'presets');
     if (!fs.existsSync(PRESETS_DIR)) {
       fs.mkdirSync(PRESETS_DIR, { recursive: true });
     }

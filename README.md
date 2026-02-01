@@ -81,44 +81,44 @@ Add to your MCP settings (e.g., `~/.config/claude/claude_desktop_config.json`):
 }
 ```
 
-## Migration Tool
+## v1.4.0: Project-Scoped Experiences
 
-### Migrate Existing Experiences
+**Breaking Change**: v1.4.0 moves all data storage from global `~/.unified-mcp/` to project-local `.claude/` directories.
 
-If you have an old `memory-augmented-reasoning.db` database, migrate it:
+### Key Changes
+- All experiences are now stored in `{project}/.claude/experiences.db`
+- No global storage - each project has its own isolated database
+- Use `export_experiences` and `import_experiences` for cross-project sharing
+- Old `~/.unified-mcp/` directory is no longer used (see migration below)
+
+### Benefits
+- **Portability**: `.claude/` folder travels with your project
+- **Isolation**: Zero cross-project pollution
+- **Clarity**: One location to understand and manage
+
+### Migration from v1.3.x
+
+v1.4.0 is a clean slate. To preserve old experiences:
 
 ```bash
-# Preview migration (safe, no changes)
-node scripts/migrate-experiences.js \
-  --source ~/.cursor/memory-augmented-reasoning.db \
-  --dry-run
+# 1. Export from old global database (while running v1.3.x)
+# Use export_experiences tool to create a JSON file
 
-# Perform migration
-node scripts/migrate-experiences.js \
-  --source ~/.cursor/memory-augmented-reasoning.db
+# 2. Upgrade to v1.4.0
+npm install unified-mcp-server@latest
+
+# 3. Initialize in your project
+npx unified-mcp-server --init
+
+# 4. Import old experiences
+# Use import_experiences({ filename: "exported-experiences.json" })
 ```
 
-**Options:**
-- `--source <path>` - Source database (required)
-- `--target <path>` - Target database (default: ~/.unified-mcp/data.db)
-- `--dry-run` - Preview without changes
-- `--skip-duplicates` - Faster migration
-- `--verbose` - Detailed output
-
-**See [docs/MIGRATION_GUIDE.md](docs/MIGRATION_GUIDE.md) for complete instructions.**
-
-### What Gets Migrated
-
-The migration tool automatically converts:
-- ✅ All experiences (effective + ineffective)
-- ✅ Revision relationships
-- ✅ Field transformations (alternative → reasoning, context → scope)
-- ✅ Metadata tags (contradicts, supports, session info)
-- ✅ Timestamp conversion (TEXT → unix timestamp)
+The `--init` wizard will detect old `~/.unified-mcp/` data and suggest removal.
 
 ## Tools
 
-### Research Workflow (5 tools)
+### Research Workflow (6 tools)
 
 **Primary workflow** - Use before making code changes:
 
@@ -126,7 +126,8 @@ The migration tool automatically converts:
 2. **`search_experiences`** - Find related past experiences
 3. **`record_experience`** - Save new learnings
 4. **`export_experiences`** - Export experience library
-5. **`check_protocol_compliance`** - Verify workflow completion
+5. **`import_experiences`** - Import experiences from another project (v1.4.0)
+6. **`check_protocol_compliance`** - Verify workflow completion
 
 ### Protocol Enforcement (2 tools)
 
@@ -163,7 +164,7 @@ Customize workflow reminders with project-specific context:
 - **`update_project_context`** - Store project context as JSON data (summary, highlights, reminders)
 - **`get_project_context`** - Retrieve current project context configuration
 
-**Total: 27 tools**
+**Total: 28 tools** (v1.4.0 adds `import_experiences`)
 
 ## Hooks
 
@@ -324,23 +325,27 @@ unified-mcp-server/
 
 ## Configuration
 
-### Database Location
+### Database Location (v1.4.0+)
 
-Default: `~/.unified-mcp/data.db`
+**Project-local**: `{project}/.claude/experiences.db`
 
-Override via environment:
-```bash
-export UNIFIED_MCP_DB="/path/to/custom.db"
+All data is stored per-project in the `.claude/` directory:
+```
+your-project/
+├── .claude/
+│   ├── experiences.db       # Project experiences
+│   ├── config.json          # Preset configuration
+│   ├── project-context.json # Custom context
+│   └── tokens/              # Session tokens
 ```
 
 ### Hook Files
 
-Installed to: `~/.unified-mcp/hooks/`
-
-Files created:
-- `user_prompt_submit.cjs`
-- `pre_tool_use.cjs`
-- `stop.cjs`
+Hooks are bundled with the package and read from `.claude/`:
+- `user_prompt_submit.cjs` - Workflow guidance
+- `pre_tool_use.cjs` - Token validation
+- `stop.cjs` - Session cleanup
+- `session_start.cjs` - CHORES display
 
 ### Claude Code Settings
 
@@ -461,14 +466,15 @@ node index.js --install-hooks
 ### Database Issues
 
 ```bash
+# v1.4.0+: Database is in project's .claude/ directory
 # Check database exists
-ls -lh ~/.unified-mcp/data.db
+ls -lh .claude/experiences.db
 
 # Verify schema
-sqlite3 ~/.unified-mcp/data.db ".schema experiences"
+sqlite3 .claude/experiences.db ".schema experiences"
 
 # Check experience count
-sqlite3 ~/.unified-mcp/data.db "SELECT COUNT(*) FROM experiences"
+sqlite3 .claude/experiences.db "SELECT COUNT(*) FROM experiences"
 ```
 
 ### Test Failures

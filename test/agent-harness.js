@@ -10,6 +10,8 @@
  *
  * Cannot fully replace real Claude Code testing, but provides
  * automated verification of expected tool sequences for common scenarios.
+ *
+ * v1.4.0: Updated for project-scoped experiences
  */
 
 const { spawn } = require('child_process');
@@ -17,8 +19,13 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const TEST_DB = path.join(os.homedir(), '.unified-mcp', 'data.db');
-const TOKEN_DIR = path.join(os.homedir(), '.unified-mcp', 'tokens');
+// v1.4.0: Create project-scoped test directory
+const TEST_PROJECT = fs.mkdtempSync(path.join(os.tmpdir(), 'unified-mcp-harness-'));
+const CLAUDE_DIR = path.join(TEST_PROJECT, '.claude');
+fs.mkdirSync(CLAUDE_DIR);
+const TOKEN_DIR = path.join(CLAUDE_DIR, 'tokens');
+fs.mkdirSync(TOKEN_DIR);
+const TEST_DB = path.join(CLAUDE_DIR, 'experiences.db');
 
 // ANSI colors
 const colors = {
@@ -31,6 +38,8 @@ const colors = {
   cyan: '\x1b[36m'
 };
 
+console.log(`Test project: ${TEST_PROJECT}`);
+
 class MCPClient {
   constructor() {
     this.server = null;
@@ -42,7 +51,9 @@ class MCPClient {
   async start() {
     return new Promise((resolve, reject) => {
       this.server = spawn('node', [path.join(__dirname, '../index.js')], {
-        stdio: ['pipe', 'pipe', 'pipe']
+        stdio: ['pipe', 'pipe', 'pipe'],
+        cwd: TEST_PROJECT,
+        env: { ...process.env, PWD: TEST_PROJECT }
       });
 
       let initTimeout = setTimeout(() => {
@@ -559,14 +570,23 @@ async function runHarness() {
 
   } catch (error) {
     console.error(colors.red + 'Harness error:' + colors.reset, error.message);
+    // v1.4.0: Cleanup test project
+    try { fs.rmSync(TEST_PROJECT, { recursive: true, force: true }); } catch (e) {}
     process.exit(1);
   } finally {
     await client.stop();
+    // v1.4.0: Cleanup test project
+    try { fs.rmSync(TEST_PROJECT, { recursive: true, force: true }); } catch (e) {}
   }
 }
 
 if (require.main === module) {
-  runHarness().catch(console.error);
+  runHarness().catch(e => {
+    // v1.4.0: Cleanup test project on error
+    try { fs.rmSync(TEST_PROJECT, { recursive: true, force: true }); } catch (err) {}
+    console.error(e);
+    process.exit(1);
+  });
 }
 
 module.exports = { MCPClient, AgentScenario };

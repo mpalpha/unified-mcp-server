@@ -2,30 +2,34 @@
 /**
  * Flow Enforcement Tests - Verify three-gate workflow enforcement
  * Tests that agents actually follow TEACH → LEARN → REASON sequence
+ * v1.4.0: Updated for project-scoped experiences
  */
 
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { spawn, execSync } = require('child_process');
-const { colors, callMCP, parseJSONRPC, test, assertTrue, assertEquals, getStats } = require('./test-utils');
+const { colors, callMCP, parseJSONRPC, test, assertTrue, assertEquals, getStats, createTestProject, cleanupTestProject, getTestDbPath, getTestClaudeDir } = require('./test-utils');
 
-const TEST_DB = path.join(os.homedir(), '.unified-mcp', 'data.db');
-const TOKEN_DIR = path.join(os.homedir(), '.unified-mcp', 'tokens');
-const HOOKS_DIR = path.join(os.homedir(), '.unified-mcp', 'hooks');
+let testDir;
+let TEST_DB;
+let TOKEN_DIR;
+let HOOKS_DIR;
 
 async function runTests() {
   console.log(colors.bold + '\nFLOW ENFORCEMENT TESTS (10 tests)' + colors.reset);
   console.log(colors.cyan + '======================================================================' + colors.reset);
 
-  try {
-    if (fs.existsSync(TEST_DB)) {
-      fs.unlinkSync(TEST_DB);
-    }
-    console.log('\n🗑️  Cleaned test database\n');
-  } catch (e) {
-    // Ignore
-  }
+  // v1.4.0: Create project-scoped test directory
+  testDir = createTestProject();
+  const claudeDir = getTestClaudeDir(testDir);
+  TEST_DB = getTestDbPath(testDir);
+  TOKEN_DIR = path.join(claudeDir, 'tokens');
+  HOOKS_DIR = path.join(claudeDir, 'hooks');
+  console.log(`\n📁 Test project: ${testDir}\n`);
+
+  // Helper to call MCP with project context
+  const call = (tool, args) => callMCP(tool, args, { cwd: testDir });
 
   // Test 1: Unauthorized operation blocked without token
   await test('Block file operation without session token', async () => {
@@ -49,7 +53,7 @@ async function runTests() {
     const sessionId = `enforce-test-${Date.now()}`;
 
     // TEACH phase: Record experience
-    const recordResult = await callMCP('record_experience', {
+    const recordResult = await call('record_experience', {
       type: 'effective',
       domain: 'Process',
       situation: 'Flow enforcement test',
@@ -61,14 +65,14 @@ async function runTests() {
     assertTrue(recordResp && recordResp.result, 'TEACH phase: record_experience should succeed');
 
     // LEARN phase: Search experiences
-    const searchResult = await callMCP('search_experiences', {
+    const searchResult = await call('search_experiences', {
       query: 'enforcement test'
     });
     const searchResp = parseJSONRPC(searchResult.stdout).find(r => r.id === 2);
     assertTrue(searchResp && searchResp.result, 'LEARN phase: search_experiences should succeed');
 
     // REASON phase: Verify compliance and get token
-    const verifyResult = await callMCP('verify_compliance', {
+    const verifyResult = await call('verify_compliance', {
       session_id: sessionId,
       current_phase: 'reason',
       action: 'file_operation'
@@ -81,7 +85,7 @@ async function runTests() {
     assertTrue(verifyData.operation_token.length > 20, 'Token should be substantial');
 
     // Authorize and create session token
-    const authResult = await callMCP('authorize_operation', {
+    const authResult = await call('authorize_operation', {
       operation_token: verifyData.operation_token,
       create_session_token: true
     });
@@ -102,7 +106,7 @@ async function runTests() {
     const sessionId = `ttl-test-${Date.now()}`;
 
     // Get operation token
-    const verifyResult = await callMCP('verify_compliance', {
+    const verifyResult = await call('verify_compliance', {
       session_id: sessionId,
       current_phase: 'teach',
       action: 'test'
@@ -110,7 +114,7 @@ async function runTests() {
     const verifyData = JSON.parse(parseJSONRPC(verifyResult.stdout).find(r => r.id === 2).result.content[0].text);
 
     // Create session token
-    const authResult = await callMCP('authorize_operation', {
+    const authResult = await call('authorize_operation', {
       operation_token: verifyData.operation_token,
       create_session_token: true
     });
@@ -132,7 +136,7 @@ async function runTests() {
 
   // Test 4: Invalid token rejected
   await test('Invalid operation token rejected', async () => {
-    const authResult = await callMCP('authorize_operation', {
+    const authResult = await call('authorize_operation', {
       operation_token: 'invalid-token-12345'
     });
     const authResp = parseJSONRPC(authResult.stdout).find(r => r.id === 2);
@@ -147,7 +151,7 @@ async function runTests() {
       files.forEach(f => fs.unlinkSync(path.join(HOOKS_DIR, f)));
     }
 
-    const result = await callMCP('install_hooks', {
+    const result = await call('install_hooks', {
       hooks: ['all']
     });
     const resp = parseJSONRPC(result.stdout).find(r => r.id === 2);
@@ -166,7 +170,7 @@ async function runTests() {
 
   // Test 6: pre-tool-use hook has blocking logic
   await test('pre-tool-use hook contains blocking logic', async () => {
-    await callMCP('install_hooks', { hooks: ['all'] });
+    await call('install_hooks', { hooks: ['all'] });
 
     const hookPath = path.join(HOOKS_DIR, 'pre-tool-use.cjs');
     assertTrue(fs.existsSync(hookPath), 'Hook file should exist');
@@ -182,21 +186,21 @@ async function runTests() {
     const sessionId = `phase-test-${Date.now()}`;
 
     // Start in teach phase
-    await callMCP('verify_compliance', {
+    await call('verify_compliance', {
       session_id: sessionId,
       current_phase: 'teach',
       action: 'record'
     });
 
     // Move to learn phase
-    await callMCP('verify_compliance', {
+    await call('verify_compliance', {
       session_id: sessionId,
       current_phase: 'learn',
       action: 'search'
     });
 
     // Check status
-    const statusResult = await callMCP('get_workflow_status', {
+    const statusResult = await call('get_workflow_status', {
       session_id: sessionId
     });
     const statusData = JSON.parse(parseJSONRPC(statusResult.stdout).find(r => r.id === 2).result.content[0].text);
@@ -209,7 +213,7 @@ async function runTests() {
   await test('Strict preset enforces all tools', async () => {
     const sessionId = `strict-test-${Date.now()}`;
 
-    const result = await callMCP('apply_preset', {
+    const result = await call('apply_preset', {
       preset_name: 'strict',
       session_id: sessionId
     });
@@ -219,7 +223,7 @@ async function runTests() {
     assertTrue(data.enforcement === 'strict', 'Should have strict enforcement');
 
     // Get config
-    const configResult = await callMCP('get_config', {
+    const configResult = await call('get_config', {
       session_id: sessionId
     });
     const configData = JSON.parse(parseJSONRPC(configResult.stdout).find(r => r.id === 2).result.content[0].text);
@@ -231,7 +235,7 @@ async function runTests() {
   await test('Operation token has 5-minute TTL', async () => {
     const sessionId = `op-token-test-${Date.now()}`;
 
-    const verifyResult = await callMCP('verify_compliance', {
+    const verifyResult = await call('verify_compliance', {
       session_id: sessionId,
       current_phase: 'teach',
       action: 'test'
@@ -250,14 +254,14 @@ async function runTests() {
     const sessionId = `reset-test-${Date.now()}`;
 
     // Create session with token
-    const verifyResult = await callMCP('verify_compliance', {
+    const verifyResult = await call('verify_compliance', {
       session_id: sessionId,
       current_phase: 'teach',
       action: 'test'
     });
     const verifyData = JSON.parse(parseJSONRPC(verifyResult.stdout).find(r => r.id === 2).result.content[0].text);
 
-    await callMCP('authorize_operation', {
+    await call('authorize_operation', {
       operation_token: verifyData.operation_token,
       create_session_token: true
     });
@@ -268,13 +272,13 @@ async function runTests() {
     assertTrue(tokenCountBefore > 0, 'Should have session tokens');
 
     // Reset workflow
-    await callMCP('reset_workflow', {
+    await call('reset_workflow', {
       session_id: sessionId
     });
 
     // Note: reset_workflow doesn't delete tokens immediately, it marks the session as reset
     // Tokens expire naturally or are cleaned up by cleanup_only option
-    const resetResult = await callMCP('reset_workflow', {
+    const resetResult = await call('reset_workflow', {
       cleanup_only: true
     });
     const resetData = JSON.parse(parseJSONRPC(resetResult.stdout).find(r => r.id === 2).result.content[0].text);
@@ -290,7 +294,14 @@ async function runTests() {
   console.log(colors.red + `Tests Failed: ${stats.testsFailed}` + colors.reset);
   console.log(`Total: ${stats.testsRun} tests`);
 
+  // v1.4.0: Cleanup test project
+  cleanupTestProject(testDir);
+
   process.exit(stats.testsFailed > 0 ? 1 : 0);
 }
 
-runTests().catch(console.error);
+runTests().catch(e => {
+  cleanupTestProject(testDir);
+  console.error(e);
+  process.exit(1);
+});

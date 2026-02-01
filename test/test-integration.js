@@ -1,51 +1,50 @@
 #!/usr/bin/env node
 /**
  * Integration Tests - End-to-end workflows
+ * v1.4.0: Updated for project-scoped experiences
  */
 
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { colors, callMCP, parseJSONRPC, test, assertTrue, assertEquals, getStats } = require('./test-utils');
+const { colors, callMCP, parseJSONRPC, test, assertTrue, assertEquals, getStats, createTestProject, cleanupTestProject, getTestDbPath } = require('./test-utils');
 
-const TEST_DB = path.join(os.homedir(), '.unified-mcp', 'data.db');
+let testDir;
 
 async function runTests() {
   console.log(colors.bold + '\nINTEGRATION TESTS (10 tests)' + colors.reset);
   console.log(colors.cyan + '======================================================================' + colors.reset);
 
-  try {
-    if (fs.existsSync(TEST_DB)) {
-      fs.unlinkSync(TEST_DB);
-    }
-    console.log('\n🗑️  Cleaned test database\n');
-  } catch (e) {
-    // Ignore
-  }
+  // v1.4.0: Create project-scoped test directory
+  testDir = createTestProject();
+  const TEST_DB = getTestDbPath(testDir);
+  console.log(`\n📁 Test project: ${testDir}\n`);
 
+  // Helper to call MCP with project context
+  const call = (tool, args) => callMCP(tool, args, { cwd: testDir });
 
   await test('Integration - complete reasoning workflow', async () => {
     const uniqueId = `integration-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     // 1. Analyze problem
-    const analyzeResult = await callMCP('analyze_problem', { problem: `Integration test workflow ${uniqueId}` });
+    const analyzeResult = await call('analyze_problem', { problem: `Integration test workflow ${uniqueId}` });
     const sessionId = JSON.parse(parseJSONRPC(analyzeResult.stdout).find(r => r.id === 2).result.content[0].text).session_id;
 
     // 2. Gather context
-    await callMCP('gather_context', {
+    await call('gather_context', {
       session_id: sessionId,
       sources: { related_experiences: [] }
     });
 
     // 3. Reason through
-    await callMCP('reason_through', {
+    await call('reason_through', {
       session_id: sessionId,
       thought: 'Integration test thought',
       thought_number: 1
     });
 
     // 4. Finalize decision
-    const finalizeResult = await callMCP('finalize_decision', {
+    const finalizeResult = await call('finalize_decision', {
       session_id: sessionId,
       conclusion: `Integration test conclusion ${uniqueId}`,
       rationale: 'Complete workflow test',
@@ -60,13 +59,13 @@ async function runTests() {
     const uniqueId = `preset-workflow-${Date.now()}`;
 
     // Apply preset
-    await callMCP('apply_preset', {
+    await call('apply_preset', {
       preset_name: 'strict',
       session_id: uniqueId
     });
 
     // Verify compliance
-    const verifyResult = await callMCP('verify_compliance', {
+    const verifyResult = await call('verify_compliance', {
       session_id: uniqueId,
       current_phase: 'teach',
       action: 'record_experience'
@@ -81,20 +80,20 @@ async function runTests() {
     const uniqueId = `multi-${Date.now()}`;
 
     // Knowledge management
-    await callMCP('search_experiences', { query: 'test' });
+    await call('search_experiences', { query: 'test' });
 
     // Reasoning
-    const analyzeResult = await callMCP('analyze_problem', { problem: `Multi-category test ${uniqueId}` });
+    const analyzeResult = await call('analyze_problem', { problem: `Multi-category test ${uniqueId}` });
     const sessionId = JSON.parse(parseJSONRPC(analyzeResult.stdout).find(r => r.id === 2).result.content[0].text).session_id;
 
     // Workflow
-    await callMCP('check_compliance', { current_phase: 'teach', action: 'test' });
+    await call('check_compliance', { current_phase: 'teach', action: 'test' });
 
     // Configuration
-    await callMCP('list_presets', {});
+    await call('list_presets', {});
 
     // Automation
-    const healthResult = await callMCP('health_check', {});
+    const healthResult = await call('health_check', {});
     const health = JSON.parse(parseJSONRPC(healthResult.stdout).find(r => r.id === 2).result.content[0].text);
 
     assertTrue(health.healthy, 'System should be healthy after multi-category operations');
@@ -105,13 +104,13 @@ async function runTests() {
     const sessionId = `token-workflow-${Date.now()}`;
 
     // 1. Check compliance (dry-run)
-    await callMCP('check_compliance', {
+    await call('check_compliance', {
       current_phase: 'teach',
       action: 'test'
     });
 
     // 2. Verify compliance (get token)
-    const verifyResult = await callMCP('verify_compliance', {
+    const verifyResult = await call('verify_compliance', {
       session_id: sessionId,
       current_phase: 'teach',
       action: 'test'
@@ -120,7 +119,7 @@ async function runTests() {
     const token = JSON.parse(parseJSONRPC(verifyResult.stdout).find(r => r.id === 2).result.content[0].text).operation_token;
 
     // 3. Authorize operation
-    const authResult = await callMCP('authorize_operation', {
+    const authResult = await call('authorize_operation', {
       operation_token: token,
       create_session_token: true
     });
@@ -132,15 +131,15 @@ async function runTests() {
 
   await test('Integration - config and validation', async () => {
     // 1. List presets
-    const listResult = await callMCP('list_presets', {});
+    const listResult = await call('list_presets', {});
     const presets = JSON.parse(parseJSONRPC(listResult.stdout).find(r => r.id === 2).result.content[0].text).presets;
 
     // 2. Get a preset config
-    const configResult = await callMCP('get_config', {});
+    const configResult = await call('get_config', {});
     const config = JSON.parse(parseJSONRPC(configResult.stdout).find(r => r.id === 2).result.content[0].text).config;
 
     // 3. Validate the config
-    const validateResult = await callMCP('validate_config', { config });
+    const validateResult = await call('validate_config', { config });
     const validateData = JSON.parse(parseJSONRPC(validateResult.stdout).find(r => r.id === 2).result.content[0].text);
 
     assertTrue(presets.length > 0, 'Should have presets');
@@ -151,15 +150,15 @@ async function runTests() {
     const uniqueId = `state-track-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     // Create reasoning session
-    const analyzeResult = await callMCP('analyze_problem', { problem: `State tracking ${uniqueId}` });
+    const analyzeResult = await call('analyze_problem', { problem: `State tracking ${uniqueId}` });
     const sessionId = JSON.parse(parseJSONRPC(analyzeResult.stdout).find(r => r.id === 2).result.content[0].text).session_id;
 
     // Add thoughts
-    await callMCP('reason_through', { session_id: sessionId, thought: 'Thought 1', thought_number: 1 });
-    await callMCP('reason_through', { session_id: sessionId, thought: 'Thought 2', thought_number: 2 });
+    await call('reason_through', { session_id: sessionId, thought: 'Thought 1', thought_number: 1 });
+    await call('reason_through', { session_id: sessionId, thought: 'Thought 2', thought_number: 2 });
 
     // Get state
-    const stateResult = await callMCP('get_session_state', { session_id: sessionId });
+    const stateResult = await call('get_session_state', { session_id: sessionId });
     const state = JSON.parse(parseJSONRPC(stateResult.stdout).find(r => r.id === 2).result.content[0].text);
 
     assertEquals(state.thought_count, 2, 'Should track all thoughts');
@@ -170,7 +169,7 @@ async function runTests() {
     // Perform various operations
     const uniqueId = `health-${Date.now()}`;
 
-    await callMCP('record_experience', {
+    await call('record_experience', {
       type: 'effective',
       domain: 'Process',
       situation: `Health check test ${uniqueId}`,
@@ -179,10 +178,10 @@ async function runTests() {
       reasoning: 'Test'
     });
 
-    await callMCP('analyze_problem', { problem: `Health test ${uniqueId}` });
+    await call('analyze_problem', { problem: `Health test ${uniqueId}` });
 
     // Run health check
-    const healthResult = await callMCP('health_check', {});
+    const healthResult = await call('health_check', {});
     const health = JSON.parse(parseJSONRPC(healthResult.stdout).find(r => r.id === 2).result.content[0].text);
 
     assertTrue(health.healthy, 'System should be healthy after operations');
@@ -191,13 +190,13 @@ async function runTests() {
 
   await test('Integration - data persistence', async () => {
     // Verify health before
-    const healthBefore = await callMCP('health_check', {});
+    const healthBefore = await call('health_check', {});
     const beforeData = JSON.parse(parseJSONRPC(healthBefore.stdout).find(r => r.id === 2).result.content[0].text);
     const countBefore = beforeData.stats.experiences;
 
     // Record new data
     const uniqueId = `persist-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    await callMCP('record_experience', {
+    await call('record_experience', {
       type: 'effective',
       domain: 'Process',
       situation: `Persistence test ${uniqueId}`,
@@ -207,7 +206,7 @@ async function runTests() {
     });
 
     // Verify health after
-    const healthAfter = await callMCP('health_check', {});
+    const healthAfter = await call('health_check', {});
     const afterData = JSON.parse(parseJSONRPC(healthAfter.stdout).find(r => r.id === 2).result.content[0].text);
     const countAfter = afterData.stats.experiences;
 
@@ -219,19 +218,19 @@ async function runTests() {
     const sessionId = `reset-integration-${Date.now()}`;
 
     // Create workflow session
-    await callMCP('verify_compliance', {
+    await call('verify_compliance', {
       session_id: sessionId,
       current_phase: 'teach',
       action: 'test'
     });
 
     // Get status
-    const statusResult = await callMCP('get_workflow_status', { session_id: sessionId });
+    const statusResult = await call('get_workflow_status', { session_id: sessionId });
     const statusData = JSON.parse(parseJSONRPC(statusResult.stdout).find(r => r.id === 2).result.content[0].text);
     assertTrue(statusData.session_id, 'Should have session');
 
     // Reset
-    const resetResult = await callMCP('reset_workflow', { session_id: sessionId });
+    const resetResult = await call('reset_workflow', { session_id: sessionId });
     const resetData = JSON.parse(parseJSONRPC(resetResult.stdout).find(r => r.id === 2).result.content[0].text);
     assertTrue(resetData.reset, 'Should reset session');
   });
@@ -247,8 +246,8 @@ async function runTests() {
     ];
 
     // Test that we can call a tool from each category
-    await callMCP('health_check', {});
-    await callMCP('list_presets', {});
+    await call('health_check', {});
+    await call('list_presets', {});
 
     assertTrue(expectedTools.length === 25, 'Should have exactly 25 tools');
   });
@@ -261,7 +260,14 @@ async function runTests() {
   console.log(colors.red + `Tests Failed: ${stats.testsFailed}` + colors.reset);
   console.log(`Total: ${stats.testsRun} tests`);
 
+  // v1.4.0: Cleanup test project
+  cleanupTestProject(testDir);
+
   process.exit(stats.testsFailed > 0 ? 1 : 0);
 }
 
-runTests().catch(console.error);
+runTests().catch(e => {
+  cleanupTestProject(testDir);
+  console.error(e);
+  process.exit(1);
+});

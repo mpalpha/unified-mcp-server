@@ -2,28 +2,34 @@
 /**
  * Experience Usage Tests - Verify agents actually USE learned experiences in reasoning
  * Tests that search → reasoning → decision actually incorporates found knowledge
+ * v1.4.0: Updated for project-scoped experiences
  */
 
-const { callMCP, parseJSONRPC, test, assertTrue, assertContains, getStats, colors } = require('./test-utils');
+const { callMCP, parseJSONRPC, test, assertTrue, assertContains, getStats, colors, createTestProject, cleanupTestProject, getTestDbPath } = require('./test-utils');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const DB_PATH = path.join(os.homedir(), '.unified-mcp', 'data.db');
+let testDir;
 
 async function runTests() {
   console.log(colors.bold + '\nEXPERIENCE USAGE TESTS' + colors.reset);
   console.log(colors.cyan + '======================================================================' + colors.reset);
   console.log('Testing that agents actually USE learned experiences in reasoning\n');
 
-  // Clean database
-  if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
+  // v1.4.0: Create project-scoped test directory
+  testDir = createTestProject();
+  const DB_PATH = getTestDbPath(testDir);
+  console.log(`📁 Test project: ${testDir}\n`);
+
+  // Helper to call MCP with project context
+  const call = (tool, args) => callMCP(tool, args, { cwd: testDir });
 
   // Test 1: Record experience, search for it, verify it's returned
   await test('LEARN Phase: Search returns recorded experiences', async () => {
     console.log('\n  Step 1: Record JWT authentication bug fix');
 
-    await callMCP('record_experience', {
+    await call('record_experience', {
       type: 'effective',
       domain: 'Debugging',
       situation: 'Authentication returns 401 with valid JWT token',
@@ -34,7 +40,7 @@ async function runTests() {
     });
 
     console.log('  Step 2: Search for JWT issues');
-    const searchResult = await callMCP('search_experiences', {
+    const searchResult = await call('search_experiences', {
       query: 'JWT authentication 401'
     });
 
@@ -57,7 +63,7 @@ async function runTests() {
   await test('REASON Phase: gather_context synthesizes found experiences', async () => {
     console.log('\n  Step 1: Analyze new JWT problem');
 
-    const analyzeResult = await callMCP('analyze_problem', {
+    const analyzeResult = await call('analyze_problem', {
       problem: 'User reports JWT token expires too early'
     });
 
@@ -69,7 +75,7 @@ async function runTests() {
     console.log(`  ✅ Session created: ${sessionId}`);
 
     console.log('  Step 2: Search for similar issues');
-    const searchResult = await callMCP('search_experiences', {
+    const searchResult = await call('search_experiences', {
       query: 'JWT token expiration timezone'
     });
 
@@ -78,7 +84,7 @@ async function runTests() {
     const experiences = JSON.parse(searchData.result.content[0].text);
 
     console.log('  Step 3: Gather context with found experiences');
-    const contextResult = await callMCP('gather_context', {
+    const contextResult = await call('gather_context', {
       session_id: sessionId,
       sources: {
         experiences: experiences.results
@@ -103,7 +109,7 @@ async function runTests() {
     console.log('\n  Step 1: Record multiple related experiences');
 
     // Record pattern 1
-    await callMCP('record_experience', {
+    await call('record_experience', {
       type: 'effective',
       domain: 'Process',
       situation: 'API rate limiting needed',
@@ -113,7 +119,7 @@ async function runTests() {
     });
 
     // Record pattern 2
-    await callMCP('record_experience', {
+    await call('record_experience', {
       type: 'ineffective',
       domain: 'Process',
       situation: 'Tried in-memory rate limiting',
@@ -123,7 +129,7 @@ async function runTests() {
     });
 
     console.log('  Step 2: Start reasoning session');
-    const analyzeResult = await callMCP('analyze_problem', {
+    const analyzeResult = await call('analyze_problem', {
       problem: 'Implement rate limiting for API'
     });
 
@@ -132,10 +138,10 @@ async function runTests() {
     const session = JSON.parse(analyzeData.result.content[0].text);
 
     console.log('  Step 3: Search for patterns');
-    await callMCP('search_experiences', { query: 'rate limiting' });
+    await call('search_experiences', { query: 'rate limiting' });
 
     console.log('  Step 4: Reason through decision');
-    const reasonResult = await callMCP('reason_through', {
+    const reasonResult = await call('reason_through', {
       session_id: session.session_id,
       thought: 'Based on past experiences: Redis sliding window is effective, avoid in-memory due to memory leaks',
       thought_number: 1,
@@ -149,7 +155,7 @@ async function runTests() {
     assertTrue(thoughtResponse.thought_id > 0, 'Should record thought');
 
     console.log('  Step 5: Retrieve session state to verify thought was stored');
-    const stateResult = await callMCP('get_session_state', {
+    const stateResult = await call('get_session_state', {
       session_id: session.session_id
     });
 
@@ -171,7 +177,7 @@ async function runTests() {
   await test('TEACH Phase: Decisions become new experiences', async () => {
     console.log('\n  Step 1: Complete reasoning session');
 
-    const analyzeResult = await callMCP('analyze_problem', {
+    const analyzeResult = await call('analyze_problem', {
       problem: 'Choose database for new microservice'
     });
 
@@ -179,14 +185,14 @@ async function runTests() {
     const analyzeData = analyzeResponses.find(r => r.id === 2);
     const session = JSON.parse(analyzeData.result.content[0].text);
 
-    await callMCP('reason_through', {
+    await call('reason_through', {
       session_id: session.session_id,
       thought: 'PostgreSQL for ACID guarantees, MongoDB too eventual consistency',
       thought_number: 1
     });
 
     console.log('  Step 2: Finalize with auto-record');
-    const finalizeResult = await callMCP('finalize_decision', {
+    const finalizeResult = await call('finalize_decision', {
       session_id: session.session_id,
       conclusion: 'Selected PostgreSQL for transaction support',
       rationale: 'ACID guarantees needed for transactional data',
@@ -200,7 +206,7 @@ async function runTests() {
     assertTrue(decision.experience_id !== null && decision.experience_id > 0, 'Should auto-record experience');
 
     console.log('  Step 3: Verify new experience is searchable');
-    const searchResult = await callMCP('search_experiences', {
+    const searchResult = await call('search_experiences', {
       query: 'PostgreSQL database choice'
     });
 
@@ -218,7 +224,7 @@ async function runTests() {
   await test('LEARN Phase: Duplicate detection prevents redundancy', async () => {
     console.log('\n  Step 1: Record initial experience');
 
-    const exp1 = await callMCP('record_experience', {
+    const exp1 = await call('record_experience', {
       type: 'effective',
       domain: 'Tools',
       situation: 'Need to parse JSON in Node.js',
@@ -228,7 +234,7 @@ async function runTests() {
     });
 
     console.log('  Step 2: Attempt exact duplicate');
-    const exp2 = await callMCP('record_experience', {
+    const exp2 = await call('record_experience', {
       type: 'effective',
       domain: 'Tools',
       situation: 'Need to parse JSON in Node.js',
@@ -254,7 +260,7 @@ async function runTests() {
   await test('LEARN Phase: Revisions track knowledge improvement', async () => {
     console.log('\n  Step 1: Record initial approach');
 
-    const exp1Result = await callMCP('record_experience', {
+    const exp1Result = await call('record_experience', {
       type: 'effective',
       domain: 'Debugging',
       situation: 'Memory leak in Express app',
@@ -270,7 +276,7 @@ async function runTests() {
     console.log(`  ✅ Original experience recorded (ID: ${experience1.experience_id})`);
 
     console.log('  Step 2: Update with better approach');
-    const exp2Result = await callMCP('update_experience', {
+    const exp2Result = await call('update_experience', {
       id: experience1.experience_id,
       changes: {
         approach: 'Used --inspect with Chrome DevTools Memory Profiler',
@@ -287,7 +293,7 @@ async function runTests() {
     assertTrue(updateResult.new_id > 0, 'Should create new revision');
 
     console.log('  Step 3: Retrieve revision to verify linking');
-    const getRevisionResult = await callMCP('get_experience', {
+    const getRevisionResult = await call('get_experience', {
       id: updateResult.new_id
     });
 
@@ -333,7 +339,14 @@ async function runTests() {
     console.log(colors.red + '⚠️  Some usage tests failed - review needed' + colors.reset);
   }
 
+  // v1.4.0: Cleanup test project
+  cleanupTestProject(testDir);
+
   process.exit(stats.testsFailed > 0 ? 1 : 0);
 }
 
-runTests().catch(console.error);
+runTests().catch(e => {
+  cleanupTestProject(testDir);
+  console.error(e);
+  process.exit(1);
+});

@@ -7,6 +7,8 @@
  * - Workflow enforcement (TEACH → LEARN → REASON)
  * - Token validation
  * - Blocking behavior
+ *
+ * v1.4.0: Updated for project-scoped experiences
  */
 
 const fs = require('fs');
@@ -14,14 +16,12 @@ const path = require('path');
 const os = require('os');
 const { spawn } = require('child_process');
 
-// Test configuration
-const HOME_DIR = path.join(os.homedir(), '.unified-mcp');
-const TOKEN_DIR = path.join(HOME_DIR, 'tokens');
-const HOOK_PATH = path.join(__dirname, '..', 'hooks', 'user-prompt-submit.cjs');
-
-// Test project directory
+// Test project directory (v1.4.0: all paths are project-local)
 const TEST_PROJECT = path.join(os.tmpdir(), 'test-protocol-context');
-const CONTEXT_PATH = path.join(TEST_PROJECT, '.claude', 'project-context.json');
+const CLAUDE_DIR = path.join(TEST_PROJECT, '.claude');
+const TOKEN_DIR = path.join(CLAUDE_DIR, 'tokens');
+const HOOK_PATH = path.join(__dirname, '..', 'hooks', 'user-prompt-submit.cjs');
+const CONTEXT_PATH = path.join(CLAUDE_DIR, 'project-context.json');
 
 let passCount = 0;
 let failCount = 0;
@@ -71,21 +71,23 @@ function runHook(input, env = {}) {
  * Setup test environment
  */
 function setup() {
-  // Create test project directory with .claude subdirectory
-  const claudeDir = path.join(TEST_PROJECT, '.claude');
-  if (!fs.existsSync(claudeDir)) {
-    fs.mkdirSync(claudeDir, { recursive: true });
+  // Create test project directory with .claude subdirectory (v1.4.0: project-scoped)
+  if (!fs.existsSync(CLAUDE_DIR)) {
+    fs.mkdirSync(CLAUDE_DIR, { recursive: true });
+  }
+
+  // Create tokens directory
+  if (!fs.existsSync(TOKEN_DIR)) {
+    fs.mkdirSync(TOKEN_DIR, { recursive: true });
   }
 
   // Clean up any existing test tokens
-  if (fs.existsSync(TOKEN_DIR)) {
-    const files = fs.readdirSync(TOKEN_DIR);
-    files.forEach(file => {
-      if (file.startsWith('session-')) {
-        fs.unlinkSync(path.join(TOKEN_DIR, file));
-      }
-    });
-  }
+  const files = fs.readdirSync(TOKEN_DIR);
+  files.forEach(file => {
+    if (file.startsWith('session-')) {
+      fs.unlinkSync(path.join(TOKEN_DIR, file));
+    }
+  });
 }
 
 /**

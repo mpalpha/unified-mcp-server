@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-02-01
+
+### Changed - Project-Scoped Experiences (Major Architecture Change)
+- **Breaking**: All data storage moved from global `~/.unified-mcp/` to project-local `.claude/` directory
+- **Rationale**: Project-specific experiences prevent cross-project pollution and align with Claude Code's project-centric model
+- **Database**: Renamed from `data.db` to `experiences.db` in `.claude/` directory
+- **Schema**: Removed `scope` field from experiences table (all experiences are project-scoped by location)
+- **Schema**: Added `schema_info` table for version tracking
+- **Clean Slate**: Old `~/.unified-mcp/` directory is no longer used; users prompted to delete it
+
+### Added - New Tool: import_experiences
+- **Purpose**: Import experiences from JSON file exported from another project
+- **Use Case**: Share learnings across projects by exporting from one and importing to another
+- **Parameters**: `filename` (required), `filter` (optional: domain, type)
+- **Behavior**: Assigns new IDs on import (doesn't preserve original IDs)
+
+### Changed - Tool Updates
+- Removed `scope` parameter from `record_experience` and `search_experiences` tools
+- Updated `export_experiences` to not include scope in output
+
+### Changed - Hook Updates
+- Updated 4 hook files to use project-local `.claude/` paths instead of `~/.unified-mcp/`:
+  - `user-prompt-submit.cjs` - config path
+  - `pre-tool-use.cjs` - token path
+  - `stop.cjs` - token path
+  - `session-start.cjs` - prompts path
+
+### Added - Project Context Detection
+- New `ensureProjectContext()` function validates project environment
+- Recognizes projects by: `.claude/`, `.git/`, or `package.json`
+- Auto-creates `.claude/` directory structure in valid projects
+- Provides clear error message with options if not in a project
+
+### Changed - Test Infrastructure
+- Added project-scoped test helpers in `test-utils.js`:
+  - `createTestProject()` - creates isolated test directory with `.claude/` structure
+  - `cleanupTestProject()` - removes test directory
+  - `getTestClaudeDir()` - gets `.claude/` path for test project
+  - `getTestDbPath()` - gets database path for test project
+- Updated all 15+ test files to use isolated test projects
+- Updated `callMCP()` to accept `cwd` option for project context
+
+### Changed - --init Wizard Updates
+- Now shows `.claude/ (project-local)` as namespace
+- Detects and alerts users about old `~/.unified-mcp/` directory
+- Updated prompt file deletion instructions
+
 ## [1.3.0] - 2026-01-31
 
 ### Added - Checklist Enforcement Feature

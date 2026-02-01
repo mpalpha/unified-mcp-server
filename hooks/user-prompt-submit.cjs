@@ -19,19 +19,19 @@ try {
   input = fs.readFileSync(0, 'utf-8');
   const data = JSON.parse(input);
 
-  // Load configuration from ~/.unified-mcp/config.json
-  const homeDir = path.join(os.homedir(), '.unified-mcp');
+  // Load configuration from .claude/config.json (v1.4.0: project-scoped)
+  const projectDir = process.env.PWD || process.cwd();
+  const claudeDir = path.join(projectDir, '.claude');
   let config = null;
 
-  const configPath = path.join(homeDir, 'config.json');
+  const configPath = path.join(claudeDir, 'config.json');
   if (fs.existsSync(configPath)) {
     config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
   }
 
   // Load project context from .claude/project-context.json in project root
   let projectContext = null;
-  const cwd = process.env.PWD || process.cwd();
-  const contextPath = path.join(cwd, '.claude', 'project-context.json');
+  const contextPath = path.join(claudeDir, 'project-context.json');
 
   if (fs.existsSync(contextPath)) {
     try {
@@ -41,8 +41,8 @@ try {
     }
   }
 
-  // Check for valid session token (fast-track)
-  const tokenDir = path.join(homeDir, 'tokens');
+  // Check for valid session token (fast-track) - v1.4.0: project-scoped
+  const tokenDir = path.join(claudeDir, 'tokens');
   let hasValidToken = false;
 
   if (fs.existsSync(tokenDir)) {

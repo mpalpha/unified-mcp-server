@@ -23,6 +23,8 @@
  * - https://www.microsoft.com/en-us/security/blog/2025/04/24/new-whitepaper-outlines-the-taxonomy-of-failure-modes-in-ai-agents/
  * - https://cognition.ai/blog/dont-build-multi-agents
  * - https://galileo.ai/blog/agent-failure-modes-guide
+ *
+ * v1.4.0: Updated for project-scoped experiences
  */
 
 const { spawn } = require('child_process');
@@ -40,14 +42,15 @@ const colors = {
   cyan: '\x1b[36m'
 };
 
-const DB_PATH = path.join(os.homedir(), '.unified-mcp', 'data.db');
-const TOKEN_DIR = path.join(os.homedir(), '.unified-mcp', 'tokens');
+// v1.4.0: Create project-scoped test directory
+const TEST_PROJECT = fs.mkdtempSync(path.join(os.tmpdir(), 'unified-mcp-compliance-'));
+const CLAUDE_DIR = path.join(TEST_PROJECT, '.claude');
+fs.mkdirSync(CLAUDE_DIR);
+const TOKEN_DIR = path.join(CLAUDE_DIR, 'tokens');
+fs.mkdirSync(TOKEN_DIR);
+const DB_PATH = path.join(CLAUDE_DIR, 'experiences.db');
 
-// Clean test environment
-if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
-if (fs.existsSync(TOKEN_DIR)) {
-  fs.readdirSync(TOKEN_DIR).forEach(f => fs.unlinkSync(path.join(TOKEN_DIR, f)));
-}
+console.log(`Test project: ${TEST_PROJECT}`);
 
 class MCPClient {
   constructor() {
@@ -59,7 +62,9 @@ class MCPClient {
   async start() {
     const indexPath = path.join(__dirname, '..', 'index.js');
     this.process = spawn('node', [indexPath], {
-      stdio: ['pipe', 'pipe', 'pipe']
+      stdio: ['pipe', 'pipe', 'pipe'],
+      cwd: TEST_PROJECT,
+      env: { ...process.env, PWD: TEST_PROJECT }
     });
 
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -814,7 +819,23 @@ async function runAllTests() {
 
   console.log('\n' + (passed === total ? colors.green + '✅ All compliance tests passed!' : colors.yellow + '⚠️  Some tests failed - review needed') + colors.reset);
 
+  // v1.4.0: Cleanup test project
+  try {
+    fs.rmSync(TEST_PROJECT, { recursive: true, force: true });
+  } catch (e) {
+    // Ignore cleanup errors
+  }
+
   process.exit(failed > 0 ? 1 : 0);
 }
 
-runAllTests().catch(console.error);
+runAllTests().catch(e => {
+  // v1.4.0: Cleanup test project on error
+  try {
+    fs.rmSync(TEST_PROJECT, { recursive: true, force: true });
+  } catch (err) {
+    // Ignore cleanup errors
+  }
+  console.error(e);
+  process.exit(1);
+});

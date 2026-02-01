@@ -1,27 +1,27 @@
 #!/usr/bin/env node
 /**
  * Configuration Tests - Presets and config validation
+ * v1.4.0: Updated for project-scoped experiences
  */
 
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { colors, callMCP, parseJSONRPC, test, assertTrue, assertEquals, getStats } = require('./test-utils');
+const { colors, callMCP, parseJSONRPC, test, assertTrue, assertEquals, getStats, createTestProject, cleanupTestProject, getTestDbPath } = require('./test-utils');
 
-const TEST_DB = path.join(os.homedir(), '.unified-mcp', 'data.db');
+let testDir;
 
 async function runTests() {
   console.log(colors.bold + '\nCONFIGURATION TESTS (15 tests)' + colors.reset);
   console.log(colors.cyan + '======================================================================' + colors.reset);
 
-  try {
-    if (fs.existsSync(TEST_DB)) {
-      fs.unlinkSync(TEST_DB);
-    }
-    console.log('\n🗑️  Cleaned test database\n');
-  } catch (e) {
-    // Ignore
-  }
+  // v1.4.0: Create project-scoped test directory
+  testDir = createTestProject();
+  const TEST_DB = getTestDbPath(testDir);
+  console.log(`\n📁 Test project: ${testDir}\n`);
+
+  // Helper to call MCP with project context
+  const call = (tool, args) => callMCP(tool, args, { cwd: testDir });
 
   console.log(colors.bold + 'Configuration Tools' + colors.reset);
   console.log(colors.cyan + '======================================================================' + colors.reset);
@@ -29,7 +29,7 @@ async function runTests() {
 
   // ===== list_presets tests =====
   await test('list_presets - list built-in presets', async () => {
-    const result = await callMCP('list_presets', {});
+    const result = await call('list_presets', {});
 
     const responses = parseJSONRPC(result.stdout);
     const response = responses.find(r => r.id === 2);
@@ -40,7 +40,7 @@ async function runTests() {
   });
 
   await test('list_presets - preset structure', async () => {
-    const result = await callMCP('list_presets', {});
+    const result = await call('list_presets', {});
 
     const data = JSON.parse(parseJSONRPC(result.stdout).find(r => r.id === 2).result.content[0].text);
     const preset = data.presets[0];
@@ -50,7 +50,7 @@ async function runTests() {
   });
 
   await test('list_presets - includes three-gate', async () => {
-    const result = await callMCP('list_presets', {});
+    const result = await call('list_presets', {});
 
     const data = JSON.parse(parseJSONRPC(result.stdout).find(r => r.id === 2).result.content[0].text);
     const threeGate = data.presets.find(p => p.name === 'three-gate');
@@ -61,7 +61,7 @@ async function runTests() {
   // ===== apply_preset tests =====
   await test('apply_preset - apply three-gate', async () => {
     const sessionId = 'preset_test_' + Date.now();
-    const result = await callMCP('apply_preset', {
+    const result = await call('apply_preset', {
       preset_name: 'three-gate',
       session_id: sessionId
     });
@@ -75,7 +75,7 @@ async function runTests() {
   });
 
   await test('apply_preset - missing preset_name', async () => {
-    const result = await callMCP('apply_preset', {});
+    const result = await call('apply_preset', {});
 
     const responses = parseJSONRPC(result.stdout);
     const response = responses.find(r => r.id === 2);
@@ -83,7 +83,7 @@ async function runTests() {
   });
 
   await test('apply_preset - invalid preset', async () => {
-    const result = await callMCP('apply_preset', {
+    const result = await call('apply_preset', {
       preset_name: 'nonexistent-preset'
     });
 
@@ -94,7 +94,7 @@ async function runTests() {
 
   await test('apply_preset - minimal preset', async () => {
     const sessionId = 'minimal_test_' + Date.now();
-    const result = await callMCP('apply_preset', {
+    const result = await call('apply_preset', {
       preset_name: 'minimal',
       session_id: sessionId
     });
@@ -115,7 +115,7 @@ async function runTests() {
       }
     };
 
-    const result = await callMCP('validate_config', { config });
+    const result = await call('validate_config', { config });
 
     const data = JSON.parse(parseJSONRPC(result.stdout).find(r => r.id === 2).result.content[0].text);
     assertTrue(data.valid === true, 'Should be valid');
@@ -127,7 +127,7 @@ async function runTests() {
       description: 'Missing name'
     };
 
-    const result = await callMCP('validate_config', { config });
+    const result = await call('validate_config', { config });
 
     const data = JSON.parse(parseJSONRPC(result.stdout).find(r => r.id === 2).result.content[0].text);
     assertTrue(data.valid === false, 'Should be invalid');
@@ -135,7 +135,7 @@ async function runTests() {
   });
 
   await test('validate_config - missing config parameter', async () => {
-    const result = await callMCP('validate_config', {});
+    const result = await call('validate_config', {});
 
     const responses = parseJSONRPC(result.stdout);
     const response = responses.find(r => r.id === 2);
@@ -144,7 +144,7 @@ async function runTests() {
 
   // ===== get_config tests =====
   await test('get_config - default config', async () => {
-    const result = await callMCP('get_config', {});
+    const result = await call('get_config', {});
 
     const responses = parseJSONRPC(result.stdout);
     const response = responses.find(r => r.id === 2);
@@ -158,13 +158,13 @@ async function runTests() {
     const sessionId = 'config_test_' + Date.now();
 
     // Apply preset first
-    await callMCP('apply_preset', {
+    await call('apply_preset', {
       preset_name: 'strict',
       session_id: sessionId
     });
 
     // Get config
-    const result = await callMCP('get_config', {
+    const result = await call('get_config', {
       session_id: sessionId
     });
 
@@ -174,7 +174,7 @@ async function runTests() {
 
   // ===== export_config tests =====
   await test('export_config - export three-gate', async () => {
-    const result = await callMCP('export_config', {
+    const result = await call('export_config', {
       preset_name: 'three-gate'
     });
 
@@ -187,7 +187,7 @@ async function runTests() {
   });
 
   await test('export_config - missing preset_name', async () => {
-    const result = await callMCP('export_config', {});
+    const result = await call('export_config', {});
 
     const responses = parseJSONRPC(result.stdout);
     const response = responses.find(r => r.id === 2);
@@ -195,7 +195,7 @@ async function runTests() {
   });
 
   await test('export_config - invalid preset', async () => {
-    const result = await callMCP('export_config', {
+    const result = await call('export_config', {
       preset_name: 'nonexistent'
     });
 
@@ -214,7 +214,14 @@ async function runTests() {
   console.log(colors.red + `Tests Failed: ${stats.testsFailed}` + colors.reset);
   console.log(`Total: ${stats.testsRun} tests`);
 
+  // v1.4.0: Cleanup test project
+  cleanupTestProject(testDir);
+
   process.exit(stats.testsFailed > 0 ? 1 : 0);
 }
 
-runTests().catch(console.error);
+runTests().catch(e => {
+  cleanupTestProject(testDir);
+  console.error(e);
+  process.exit(1);
+});

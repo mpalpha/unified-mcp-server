@@ -2,6 +2,35 @@
 
 ## Version History
 
+### v1.4.0 - APPROVED (Minor Release - Project-Scoped Experiences)
+**Project-Local Storage Architecture**
+- **Status**: APPROVED (2026-01-31) - 27 gaps identified and solutions approved
+- **Summary**: Move all data to `.claude/` in project root, eliminate global `~/.unified-mcp/`
+- **Breaking Changes**: Remove `scope` field, `detectScope()`, global storage
+- **New Tool**: `import_experiences` for cross-project sharing
+- **Impact**: 40+ files, clean slate migration
+- **Details**: See [Project-Scoped Experiences (v1.4.0)](#project-scoped-experiences-v140) section below
+
+### v1.3.0 - 2026-01-31 (Minor Release - Checklist Enforcement)
+**Pre/Post Implementation Checklists**
+- **Feature**: Added checklist enforcement for implementation workflows
+- **Changes**:
+  - Added: `preImplementation` array to project context (max 10 items, 200 chars each)
+  - Added: `postImplementation` array to project context (max 10 items, 200 chars each)
+  - Updated: `update_project_context` tool validates new checklist fields
+  - Updated: `user-prompt-submit.cjs` displays preImplementation checklist
+  - Updated: `post-tool-use.cjs` displays postImplementation after file modifications
+- **Cascading Updates**:
+  1. Added validation in `updateProjectContext` for new arrays
+  2. Updated context object to include new fields
+  3. Updated tool inputSchema with new properties
+  4. Updated `getProjectContext` to return new fields
+  5. Updated hooks to display checklists conditionally
+  6. Added 4 new tests to `test-project-context.js`
+- **Testing**: All 14 project context tests pass, full test suite passes
+- **Backward Compatible**: New fields optional with empty array defaults
+- **Documentation**: CHANGELOG.md, IMPLEMENTATION_PLAN.md updated
+
 ### v1.2.0 - 2026-01-30 (Minor Release - Safety-First Redesign)
 **Data-Driven Architecture for Post-Reload Customization**
 - **Critical**: Fixed all safety issues found in v1.1.0 real testing
@@ -465,6 +494,717 @@ ELSE: Reject feature permanently
 - Testing cost is significant but necessary
 - Feature may be permanently rejected if safety cannot be guaranteed
 - Safety > Features, always
+
+## Project-Scoped Experiences (v1.4.0)
+
+> **Status**: ✅ APPROVED (2026-01-31) | **Gaps**: 27 identified | **Files**: 40+
+
+### Quick Reference
+| Item | Value |
+|------|-------|
+| Feature Name | Project-Scoped Experiences |
+| Version | 1.4.0 |
+| Status | APPROVED |
+| Data Location | `{project}/.claude/` |
+| Global Storage | ELIMINATED |
+| Migration | Clean slate |
+| New Tool | `import_experiences` |
+
+### Table of Contents
+1. [Problem Statement](#problem-statement)
+2. [Architecture](#architecture)
+3. [Design Decisions](#design-decisions)
+4. [Implementation Phases](#implementation-phases)
+5. [Files Requiring Changes](#files-requiring-changes)
+6. [Identified Gaps](#identified-gaps)
+7. [Acceptance Criteria](#acceptance-criteria)
+
+---
+
+### Problem Statement
+- Single global database at `~/.unified-mcp/data.db`
+- `scope` field can be 'user' or 'project', but no way to identify WHICH project
+- All project-scoped experiences from ALL projects are mixed together
+- No portability: project experiences don't travel with the project
+- No isolation: searching project experiences may return results from unrelated projects
+
+---
+
+### Architecture
+```
+NO GLOBAL STORAGE - Everything in project's .claude/ folder
+
+{project_root}/.claude/
+├── experiences.db           (SQLite database)
+│   ├── experiences          (ALL experiences for this project)
+│   ├── experiences_fts      (FTS5 full-text search)
+│   ├── reasoning_sessions   (reasoning session tracking)
+│   ├── reasoning_thoughts   (reasoning thought chain)
+│   ├── workflow_sessions    (workflow session tracking)
+│   ├── activity_log         (activity tracking)
+│   └── schema_info          (version tracking for migrations)
+├── config.json              (project settings)
+├── project-context.json     (customization data - hooks read this)
+└── tokens/                  (session tokens, ephemeral)
+
+HOOKS: Stay bundled with package (paths updated to read from .claude/)
+  - Default verbiage unchanged
+  - Customization via project-context.json (additive)
+  - ~10 lines of path changes across 4 hook files
+
+~/.unified-mcp/ → ELIMINATED (delete on v1.4.0 upgrade)
+```
+
+---
+
+### Design Decisions
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Database location | `{project}/.claude/experiences.db` | Follows Claude Code convention, portable |
+| Scope field | **Removed entirely** | All experiences are project-scoped by location |
+| `detectScope()` | **Removed entirely** | No longer needed - location IS scope |
+| Project detection | Check for `.claude/`, `.git/`, or `package.json` | Standard project indicators ✅ |
+| No project behavior | Error with helpful message | Requires project context to function ✅ |
+| Schema versioning | `schema_info` table with version | Enables future migrations |
+| Cross-project sharing | `export_experiences` + `import_experiences` | Manual workaround for sharing |
+| Clean slate migration | v1.4.0 only | Future versions use schema migrations |
+| Nested projects | Use immediate cwd only | Avoids complexity of parent traversal ✅ |
+| **Hooks** | **Stay bundled** (paths read from `.claude/`) | Simpler, customization via project-context.json ✅ |
+| **--init behavior** | Always creates `.claude/` directory | Required for project-only architecture ✅ |
+| **Existing data warning** | Warn on first v1.4.0 run before deleting | User awareness before data loss ✅ |
+| **Global storage** | **Eliminate `~/.unified-mcp/` entirely** | Full project isolation, simpler mental model ✅ |
+| **Config location** | `.claude/config.json` per project | Portable, no global state ✅ |
+| **Tokens location** | `.claude/tokens/` per project | Session isolation per project ✅ |
+
+**Analyzed Issues & Resolutions:**
+
+| Issue | Severity | Resolution |
+|-------|----------|------------|
+| Remove scope field from schema | 🔴 Critical | ✅ Drop column, update all queries |
+| Remove detectScope() function | 🔴 Critical | ✅ Delete function, update callers |
+| Change DB path logic | 🔴 Critical | ✅ `process.cwd() + '/.claude/experiences.db'` |
+| Move session tables to project DB | 🔴 Critical | ✅ All tables in project DB |
+| Add schema versioning | 🟠 High | ✅ `schema_info` table with version field |
+| Add import_experiences tool | 🟠 High | ✅ New tool for cross-project sharing |
+| Update tool schemas | 🟠 High | ✅ Remove scope parameter from all tools |
+| Update search result format | 🟠 High | ✅ Remove `source` field (always project) |
+| Project detection logic | 🟡 Medium | ✅ Check `.claude/`, `.git/`, `package.json` |
+| No project error handling | 🟡 Medium | ✅ Helpful error with `--init` suggestion |
+| Test file updates | 🟡 Medium | ✅ Tests use project-local test DBs |
+| Git conflicts (binary DB) | 🟡 Medium | ⚠️ Document: recommend `.gitignore` |
+| Concurrent access | 🟡 Medium | ✅ SQLite WAL mode handles this |
+| Export tool scope parameter | 🟡 Medium | ✅ Remove - always exports current project |
+| Pagination for large DBs | 🟢 Low | ⚠️ Document as future enhancement |
+| Nested project handling | 🟢 Low | ⚠️ Document: uses immediate cwd only |
+| No global learning | 🟢 Low | ⚠️ Document: use export/import for sharing |
+| Hook path updates | 🟡 Medium | ✅ ~10 lines across 4 hooks: read from `.claude/` not `~/.unified-mcp/` |
+| Hook verbiage | 🟢 Low | ✅ No changes - default prompts/reminders stay same |
+| Hook customization | 🟢 Low | ✅ Via `project-context.json` (additive to defaults) |
+| --init creates .claude/ | 🟠 High | ✅ Creates `.claude/` with config.json, project-context.json, tokens/ |
+| Existing data warning | 🟠 High | ✅ Warn user before deleting entire `~/.unified-mcp/` |
+| Eliminate global storage | 🔴 Critical | ✅ Delete `~/.unified-mcp/` entirely on v1.4.0 upgrade |
+| Move config to project | 🟠 High | ✅ `.claude/config.json` instead of global |
+| Move tokens to project | 🟠 High | ✅ `.claude/tokens/` instead of global |
+| **src/database.js** | 🔴 Critical | ✅ Remove duplicate MCP_DIR, TOKEN_DIR, DB_FILE (lines 10-12, 30) |
+| **src/tools/knowledge.js** | 🔴 Critical | ✅ Remove duplicate detectScope() (lines 12-32), remove scope |
+| **src/tools/automation.js** | 🟠 High | ✅ Update MCP_DIR export/usage (lines 12, 61) |
+| **src/tools/workflow.js** | 🟠 High | ✅ Update MCP_DIR, TOKEN_DIR imports (line 8) |
+| **src/tools/config.js** | 🟠 High | ✅ Update PRESETS_DIR (line 121+, 4 references) |
+| **scripts/migrate-experiences.js** | 🟡 Medium | ⚠️ Update or deprecate (has own detectScope, schema) |
+| **--init wizard path output** | 🟠 High | ✅ Update output paths (lines 2788-2795) |
+| Presets directory | 🟡 Medium | ✅ Built-in stay in package, custom go to `.claude/presets/` |
+
+---
+
+### Approved Solutions Summary
+
+All 31 issues were reviewed and the following solutions were approved:
+
+**🔴 Critical Issues (Resolved):**
+1. **Schema changes**: Remove `scope` field from experiences table, drop column, update all queries
+2. **detectScope() removal**: Delete function entirely from index.js and src/tools/knowledge.js
+3. **DB path logic**: Change from global `~/.unified-mcp/data.db` to `process.cwd() + '/.claude/experiences.db'`
+4. **Session tables**: Move all tables (reasoning_sessions, etc.) to project database
+5. **Global storage elimination**: Delete `~/.unified-mcp/` entirely during v1.4.0 upgrade
+6. **src/database.js**: Remove duplicate MCP_DIR, TOKEN_DIR, DB_FILE definitions
+7. **src/tools/knowledge.js**: Remove duplicate detectScope(), remove scope parameter
+
+**🟠 High Priority Issues (Resolved):**
+1. **Schema versioning**: Add `schema_info` table with version field
+2. **import_experiences tool**: New tool (~50 lines) for cross-project sharing
+3. **Tool schemas**: Remove `scope` parameter from record_experience, search_experiences, export_experiences
+4. **Search result format**: Remove `source` field (always project-scoped by location)
+5. **--init creates .claude/**: Creates full structure (experiences.db, config.json, project-context.json, tokens/)
+6. **Existing data warning**: Warn user before deleting `~/.unified-mcp/` with Y/n confirmation
+7. **Config location**: Move from global to `.claude/config.json` per project
+8. **Tokens location**: Move from global to `.claude/tokens/` per project
+9. **src/tools/automation.js**: Update MCP_DIR export/usage
+10. **src/tools/workflow.js**: Update MCP_DIR, TOKEN_DIR imports
+11. **src/tools/config.js**: Update PRESETS_DIR path (4 references)
+12. **--init wizard output**: Update path output messages
+
+**🟡 Medium Priority Issues (Resolved):**
+1. **Project detection**: Check for `.claude/`, `.git/`, or `package.json`
+2. **No project error**: Helpful error message suggesting `npx unified-mcp-server --init`
+3. **Test file updates**: All 23 test files use temp project directories via `createTestProject()`
+4. **Git conflicts**: Document recommendation to `.gitignore` the binary DB
+5. **Concurrent access**: SQLite WAL mode handles concurrent access
+6. **Export tool**: Remove scope parameter (always exports current project)
+7. **Hook path updates**: ~10 lines across 4 hooks: read from `.claude/` not `~/.unified-mcp/`
+8. **migrate-experiences.js**: Update or deprecate (has own detectScope, schema)
+9. **Presets directory**: Built-in presets stay in package, custom presets go to `.claude/presets/`
+
+**🟢 Low Priority Issues (Documented):**
+1. **Pagination**: Document as future enhancement for large databases
+2. **Nested projects**: Document behavior (uses immediate cwd only, no parent traversal)
+3. **No global learning**: Document trade-off (use export/import for cross-project sharing)
+4. **Hook verbiage**: No changes needed - default prompts/reminders stay same
+5. **Hook customization**: Via `project-context.json` (additive to bundled defaults)
+
+**Test Infrastructure:**
+- Add `test/test-utils.js` with `createTestProject()` and `cleanupTestProject()`
+- All test files create temp project directories in `os.tmpdir()`
+- Tests are fully isolated from user's actual projects
+
+---
+
+### New Tool: import_experiences
+```javascript
+// Import experiences from JSON file into current project
+import_experiences({ filename: "exported-experiences.json" })
+
+// Implementation (~50 lines):
+async function importExperiences({ filename }) {
+  ensureProjectContext(); // Verify we're in a project
+  const data = JSON.parse(fs.readFileSync(filename));
+  const db = getProjectDatabase();
+
+  let imported = 0;
+  for (const exp of data.experiences) {
+    // Don't preserve original IDs - let SQLite assign new ones
+    const { id, ...expWithoutId } = exp;
+    db.prepare(`
+      INSERT INTO experiences (type, domain, situation, approach, outcome, reasoning, ...)
+      VALUES (?, ?, ?, ?, ?, ?, ...)
+    `).run(expWithoutId.type, expWithoutId.domain, ...);
+    imported++;
+  }
+
+  return { imported, message: `Imported ${imported} experiences` };
+}
+```
+
+**Tool Schema Changes:**
+
+| Tool | Change |
+|------|--------|
+| `record_experience` | Remove `scope` parameter |
+| `search_experiences` | Remove `scope` parameter, remove `source` from results |
+| `export_experiences` | Remove `scope` parameter |
+| `get_experience` | Remove `source` parameter (just `id`) |
+| `update_experience` | Remove `source` parameter |
+| `tag_experience` | Remove `source` parameter |
+| **NEW** `import_experiences` | Add `{ filename }` parameter |
+
+---
+
+### Known Limitations
+1. **No global/cross-project learning** - Each project is isolated
+2. Cannot search experiences from project A while working in project B
+3. Must use export/import for cross-project knowledge sharing
+4. `.claude/experiences.db` should be gitignored to avoid binary merge conflicts
+5. Requires project context (`.claude/`, `.git/`, or `package.json`) to function
+
+---
+
+### Implementation Phases
+
+**Phase 1: Schema Updates** (Database Layer)
+```javascript
+// index.js changes:
+
+// OLD: Global database
+const DB_PATH = path.join(MCP_DIR, 'data.db');
+
+// NEW: Project-local database
+function getProjectDbPath() {
+  const cwd = process.cwd();
+  return path.join(cwd, '.claude', 'experiences.db');
+}
+
+function ensureProjectContext() {
+  const cwd = process.cwd();
+  const claudeDir = path.join(cwd, '.claude');
+  const gitDir = path.join(cwd, '.git');
+  const packageJson = path.join(cwd, 'package.json');
+
+  if (!fs.existsSync(claudeDir) && !fs.existsSync(gitDir) && !fs.existsSync(packageJson)) {
+    throw new ValidationError(
+      'No project detected',
+      'This tool requires a project context.\\n\\n' +
+      'Options:\\n' +
+      '1. Run from a directory with .claude/, .git/, or package.json\\n' +
+      '2. Run: npx unified-mcp-server --init'
+    );
+  }
+
+  // Create .claude directory if it doesn't exist
+  if (!fs.existsSync(claudeDir)) {
+    fs.mkdirSync(claudeDir, { recursive: true });
+  }
+}
+
+// Schema WITHOUT scope field
+const SCHEMA = `
+  CREATE TABLE IF NOT EXISTS schema_info (
+    version INTEGER PRIMARY KEY,
+    applied_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS experiences (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT NOT NULL CHECK(type IN ('effective', 'ineffective')),
+    domain TEXT NOT NULL CHECK(domain IN ('Tools', 'Protocol', 'Communication', 'Process', 'Debugging', 'Decision')),
+    situation TEXT NOT NULL,
+    approach TEXT NOT NULL,
+    outcome TEXT NOT NULL,
+    reasoning TEXT NOT NULL,
+    alternative TEXT,
+    confidence REAL,
+    revision_of INTEGER,
+    contradicts TEXT,
+    supports TEXT,
+    context TEXT,
+    assumptions TEXT,
+    limitations TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+
+  -- FTS5 for full-text search
+  CREATE VIRTUAL TABLE IF NOT EXISTS experiences_fts USING fts5(
+    situation, approach, outcome, reasoning,
+    content='experiences',
+    content_rowid='id'
+  );
+
+  -- Triggers for FTS sync
+  CREATE TRIGGER IF NOT EXISTS experiences_ai AFTER INSERT ON experiences BEGIN
+    INSERT INTO experiences_fts(rowid, situation, approach, outcome, reasoning)
+    VALUES (new.id, new.situation, new.approach, new.outcome, new.reasoning);
+  END;
+
+  -- ... other tables (reasoning_sessions, reasoning_thoughts, etc.)
+`;
+```
+
+**Phase 1.5: Hook Path Updates** (~10 lines)
+Update bundled hooks to read from `.claude/` instead of `~/.unified-mcp/`:
+```javascript
+// BEFORE (all 4 hooks)
+const homeDir = path.join(os.homedir(), '.unified-mcp');
+const configPath = path.join(homeDir, 'config.json');
+const tokenDir = path.join(homeDir, 'tokens');
+
+// AFTER
+const cwd = process.env.PWD || process.cwd();
+const claudeDir = path.join(cwd, '.claude');
+const configPath = path.join(claudeDir, 'config.json');
+const tokenDir = path.join(claudeDir, 'tokens');
+```
+
+Files to update:
+- `hooks/user-prompt-submit.cjs` (lines 22-26, 45)
+- `hooks/pre-tool-use.cjs` (lines 33-34)
+- `hooks/stop.cjs` (lines 15-16)
+- `hooks/session-start.cjs` (line 71)
+
+**Phase 2: Tool Updates** (API Layer)
+- Remove `scope` parameter from all experience tools
+- Remove `detectScope()` function entirely
+- Update `search_experiences` to remove `source` field from results
+- Add `import_experiences` tool
+
+**Phase 3: Error Handling** (User Experience)
+- Add `ensureProjectContext()` check to all experience tools
+- Provide helpful error messages with `--init` suggestion
+- Graceful handling when `.claude/` directory doesn't exist
+
+**Phase 4: Test Updates** (Validation)
+- Create temp project directories for each test run:
+```javascript
+// test-utils.js
+const os = require('os');
+const fs = require('fs');
+
+function createTestProject() {
+  const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'unified-mcp-test-'));
+  const claudeDir = path.join(testDir, '.claude');
+  fs.mkdirSync(claudeDir);
+  fs.mkdirSync(path.join(claudeDir, 'tokens'));
+  fs.writeFileSync(path.join(claudeDir, 'config.json'), '{}');
+  fs.writeFileSync(path.join(claudeDir, 'project-context.json'), '{}');
+  return testDir;
+}
+
+function cleanupTestProject(testDir) {
+  fs.rmSync(testDir, { recursive: true, force: true });
+}
+```
+- Update all 23 test files to use `createTestProject()`
+- Remove scope-related test cases
+- Add import_experiences tests
+- Add project detection tests
+
+**Phase 5: --init Flow & Migration** (Clean Slate for v1.4.0)
+
+**5a. Existing `.claude/` Handling:**
+```
+if .claude/ does NOT exist:
+  → Create full structure (normal init)
+
+if .claude/ exists AND .claude/experiences.db exists:
+  → Show status: "Already initialized"
+  → Display: DB version, experience count, config preset
+  → Offer: --init --force to reset
+
+if .claude/ exists BUT .claude/experiences.db does NOT exist:
+  → Repair mode: Add missing files
+  → Preserve existing files (settings.json, etc.)
+```
+
+**5b. ~/.unified-mcp/ Deletion (during --init only):**
+```
+if ~/.unified-mcp/ exists:
+  → Show warning:
+    "⚠️  Found existing global data at ~/.unified-mcp/
+     This will be DELETED after setup completes.
+     Your experiences will start fresh in this project.
+
+     Continue? [Y/n]"
+  → If confirmed: Delete ~/.unified-mcp/ AFTER successful .claude/ creation
+  → If declined: Exit without changes
+```
+
+**5c. --init Creates:**
+```
+.claude/
+├── experiences.db        (empty database, schema v1)
+├── config.json           (default: three-gate preset)
+├── project-context.json  (empty, ready for customization)
+└── tokens/               (empty directory)
+```
+
+**Phase 6: Documentation** (Final)
+1. `docs/ARCHITECTURE.md` - Update to project-only architecture
+2. `docs/CONFIGURATION.md` - Document `.claude/experiences.db` location
+3. `docs/TOOL_REFERENCE.md` - Update tool parameters (remove scope)
+4. `README.md` - Update architecture explanation
+5. `CHANGELOG.md` - Document breaking changes
+
+**Installation Method: npx (No Change)**
+The server is distributed via npm and run via npx. This does NOT change:
+```bash
+# Initialize in a project
+npx unified-mcp-server --init
+
+# MCP settings.json (no change required)
+{
+  "mcpServers": {
+    "unified-mcp": {
+      "command": "npx",
+      "args": ["-y", "unified-mcp-server"]
+    }
+  }
+}
+```
+The server code changes internally, but:
+- npx command stays the same
+- User's settings.json does not need updating
+- Package installs via npm as before
+
+---
+
+### Files Requiring Changes
+
+| Category | Count | Files |
+|----------|-------|-------|
+| Core Implementation | 1 | `index.js` (remove MCP_DIR, scope, detectScope, add import tool) |
+| Source Modules | 4 | `src/database.js`, `src/tools/knowledge.js`, `src/tools/automation.js`, `src/tools/config.js`, `src/tools/workflow.js` |
+| Hooks (paths only) | 4 | ~10 lines total: config/token paths → `.claude/` |
+| Test Utilities | 1 | `test/test-utils.js` (add createTestProject/cleanupTestProject) |
+| Tests | 12+ | All test/*.js files with MCP_DIR references |
+| Documentation | 5 | README.md, 4 docs/*.md files |
+| --init wizard | 1 | Create `.claude/` structure, path outputs, delete warning |
+| Scripts | 1 | `scripts/migrate-experiences.js` (update or deprecate) |
+| Bootstrap | 1 | `bootstrap.js` (if has path references) |
+| **Total** | 40+ | Full project isolation, no global state |
+
+**Source Module Changes Detail:**
+
+| File | Changes Needed |
+|------|----------------|
+| `src/database.js` | Remove MCP_DIR, TOKEN_DIR, DB_FILE definitions (lines 10-12, 30) |
+| `src/tools/knowledge.js` | Remove duplicate detectScope() (lines 12-32), remove scope param |
+| `src/tools/automation.js` | Update MCP_DIR export/usage (lines 12, 61) |
+| `src/tools/workflow.js` | Update MCP_DIR, TOKEN_DIR imports (line 8) |
+| `src/tools/config.js` | Update PRESETS_DIR path (line 121+, 4 references) |
+
+**Benefits:**
+- **Simplicity**: Everything in one place (`.claude/`)
+- **Portability**: Entire `.claude/` folder travels with project
+- **Complete Isolation**: Zero cross-project pollution, zero global state
+- **Clarity**: No split between `~/.unified-mcp/` and `.claude/`
+- **Reduced Code**: Remove MCP_DIR, scope field, detectScope()
+- **Mental Model**: One location to understand and manage
+- **Git-friendly**: `.claude/` can be gitignored
+
+**Limitations (Accepted Trade-offs):**
+- **No global learning**: Each project is isolated (workaround: export/import)
+- **No cross-project search**: Can only search current project
+- **Requires project context**: Must run from valid project directory
+
+**Cross-Project Sharing Workaround:**
+```bash
+# Export from Project A
+cd /path/to/project-a
+# Use export_experiences tool → creates experiences.json
+
+# Import to Project B
+cd /path/to/project-b
+# Use import_experiences tool with experiences.json
+```
+
+**Priority**: Medium-High (solves fundamental architecture gap with simpler approach than dual-DB)
+
+---
+
+### Identified Gaps
+
+#### Test Files (23 total)
+
+All test files requiring `createTestProject()` updates:
+```
+test/test-utils.js          (ADD createTestProject/cleanupTestProject - foundation)
+test/test-tools.js          (update DB references)
+test/test-workflows.js      (update DB references)
+test/test-compliance.js     (update DB references)
+test/test-config.js         (update DB references)
+test/test-integration.js    (update DB references)
+test/test-enforcement.js    (update DB references)
+test/test-agent-workflows.js (update DB references)
+test/test-hook-execution.js (update DB references)
+test/test-protocol-with-context.js (update DB references)
+test/test-tool-guidance.js  (update DB references)
+test/test-project-context.js (update DB references)
+test/test-npx.js            (update DB references)
+test/test-version-sync.js   (may not need changes - version only)
+test/test-migration.js      (update or deprecate with migrate-experiences.js)
+test/test-edge-scenarios.js (update DB references)
+test/test-edge-cases.js     (update DB references)
+test/test-experience-usage.js (update DB references)
+test/test-agent-compliance.js (update DB references)
+test/test-known-failure-modes.js (update DB references)
+test/test-post-reload-safe.js (update DB references)
+test/test-post-reload-real.js (update DB references)
+test/agent-harness.js       (update DB references)
+```
+
+---
+
+**Hook Files - Verified Line Numbers:**
+
+| File | Line(s) | Current Code | Change To |
+|------|---------|--------------|-----------|
+| `user-prompt-submit.cjs` | 22-23 | `os.homedir(), '.unified-mcp'` | `process.cwd(), '.claude'` |
+| `pre-tool-use.cjs` | 33 | `os.homedir(), '.unified-mcp'` | `process.cwd(), '.claude'` |
+| `stop.cjs` | 15 | `os.homedir(), '.unified-mcp'` | `process.cwd(), '.claude'` |
+| `session-start.cjs` | 71-72 | `os.homedir(), '.unified-mcp'` | `process.cwd(), '.claude'` |
+
+**Total: 6 lines across 4 files** (corrected from ~10 estimate)
+
+#### Migration Script Decision
+
+- **Rationale**: v1.4.0 is clean slate (delete old DB, start fresh)
+- **Action**: Add deprecation notice, remove from npm scripts
+- **Future**: Delete in v1.5.0, or add `import_legacy_experiences` tool if users request
+
+---
+
+### Acceptance Criteria
+
+```
+✅ All `~/.unified-mcp/` references removed from codebase (kept only in migration warning)
+✅ All `scope` parameters removed from tool schemas
+✅ `detectScope()` function deleted from all files
+✅ `import_experiences` tool implemented and tested
+✅ All 23 test files use `createTestProject()`
+✅ `npx unified-mcp-server --init` creates `.claude/` structure
+✅ Existing `~/.unified-mcp/` deletion with user confirmation works
+✅ All 150+ existing tests pass (166 tests passing)
+✅ New tests added for import_experiences, project detection
+✅ README.md updated with new architecture
+✅ CHANGELOG.md has v1.4.0 breaking changes documented
+```
+
+**v1.4.0 Implementation Completed**: 2026-02-01
+
+---
+
+### Execution Sequence
+
+```
+Phase 1: Foundation (Do First)
+  1.1 Add test-utils.js with createTestProject/cleanupTestProject
+  1.2 Update src/database.js (remove MCP_DIR, TOKEN_DIR, DB_FILE)
+  1.3 Update index.js (remove detectScope, add ensureProjectContext)
+
+Phase 2: Schema (Requires Phase 1)
+  2.1 Remove scope field from schema
+  2.2 Add schema_info table
+  2.3 Update all experience queries
+
+Phase 3: Tools (Requires Phase 2)
+  3.1 Remove scope parameter from all tools
+  3.2 Add import_experiences tool
+  3.3 Update src/tools/*.js files
+
+Phase 4: Hooks (Can parallel with Phase 3)
+  4.1 Update 4 hook files (6 lines total)
+
+Phase 5: Tests (Requires Phases 1-4)
+  5.1 Update all 23 test files to use createTestProject()
+  5.2 Add new tests for import_experiences
+  5.3 Verify all tests pass
+
+Phase 6: --init & Docs (Final)
+  6.1 Update --init wizard for .claude/ creation
+  6.2 Add ~/.unified-mcp/ deletion with confirmation
+  6.3 Update all documentation
+```
+
+---
+
+#### Install Flow Gaps (--init wizard)
+
+| # | Gap | Solution | Location |
+|---|-----|----------|----------|
+| 1 | DB path display shows `~/.unified-mcp/data.db` | Change to `.claude/experiences.db` | line 2563 |
+| 2 | Token dir shows `~/.unified-mcp/tokens` | Change to `.claude/tokens/` | line 2564 |
+| 3 | Namespace shows `~/.unified-mcp/` | Change to `.claude/` | line 2569 |
+| 4 | Migration asks about old DB | Replace with import_experiences info | lines 2664-2686 |
+| 5 | Config saves to `MCP_DIR/config.json` | Save to `.claude/config.json` | line 2698 |
+| 6 | Hook paths show `~/.unified-mcp/hooks/` | Show bundled paths | lines 2790-2794 |
+| 7 | Post-install prompt uses `~/.unified-mcp/` | Use `.claude/post-install-prompts/` | lines 2800, 2838, 2870 |
+| 8 | Verification shows `~/.unified-mcp/data.db` | Show `.claude/experiences.db` | line 2918 |
+| 9 | No .claude/ existence check | Add check, show status, offer repair/reset | New |
+| 10 | No ~/.unified-mcp/ deletion | Add warning and delete after confirmation | New |
+| 11 | No --force flag | Add `--init --force` for reset | New |
+
+#### Configuration Flow Gaps
+
+| # | Gap | Solution | Location |
+|---|-----|----------|----------|
+| 12 | MCP_DIR = `~/.unified-mcp` | Change to `process.cwd()/.claude` | index.js:27 |
+| 13 | Config loads from global | Load from `.claude/config.json` | index.js:2998-3000 |
+| 14 | No ensureProjectContext() | Add function to verify project before operations | New |
+
+#### Additional Gaps
+
+| # | Gap | Solution |
+|---|-----|----------|
+| 15 | Tool count shows "25 tools" | Update to "26 tools" |
+| 16 | PRESETS_DIR global only | Add `.claude/presets/` for custom |
+| 17 | installHooks() copies files | Return bundled paths only |
+
+**Total: 17 additional gaps in install/config flows (all approved 2026-01-31)**
+
+#### Documentation & Scope Removal Gaps
+
+| # | Issue | Details |
+|---|-------|---------|
+| 18 | Docs file count wrong | Plan says "5" but 11 docs files have global path refs |
+| 19 | index.js scope references | 25 `scope` references need removal |
+| 20 | src/tools/knowledge.js scope refs | 30+ `scope` references need removal |
+| 21 | Test file count not specific | Plan says "12+" but should list all 23 files |
+
+**Docs files requiring path updates (11 total):**
+```
+MIGRATION_GUIDE.md        (11 refs)
+MANUAL_TESTING_GUIDE.md   (20 refs)
+FINAL_STATUS.md           (7 refs)
+TROUBLESHOOTING.md        (6 refs)
+ARCHITECTURE.md           (2 refs)
+CONFIGURATION.md          (2 refs)
+README.md (docs/)         (2 refs)
+GETTING_STARTED.md        (1 ref)
+CHANGELOG.md (docs/)      (1 ref)
+AGENT_TESTING_LIMITATIONS.md (1 ref)
+IMPLEMENTATION_PLAN.md    (54 refs - will be correct after implementation)
+```
+
+**Scope removal breakdown:**
+
+| File | Refs | Items to Remove |
+|------|------|-----------------|
+| index.js | 25 | scope parameter, detectScope calls, schema field |
+| src/tools/knowledge.js | 30+ | detectScope function, scope param, SQL queries |
+
+#### Schema & Config Gaps
+
+| # | Issue | Solution | Location |
+|---|-------|----------|----------|
+| 22 | .gitignore has `.unified-mcp/` | Selective ignore for `.claude/` | .gitignore:8 |
+| 23 | Test coverage incomplete | Add missing test files to npm test | package.json:21 |
+| 24 | Schema: scope column | Remove `scope TEXT CHECK(...)` | index.js:64 |
+| 25 | Schema: scope index | Remove `idx_experiences_scope` | index.js:74 |
+| 26 | Schema: No schema_info table | Add schema versioning table | index.js (new) |
+
+**.gitignore selective approach (approved):**
+```gitignore
+# Ignore binary DB and ephemeral files, keep shareable configs
+.claude/experiences.db
+.claude/tokens/
+.claude/post-install-prompts/
+# Keep: config.json, project-context.json (team can share)
+```
+
+**Test files to add to npm test:**
+- test-agent-compliance.js
+- test-edge-cases.js
+- test-edge-scenarios.js
+- test-experience-usage.js
+- test-known-failure-modes.js
+- test-post-reload-real.js
+- test-post-reload-safe.js
+
+**Exclude (utilities):** agent-harness.js, test-utils.js
+**Deprecate:** test-migration.js (with migrate-experiences.js)
+
+#### Documentation Gaps
+
+| # | Issue | Solution | Location |
+|---|-------|----------|----------|
+| 27 | TOOL_REFERENCE.md has scope refs | Remove scope parameter and source field docs | docs/TOOL_REFERENCE.md:19,21 |
+
+---
+
+### Gap Summary
+
+**Total: 27 gaps identified and approved (2026-01-31)**
+
+| Category | Count |
+|----------|-------|
+| Install Flow | 11 |
+| Configuration Flow | 3 |
+| Additional (tools, presets, hooks) | 3 |
+| Documentation & Scope Removal | 4 |
+| Schema & Config | 5 |
+| Documentation | 1 |
+
+---
+
+### Older Version History (v1.0.x)
 
 ### v1.0.4 - 2026-01-30 (Patch Release)
 **User Feedback: Agent Auto-Configuration Guidance**

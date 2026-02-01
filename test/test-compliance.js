@@ -1,27 +1,27 @@
 #!/usr/bin/env node
 /**
  * Compliance Tests - Workflow enforcement and protocol compliance
+ * v1.4.0: Updated for project-scoped experiences
  */
 
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { colors, callMCP, parseJSONRPC, test, assertTrue, assertEquals, getStats } = require('./test-utils');
+const { colors, callMCP, parseJSONRPC, test, assertTrue, assertEquals, getStats, createTestProject, cleanupTestProject, getTestDbPath } = require('./test-utils');
 
-const TEST_DB = path.join(os.homedir(), '.unified-mcp', 'data.db');
+let testDir;
 
 async function runTests() {
   console.log(colors.bold + '\nCOMPLIANCE TESTS (20 tests)' + colors.reset);
   console.log(colors.cyan + '======================================================================' + colors.reset);
 
-  try {
-    if (fs.existsSync(TEST_DB)) {
-      fs.unlinkSync(TEST_DB);
-    }
-    console.log('\n🗑️  Cleaned test database\n');
-  } catch (e) {
-    // Ignore
-  }
+  // v1.4.0: Create project-scoped test directory
+  testDir = createTestProject();
+  const TEST_DB = getTestDbPath(testDir);
+  console.log(`\n📁 Test project: ${testDir}\n`);
+
+  // Helper to call MCP with project context
+  const call = (tool, args) => callMCP(tool, args, { cwd: testDir });
 
   console.log(colors.bold + 'Workflow Enforcement Tools' + colors.reset);
   console.log(colors.cyan + '======================================================================' + colors.reset);
@@ -29,7 +29,7 @@ async function runTests() {
 
   // ===== check_compliance tests =====
   await test('check_compliance - teach phase dry-run', async () => {
-    const result = await callMCP('check_compliance', {
+    const result = await call('check_compliance', {
       current_phase: 'teach',
       action: 'record_experience'
     });
@@ -42,7 +42,7 @@ async function runTests() {
   });
 
   await test('check_compliance - learn phase', async () => {
-    const result = await callMCP('check_compliance', {
+    const result = await call('check_compliance', {
       current_phase: 'learn',
       action: 'gather_context'
     });
@@ -53,7 +53,7 @@ async function runTests() {
   });
 
   await test('check_compliance - reason phase', async () => {
-    const result = await callMCP('check_compliance', {
+    const result = await call('check_compliance', {
       current_phase: 'reason',
       action: 'reason_through'
     });
@@ -64,7 +64,7 @@ async function runTests() {
   });
 
   await test('check_compliance - missing action', async () => {
-    const result = await callMCP('check_compliance', {
+    const result = await call('check_compliance', {
       current_phase: 'teach'
     });
 
@@ -75,7 +75,7 @@ async function runTests() {
 
   // ===== verify_compliance tests =====
   await test('verify_compliance - create operation token', async () => {
-    const result = await callMCP('verify_compliance', {
+    const result = await call('verify_compliance', {
       session_id: 'test_verify_' + Date.now(),
       current_phase: 'teach',
       action: 'record_experience'
@@ -90,7 +90,7 @@ async function runTests() {
   });
 
   await test('verify_compliance - invalid phase', async () => {
-    const result = await callMCP('verify_compliance', {
+    const result = await call('verify_compliance', {
       current_phase: 'invalid',
       action: 'test'
     });
@@ -101,7 +101,7 @@ async function runTests() {
   });
 
   await test('verify_compliance - missing action', async () => {
-    const result = await callMCP('verify_compliance', {
+    const result = await call('verify_compliance', {
       current_phase: 'teach'
     });
 
@@ -112,7 +112,7 @@ async function runTests() {
 
   await test('verify_compliance - with session tracking', async () => {
     const sessionId = 'session_' + Date.now();
-    const result = await callMCP('verify_compliance', {
+    const result = await call('verify_compliance', {
       session_id: sessionId,
       current_phase: 'learn',
       action: 'search_experiences'
@@ -128,7 +128,7 @@ async function runTests() {
   // ===== authorize_operation tests =====
   await test('authorize_operation - valid token', async () => {
     // First get a token
-    const verifyResult = await callMCP('verify_compliance', {
+    const verifyResult = await call('verify_compliance', {
       current_phase: 'teach',
       action: 'test_action'
     });
@@ -138,7 +138,7 @@ async function runTests() {
     const token = verifyData.operation_token;
 
     // Now authorize with it
-    const result = await callMCP('authorize_operation', {
+    const result = await call('authorize_operation', {
       operation_token: token
     });
 
@@ -151,7 +151,7 @@ async function runTests() {
 
   await test('authorize_operation - create session token', async () => {
     // First get a token
-    const verifyResult = await callMCP('verify_compliance', {
+    const verifyResult = await call('verify_compliance', {
       current_phase: 'learn',
       action: 'test_action'
     });
@@ -161,7 +161,7 @@ async function runTests() {
     const token = verifyData.operation_token;
 
     // Authorize and request session token
-    const result = await callMCP('authorize_operation', {
+    const result = await call('authorize_operation', {
       operation_token: token,
       create_session_token: true
     });
@@ -175,7 +175,7 @@ async function runTests() {
   });
 
   await test('authorize_operation - invalid token', async () => {
-    const result = await callMCP('authorize_operation', {
+    const result = await call('authorize_operation', {
       operation_token: 'invalid_token_12345'
     });
 
@@ -185,7 +185,7 @@ async function runTests() {
   });
 
   await test('authorize_operation - missing token', async () => {
-    const result = await callMCP('authorize_operation', {});
+    const result = await call('authorize_operation', {});
 
     const responses = parseJSONRPC(result.stdout);
     const response = responses.find(r => r.id === 2);
@@ -197,14 +197,14 @@ async function runTests() {
     const sessionId = 'status_test_' + Date.now();
 
     // First create a session
-    await callMCP('verify_compliance', {
+    await call('verify_compliance', {
       session_id: sessionId,
       current_phase: 'teach',
       action: 'test'
     });
 
     // Now get status
-    const result = await callMCP('get_workflow_status', {
+    const result = await call('get_workflow_status', {
       session_id: sessionId
     });
 
@@ -217,7 +217,7 @@ async function runTests() {
   });
 
   await test('get_workflow_status - new session', async () => {
-    const result = await callMCP('get_workflow_status', {
+    const result = await call('get_workflow_status', {
       session_id: 'new_session_' + Date.now()
     });
 
@@ -229,7 +229,7 @@ async function runTests() {
   });
 
   await test('get_workflow_status - without session_id', async () => {
-    const result = await callMCP('get_workflow_status', {});
+    const result = await call('get_workflow_status', {});
 
     const responses = parseJSONRPC(result.stdout);
     const response = responses.find(r => r.id === 2);
@@ -240,14 +240,14 @@ async function runTests() {
     const sessionId = 'transition_test_' + Date.now();
 
     // Create session in teach phase
-    await callMCP('verify_compliance', {
+    await call('verify_compliance', {
       session_id: sessionId,
       current_phase: 'teach',
       action: 'test'
     });
 
     // Get status
-    const result = await callMCP('get_workflow_status', {
+    const result = await call('get_workflow_status', {
       session_id: sessionId
     });
 
@@ -261,14 +261,14 @@ async function runTests() {
     const sessionId = 'reset_test_' + Date.now();
 
     // Create a session
-    await callMCP('verify_compliance', {
+    await call('verify_compliance', {
       session_id: sessionId,
       current_phase: 'teach',
       action: 'test'
     });
 
     // Reset it
-    const result = await callMCP('reset_workflow', {
+    const result = await call('reset_workflow', {
       session_id: sessionId
     });
 
@@ -280,7 +280,7 @@ async function runTests() {
   });
 
   await test('reset_workflow - cleanup expired tokens', async () => {
-    const result = await callMCP('reset_workflow', {
+    const result = await call('reset_workflow', {
       cleanup_only: true
     });
 
@@ -292,7 +292,7 @@ async function runTests() {
   });
 
   await test('reset_workflow - without parameters', async () => {
-    const result = await callMCP('reset_workflow', {});
+    const result = await call('reset_workflow', {});
 
     const responses = parseJSONRPC(result.stdout);
     const response = responses.find(r => r.id === 2);
@@ -303,20 +303,20 @@ async function runTests() {
     const sessionId = 'multi_op_' + Date.now();
 
     // Create session with multiple operations
-    await callMCP('verify_compliance', {
+    await call('verify_compliance', {
       session_id: sessionId,
       current_phase: 'teach',
       action: 'op1'
     });
 
-    await callMCP('verify_compliance', {
+    await call('verify_compliance', {
       session_id: sessionId,
       current_phase: 'learn',
       action: 'op2'
     });
 
     // Reset
-    const result = await callMCP('reset_workflow', {
+    const result = await call('reset_workflow', {
       session_id: sessionId
     });
 
@@ -326,6 +326,9 @@ async function runTests() {
   });
 
   // ========================================================================
+
+  // v1.4.0: Cleanup test project
+  cleanupTestProject(testDir);
 
   const stats = getStats();
   console.log('\n' + colors.cyan + '======================================================================' + colors.reset);
@@ -338,4 +341,8 @@ async function runTests() {
   process.exit(stats.testsFailed > 0 ? 1 : 0);
 }
 
-runTests().catch(console.error);
+runTests().catch(e => {
+  cleanupTestProject(testDir);
+  console.error(e);
+  process.exit(1);
+});

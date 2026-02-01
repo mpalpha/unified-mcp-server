@@ -2,35 +2,34 @@
 /**
  * Tool Tests - All 25 MCP tools
  * Phases: Knowledge Management (6 tools), Reasoning (4 tools), Automation (5 tools)
+ * v1.4.0: Updated for project-scoped experiences
  */
 
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { colors, callMCP, parseJSONRPC, test, assertTrue, assertFalse, assertEquals, assertContains, getStats } = require('./test-utils');
+const { colors, callMCP, parseJSONRPC, test, assertTrue, assertFalse, assertEquals, assertContains, getStats, createTestProject, cleanupTestProject, getTestDbPath } = require('./test-utils');
 
-const TEST_DB = path.join(os.homedir(), '.unified-mcp', 'data.db');
+let testDir;
 
 async function runTests() {
   console.log(colors.bold + '\nTOOL TESTS (55 tests)' + colors.reset);
   console.log(colors.cyan + '======================================================================' + colors.reset);
 
-  // Clean test database
-  try {
-    if (fs.existsSync(TEST_DB)) {
-      fs.unlinkSync(TEST_DB);
-    }
-    console.log('\n🗑️  Cleaned test database\n');
-  } catch (e) {
-    // Ignore
-  }
+  // v1.4.0: Create project-scoped test directory
+  testDir = createTestProject();
+  const TEST_DB = getTestDbPath(testDir);
+  console.log(`\n📁 Test project: ${testDir}\n`);
+
+  // Helper to call MCP with project context
+  const call = (tool, args) => callMCP(tool, args, { cwd: testDir });
 
   console.log(colors.bold + 'Knowledge Management Tools (19 tests)' + colors.reset);
   console.log(colors.cyan + '======================================================================' + colors.reset);
 
   await test('record_experience - successful recording', async () => {
     const uniqueId = `test-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const result = await callMCP('record_experience', {
+    const result = await call('record_experience', {
       type: 'effective',
       domain: 'Tools',
       situation: `Test case for searching codebase ${uniqueId} with unique patterns`,
@@ -50,7 +49,7 @@ async function runTests() {
   });
 
   await test('record_experience - missing required field', async () => {
-    const result = await callMCP('record_experience', {
+    const result = await call('record_experience', {
       type: 'effective',
       domain: 'Tools',
       situation: 'Test'
@@ -64,7 +63,7 @@ async function runTests() {
   });
 
   await test('record_experience - invalid type', async () => {
-    const result = await callMCP('record_experience', {
+    const result = await call('record_experience', {
       type: 'invalid',
       domain: 'Tools',
       situation: 'Test',
@@ -78,16 +77,16 @@ async function runTests() {
     assertTrue(response && response.error, 'Should return error');
   });
 
-  await test('record_experience - auto scope detection', async () => {
+  // v1.4.0: scope removed - test recording with project context
+  await test('record_experience - project-scoped (v1.4.0)', async () => {
     const uniqueId = `test-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const result = await callMCP('record_experience', {
+    const result = await call('record_experience', {
       type: 'effective',
       domain: 'Process',
       situation: `Working on Auth component ${uniqueId} in src/components/Auth.tsx file`,
       approach: 'Used component patterns',
       outcome: 'Clean implementation',
-      reasoning: 'Project-specific patterns',
-      scope: 'auto'
+      reasoning: 'Project-specific patterns'
     });
 
     const responses = parseJSONRPC(result.stdout);
@@ -95,13 +94,14 @@ async function runTests() {
     assertTrue(response && response.result, 'Should return result');
 
     const data = JSON.parse(response.result.content[0].text);
-    assertEquals(data.scope, 'project', 'Should detect project scope from file path');
+    assertTrue(data.recorded, 'Should record successfully in project context');
+    assertTrue(data.experience_id > 0, 'Should have experience ID');
   });
 
   // Tool 2: search_experiences
   await test('search_experiences - basic search', async () => {
     // First record an experience
-    await callMCP('record_experience', {
+    await call('record_experience', {
       type: 'effective',
       domain: 'Tools',
       situation: 'JWT authentication implementation',
@@ -111,7 +111,7 @@ async function runTests() {
     });
 
     // Now search
-    const result = await callMCP('search_experiences', {
+    const result = await call('search_experiences', {
       query: 'JWT authentication'
     });
 
@@ -125,7 +125,7 @@ async function runTests() {
   });
 
   await test('search_experiences - missing query', async () => {
-    const result = await callMCP('search_experiences', {});
+    const result = await call('search_experiences', {});
 
     const responses = parseJSONRPC(result.stdout);
     const response = responses.find(r => r.id === 2);
@@ -134,7 +134,7 @@ async function runTests() {
   });
 
   await test('search_experiences - with domain filter', async () => {
-    const result = await callMCP('search_experiences', {
+    const result = await call('search_experiences', {
       query: 'test',
       domain: 'Tools'
     });
@@ -149,7 +149,7 @@ async function runTests() {
 
   await test('search_experiences - multi-term OR logic', async () => {
     // Record experience with special chars
-    await callMCP('record_experience', {
+    await call('record_experience', {
       type: 'effective',
       domain: 'Tools',
       situation: 'Working on ticket-123 for user/profile page',
@@ -159,7 +159,7 @@ async function runTests() {
     });
 
     // Search with multi-term query
-    const result = await callMCP('search_experiences', {
+    const result = await call('search_experiences', {
       query: 'ticket-123 user/profile'
     });
 
@@ -176,7 +176,7 @@ async function runTests() {
   await test('get_experience - retrieve by ID', async () => {
     // Record first
     const uniqueId = `test-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const recordResult = await callMCP('record_experience', {
+    const recordResult = await call('record_experience', {
       type: 'effective',
       domain: 'Debugging',
       situation: `Investigating authentication issue ${uniqueId} with complex edge cases`,
@@ -191,7 +191,7 @@ async function runTests() {
     const expId = recordData.experience_id || recordData.duplicate_id;
 
     // Now retrieve
-    const result = await callMCP('get_experience', { id: expId });
+    const result = await call('get_experience', { id: expId });
 
     const responses = parseJSONRPC(result.stdout);
     const response = responses.find(r => r.id === 2);
@@ -203,7 +203,7 @@ async function runTests() {
   });
 
   await test('get_experience - missing ID', async () => {
-    const result = await callMCP('get_experience', {});
+    const result = await call('get_experience', {});
 
     const responses = parseJSONRPC(result.stdout);
     const response = responses.find(r => r.id === 2);
@@ -211,7 +211,7 @@ async function runTests() {
   });
 
   await test('get_experience - invalid ID', async () => {
-    const result = await callMCP('get_experience', { id: 99999 });
+    const result = await call('get_experience', { id: 99999 });
 
     const responses = parseJSONRPC(result.stdout);
     const response = responses.find(r => r.id === 2);
@@ -222,7 +222,7 @@ async function runTests() {
   await test('update_experience - create revision', async () => {
     // Record first
     const uniqueId = `test-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const recordResult = await callMCP('record_experience', {
+    const recordResult = await call('record_experience', {
       type: 'effective',
       domain: 'Process',
       situation: `Team collaboration workflow ${uniqueId} with specific procedures`,
@@ -237,7 +237,7 @@ async function runTests() {
     const expId = recordData.experience_id || recordData.duplicate_id;
 
     // Now update
-    const result = await callMCP('update_experience', {
+    const result = await call('update_experience', {
       id: expId,
       changes: {
         outcome: 'Even better results',
@@ -257,7 +257,7 @@ async function runTests() {
   });
 
   await test('update_experience - missing parameters', async () => {
-    const result = await callMCP('update_experience', {
+    const result = await call('update_experience', {
       id: 1
       // Missing changes and reason
     });
@@ -273,7 +273,7 @@ async function runTests() {
   // Testing error cases instead which don't hit FTS5
 
   await test('tag_experience - invalid tags parameter', async () => {
-    const result = await callMCP('tag_experience', {
+    const result = await call('tag_experience', {
       id: 1,
       tags: 'not-an-array'
     });
@@ -285,7 +285,7 @@ async function runTests() {
 
   // Tool 6: export_experiences
   await test('export_experiences - JSON format', async () => {
-    const result = await callMCP('export_experiences', {
+    const result = await call('export_experiences', {
       format: 'json'
     });
 
@@ -300,7 +300,7 @@ async function runTests() {
   });
 
   await test('export_experiences - Markdown format', async () => {
-    const result = await callMCP('export_experiences', {
+    const result = await call('export_experiences', {
       format: 'markdown'
     });
 
@@ -315,7 +315,7 @@ async function runTests() {
   });
 
   await test('export_experiences - invalid format', async () => {
-    const result = await callMCP('export_experiences', {
+    const result = await call('export_experiences', {
       format: 'invalid'
     });
 
@@ -325,7 +325,7 @@ async function runTests() {
   });
 
   await test('export_experiences - with domain filter', async () => {
-    const result = await callMCP('export_experiences', {
+    const result = await call('export_experiences', {
       format: 'json',
       filter: { domain: 'Tools' }
     });
@@ -349,10 +349,10 @@ async function runTests() {
       reasoning: 'Right tool for the job'
     };
 
-    await callMCP('record_experience', exp);
+    await call('record_experience', exp);
 
     // Try to record again
-    const result = await callMCP('record_experience', exp);
+    const result = await call('record_experience', exp);
 
     const responses = parseJSONRPC(result.stdout);
     const response = responses.find(r => r.id === 2);
@@ -372,7 +372,7 @@ async function runTests() {
 
   // Tool 7: analyze_problem
   await test('analyze_problem - successful analysis', async () => {
-    const result = await callMCP('analyze_problem', {
+    const result = await call('analyze_problem', {
       problem: 'How to implement JWT authentication in React',
       available_tools: ['search_experiences', 'read_file']
     });
@@ -389,7 +389,7 @@ async function runTests() {
   });
 
   await test('analyze_problem - missing problem', async () => {
-    const result = await callMCP('analyze_problem', {});
+    const result = await call('analyze_problem', {});
 
     const responses = parseJSONRPC(result.stdout);
     const response = responses.find(r => r.id === 2);
@@ -398,7 +398,7 @@ async function runTests() {
   });
 
   await test('analyze_problem - detects intent', async () => {
-    const result = await callMCP('analyze_problem', {
+    const result = await call('analyze_problem', {
       problem: 'Debug authentication error in login flow'
     });
 
@@ -410,7 +410,7 @@ async function runTests() {
   });
 
   await test('analyze_problem - suggests queries', async () => {
-    const result = await callMCP('analyze_problem', {
+    const result = await call('analyze_problem', {
       problem: 'User authentication patterns'
     });
 
@@ -425,7 +425,7 @@ async function runTests() {
   // Tool 8: gather_context
   await test('gather_context - synthesize context', async () => {
     // First analyze
-    const analyzeResult = await callMCP('analyze_problem', {
+    const analyzeResult = await call('analyze_problem', {
       problem: 'Test problem for context'
     });
     const analyzeResponses = parseJSONRPC(analyzeResult.stdout);
@@ -433,7 +433,7 @@ async function runTests() {
     const sessionId = analyzeData.session_id;
 
     // Then gather
-    const result = await callMCP('gather_context', {
+    const result = await call('gather_context', {
       session_id: sessionId,
       problem: 'Test problem for context',
       sources: {
@@ -453,7 +453,7 @@ async function runTests() {
   });
 
   await test('gather_context - missing session_id', async () => {
-    const result = await callMCP('gather_context', {
+    const result = await call('gather_context', {
       sources: {}
     });
 
@@ -463,13 +463,13 @@ async function runTests() {
   });
 
   await test('gather_context - empty sources warning', async () => {
-    const analyzeResult = await callMCP('analyze_problem', {
+    const analyzeResult = await call('analyze_problem', {
       problem: 'Test'
     });
     const analyzeResponses = parseJSONRPC(analyzeResult.stdout);
     const sessionId = JSON.parse(analyzeResponses.find(r => r.id === 2).result.content[0].text).session_id;
 
-    const result = await callMCP('gather_context', {
+    const result = await call('gather_context', {
       session_id: sessionId,
       sources: { experiences: [], local_docs: [] }
     });
@@ -482,10 +482,10 @@ async function runTests() {
   });
 
   await test('gather_context - prioritizes effective experiences', async () => {
-    const analyzeResult = await callMCP('analyze_problem', { problem: 'Test' });
+    const analyzeResult = await call('analyze_problem', { problem: 'Test' });
     const sessionId = JSON.parse(parseJSONRPC(analyzeResult.stdout).find(r => r.id === 2).result.content[0].text).session_id;
 
-    const result = await callMCP('gather_context', {
+    const result = await call('gather_context', {
       session_id: sessionId,
       sources: {
         experiences: [
@@ -501,10 +501,10 @@ async function runTests() {
 
   // Tool 9: reason_through
   await test('reason_through - record thought', async () => {
-    const analyzeResult = await callMCP('analyze_problem', { problem: 'Test' });
+    const analyzeResult = await call('analyze_problem', { problem: 'Test' });
     const sessionId = JSON.parse(parseJSONRPC(analyzeResult.stdout).find(r => r.id === 2).result.content[0].text).session_id;
 
-    const result = await callMCP('reason_through', {
+    const result = await call('reason_through', {
       session_id: sessionId,
       thought: 'Use approach A because it is simpler',
       thought_number: 1,
@@ -521,7 +521,7 @@ async function runTests() {
   });
 
   await test('reason_through - missing thought', async () => {
-    const result = await callMCP('reason_through', {
+    const result = await call('reason_through', {
       session_id: 'test',
       thought_number: 1
     });
@@ -532,10 +532,10 @@ async function runTests() {
   });
 
   await test('reason_through - detects scope creep', async () => {
-    const analyzeResult = await callMCP('analyze_problem', { problem: 'authentication' });
+    const analyzeResult = await call('analyze_problem', { problem: 'authentication' });
     const sessionId = JSON.parse(parseJSONRPC(analyzeResult.stdout).find(r => r.id === 2).result.content[0].text).session_id;
 
-    const result = await callMCP('reason_through', {
+    const result = await call('reason_through', {
       session_id: sessionId,
       thought: 'Maybe we should redesign the entire database schema',
       thought_number: 1
@@ -546,16 +546,16 @@ async function runTests() {
   });
 
   await test('reason_through - sequential thoughts', async () => {
-    const analyzeResult = await callMCP('analyze_problem', { problem: 'Test' });
+    const analyzeResult = await call('analyze_problem', { problem: 'Test' });
     const sessionId = JSON.parse(parseJSONRPC(analyzeResult.stdout).find(r => r.id === 2).result.content[0].text).session_id;
 
-    await callMCP('reason_through', {
+    await call('reason_through', {
       session_id: sessionId,
       thought: 'First thought',
       thought_number: 1
     });
 
-    const result = await callMCP('reason_through', {
+    const result = await call('reason_through', {
       session_id: sessionId,
       thought: 'Second thought',
       thought_number: 2
@@ -567,17 +567,17 @@ async function runTests() {
 
   // Tool 10: finalize_decision
   await test('finalize_decision - close session', async () => {
-    const analyzeResult = await callMCP('analyze_problem', { problem: 'Test decision' });
+    const analyzeResult = await call('analyze_problem', { problem: 'Test decision' });
     const sessionId = JSON.parse(parseJSONRPC(analyzeResult.stdout).find(r => r.id === 2).result.content[0].text).session_id;
 
-    await callMCP('reason_through', {
+    await call('reason_through', {
       session_id: sessionId,
       thought: 'Choose option A',
       thought_number: 1,
       confidence: 0.9
     });
 
-    const result = await callMCP('finalize_decision', {
+    const result = await call('finalize_decision', {
       session_id: sessionId,
       conclusion: 'We will use option A',
       rationale: 'It is the simplest solution',
@@ -595,16 +595,16 @@ async function runTests() {
 
   await test('finalize_decision - auto-record experience', async () => {
     const uniqueId = `test-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const analyzeResult = await callMCP('analyze_problem', { problem: `Testing auto-record functionality ${uniqueId} with unique identifier` });
+    const analyzeResult = await call('analyze_problem', { problem: `Testing auto-record functionality ${uniqueId} with unique identifier` });
     const sessionId = JSON.parse(parseJSONRPC(analyzeResult.stdout).find(r => r.id === 2).result.content[0].text).session_id;
 
-    await callMCP('reason_through', {
+    await call('reason_through', {
       session_id: sessionId,
       thought: 'Option B is better',
       thought_number: 1
     });
 
-    const result = await callMCP('finalize_decision', {
+    const result = await call('finalize_decision', {
       session_id: sessionId,
       conclusion: `Decided on option B for case ${uniqueId} after evaluation`,
       rationale: 'Better performance',
@@ -616,7 +616,7 @@ async function runTests() {
   });
 
   await test('finalize_decision - missing conclusion', async () => {
-    const result = await callMCP('finalize_decision', {
+    const result = await call('finalize_decision', {
       session_id: 'test'
     });
 
@@ -626,7 +626,7 @@ async function runTests() {
   });
 
   await test('finalize_decision - invalid session', async () => {
-    const result = await callMCP('finalize_decision', {
+    const result = await call('finalize_decision', {
       session_id: 'nonexistent',
       conclusion: 'Test'
     });
@@ -642,7 +642,7 @@ async function runTests() {
   console.log(colors.cyan + '======================================================================' + colors.reset);
 
   await test('install_hooks - successful installation', async () => {
-    const result = await callMCP('install_hooks', {});
+    const result = await call('install_hooks', {});
 
     const responses = parseJSONRPC(result.stdout);
     const response = responses.find(r => r.id === 2);
@@ -653,7 +653,7 @@ async function runTests() {
   });
 
   await test('install_hooks - returns hook list', async () => {
-    const result = await callMCP('install_hooks', {});
+    const result = await call('install_hooks', {});
     const data = JSON.parse(parseJSONRPC(result.stdout).find(r => r.id === 2).result.content[0].text);
     const hookNames = data.hooks.map(h => h.name);
     assertTrue(hookNames.includes('PreToolUse'), 'Should include PreToolUse hook');
@@ -661,21 +661,21 @@ async function runTests() {
   });
 
   await test('install_hooks - returns location', async () => {
-    const result = await callMCP('install_hooks', {});
+    const result = await call('install_hooks', {});
     const data = JSON.parse(parseJSONRPC(result.stdout).find(r => r.id === 2).result.content[0].text);
     assertTrue(data.location, 'Should have location');
   });
 
   await test('install_hooks - idempotent', async () => {
-    await callMCP('install_hooks', {});
-    const result = await callMCP('install_hooks', {});
+    await call('install_hooks', {});
+    const result = await call('install_hooks', {});
     const data = JSON.parse(parseJSONRPC(result.stdout).find(r => r.id === 2).result.content[0].text);
     assertTrue(data.installed, 'Should handle repeated installation');
   });
 
   // ===== uninstall_hooks tests =====
   await test('uninstall_hooks - successful uninstall', async () => {
-    const result = await callMCP('uninstall_hooks', {});
+    const result = await call('uninstall_hooks', {});
 
     const responses = parseJSONRPC(result.stdout);
     const response = responses.find(r => r.id === 2);
@@ -685,21 +685,21 @@ async function runTests() {
   });
 
   await test('uninstall_hooks - returns count', async () => {
-    const result = await callMCP('uninstall_hooks', {});
+    const result = await call('uninstall_hooks', {});
     const data = JSON.parse(parseJSONRPC(result.stdout).find(r => r.id === 2).result.content[0].text);
     assertTrue(data.removed_count !== undefined, 'Should have removed_count');
   });
 
   await test('uninstall_hooks - idempotent', async () => {
-    await callMCP('uninstall_hooks', {});
-    const result = await callMCP('uninstall_hooks', {});
+    await call('uninstall_hooks', {});
+    const result = await call('uninstall_hooks', {});
     const data = JSON.parse(parseJSONRPC(result.stdout).find(r => r.id === 2).result.content[0].text);
     assertTrue(data.uninstalled, 'Should handle repeated uninstall');
   });
 
   await test('uninstall_hooks - after install', async () => {
-    await callMCP('install_hooks', {});
-    const result = await callMCP('uninstall_hooks', {});
+    await call('install_hooks', {});
+    const result = await call('uninstall_hooks', {});
     const data = JSON.parse(parseJSONRPC(result.stdout).find(r => r.id === 2).result.content[0].text);
     assertTrue(data.uninstalled, 'Should uninstall after install');
   });
@@ -708,11 +708,11 @@ async function runTests() {
   await test('get_session_state - get existing session', async () => {
     // Create session
     const uniqueId = `state-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const analyzeResult = await callMCP('analyze_problem', { problem: `Test session state ${uniqueId}` });
+    const analyzeResult = await call('analyze_problem', { problem: `Test session state ${uniqueId}` });
     const sessionId = JSON.parse(parseJSONRPC(analyzeResult.stdout).find(r => r.id === 2).result.content[0].text).session_id;
 
     // Get state
-    const result = await callMCP('get_session_state', { session_id: sessionId });
+    const result = await call('get_session_state', { session_id: sessionId });
 
     const responses = parseJSONRPC(result.stdout);
     const response = responses.find(r => r.id === 2);
@@ -723,7 +723,7 @@ async function runTests() {
   });
 
   await test('get_session_state - missing session_id', async () => {
-    const result = await callMCP('get_session_state', {});
+    const result = await call('get_session_state', {});
 
     const responses = parseJSONRPC(result.stdout);
     const response = responses.find(r => r.id === 2);
@@ -731,7 +731,7 @@ async function runTests() {
   });
 
   await test('get_session_state - nonexistent session', async () => {
-    const result = await callMCP('get_session_state', { session_id: 'nonexistent' });
+    const result = await call('get_session_state', { session_id: 'nonexistent' });
 
     const responses = parseJSONRPC(result.stdout);
     const response = responses.find(r => r.id === 2);
@@ -742,19 +742,19 @@ async function runTests() {
 
   await test('get_session_state - includes thoughts', async () => {
     const uniqueId = `thoughts-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const analyzeResult = await callMCP('analyze_problem', { problem: `Test thoughts ${uniqueId}` });
+    const analyzeResult = await call('analyze_problem', { problem: `Test thoughts ${uniqueId}` });
     const sessionId = JSON.parse(parseJSONRPC(analyzeResult.stdout).find(r => r.id === 2).result.content[0].text).session_id;
 
-    await callMCP('reason_through', { session_id: sessionId, thought: 'Test thought', thought_number: 1 });
+    await call('reason_through', { session_id: sessionId, thought: 'Test thought', thought_number: 1 });
 
-    const result = await callMCP('get_session_state', { session_id: sessionId });
+    const result = await call('get_session_state', { session_id: sessionId });
     const data = JSON.parse(parseJSONRPC(result.stdout).find(r => r.id === 2).result.content[0].text);
     assertTrue(data.thoughts.length > 0, 'Should have thoughts');
   });
 
   // ===== health_check tests =====
   await test('health_check - basic health check', async () => {
-    const result = await callMCP('health_check', {});
+    const result = await call('health_check', {});
 
     const responses = parseJSONRPC(result.stdout);
     const response = responses.find(r => r.id === 2);
@@ -765,21 +765,21 @@ async function runTests() {
   });
 
   await test('health_check - includes stats', async () => {
-    const result = await callMCP('health_check', {});
+    const result = await call('health_check', {});
     const data = JSON.parse(parseJSONRPC(result.stdout).find(r => r.id === 2).result.content[0].text);
     assertTrue(data.stats, 'Should have stats');
     assertTrue(data.stats.experiences !== undefined, 'Should have experience count');
   });
 
   await test('health_check - includes paths', async () => {
-    const result = await callMCP('health_check', {});
+    const result = await call('health_check', {});
     const data = JSON.parse(parseJSONRPC(result.stdout).find(r => r.id === 2).result.content[0].text);
     assertTrue(data.database_path, 'Should have database path');
     assertTrue(data.token_dir, 'Should have token directory');
   });
 
   await test('health_check - detects issues', async () => {
-    const result = await callMCP('health_check', {});
+    const result = await call('health_check', {});
     const data = JSON.parse(parseJSONRPC(result.stdout).find(r => r.id === 2).result.content[0].text);
     assertTrue(Array.isArray(data.issues), 'Should have issues array');
     assertTrue(Array.isArray(data.warnings), 'Should have warnings array');
@@ -787,7 +787,7 @@ async function runTests() {
 
   // ===== import_data tests =====
   await test('import_data - missing source_file', async () => {
-    const result = await callMCP('import_data', {});
+    const result = await call('import_data', {});
 
     const responses = parseJSONRPC(result.stdout);
     const response = responses.find(r => r.id === 2);
@@ -795,7 +795,7 @@ async function runTests() {
   });
 
   await test('import_data - file not found', async () => {
-    const result = await callMCP('import_data', { source_file: '/nonexistent/file.json' });
+    const result = await call('import_data', { source_file: '/nonexistent/file.json' });
 
     const responses = parseJSONRPC(result.stdout);
     const response = responses.find(r => r.id === 2);
@@ -818,7 +818,7 @@ async function runTests() {
       ]
     }));
 
-    const result = await callMCP('import_data', { source_file: tmpFile });
+    const result = await call('import_data', { source_file: tmpFile });
     const responses = parseJSONRPC(result.stdout);
     const response = responses.find(r => r.id === 2);
     assertTrue(response && response.result, 'Should return result');
@@ -832,7 +832,7 @@ async function runTests() {
     const tmpFile = path.join(os.tmpdir(), `test-empty-${Date.now()}.json`);
     fs.writeFileSync(tmpFile, JSON.stringify({ experiences: [] }));
 
-    const result = await callMCP('import_data', { source_file: tmpFile });
+    const result = await call('import_data', { source_file: tmpFile });
     const data = JSON.parse(parseJSONRPC(result.stdout).find(r => r.id === 2).result.content[0].text);
     assertEquals(data.imported, 0, 'Should import 0 records');
 
@@ -849,7 +849,14 @@ async function runTests() {
   console.log(colors.red + `Tests Failed: ${stats.testsFailed}` + colors.reset);
   console.log(`Total: ${stats.testsRun} tests`);
 
+  // v1.4.0: Cleanup test project
+  cleanupTestProject(testDir);
+
   process.exit(stats.testsFailed > 0 ? 1 : 0);
 }
 
-runTests().catch(console.error);
+runTests().catch(e => {
+  cleanupTestProject(testDir);
+  console.error(e);
+  process.exit(1);
+});

@@ -2,33 +2,31 @@
 /**
  * Agent Workflow Tests - Simulate real agent behavior
  * Tests that show an agent following the three-gate workflow properly
+ * v1.4.0: Updated for project-scoped experiences
  */
 
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { colors, callMCP, parseJSONRPC, test, assertTrue, assertEquals, assertContains, getStats } = require('./test-utils');
+const { colors, callMCP, parseJSONRPC, test, assertTrue, assertEquals, assertContains, getStats, createTestProject, cleanupTestProject, getTestDbPath, getTestClaudeDir } = require('./test-utils');
 
-const TEST_DB = path.join(os.homedir(), '.unified-mcp', 'data.db');
-const TOKEN_DIR = path.join(os.homedir(), '.unified-mcp', 'tokens');
+let testDir;
+let TEST_DB;
+let TOKEN_DIR;
 
 async function runTests() {
   console.log(colors.bold + '\nAGENT WORKFLOW TESTS (5 tests)' + colors.reset);
   console.log(colors.cyan + '======================================================================' + colors.reset);
   console.log('These tests simulate real agent behavior following the three-gate workflow\n');
 
-  try {
-    if (fs.existsSync(TEST_DB)) {
-      fs.unlinkSync(TEST_DB);
-    }
-    if (fs.existsSync(TOKEN_DIR)) {
-      const files = fs.readdirSync(TOKEN_DIR);
-      files.forEach(f => fs.unlinkSync(path.join(TOKEN_DIR, f)));
-    }
-    console.log('🗑️  Cleaned test database and tokens\n');
-  } catch (e) {
-    // Ignore
-  }
+  // v1.4.0: Create project-scoped test directory
+  testDir = createTestProject();
+  TEST_DB = getTestDbPath(testDir);
+  TOKEN_DIR = path.join(getTestClaudeDir(testDir), 'tokens');
+  console.log(`📁 Test project: ${testDir}\n`);
+
+  // Helper to call MCP with project context
+  const call = (tool, args) => callMCP(tool, args, { cwd: testDir });
 
   // Test 1: Agent completes bug fix workflow
   await test('Agent workflow: Bug fix with three-gate compliance', async () => {
@@ -39,7 +37,7 @@ async function runTests() {
 
     // GATE 1: TEACH - Agent records what they learned about the bug
     console.log('  🎓 TEACH: Recording debugging experience...');
-    const recordResult = await callMCP('record_experience', {
+    const recordResult = await call('record_experience', {
       type: 'effective',
       domain: 'Debugging',
       situation: 'Authentication fails with 401 on valid credentials',
@@ -53,7 +51,7 @@ async function runTests() {
 
     // GATE 2: LEARN - Agent searches for similar issues
     console.log('  📚 LEARN: Searching for similar authentication issues...');
-    const searchResult = await callMCP('search_experiences', {
+    const searchResult = await call('search_experiences', {
       query: 'authentication token expiration',
       domain: 'Debugging'
     });
@@ -68,7 +66,7 @@ async function runTests() {
     console.log('  🤔 REASON: Analyzing problem and solution...');
 
     // Start reasoning session
-    const analyzeResult = await callMCP('analyze_problem', {
+    const analyzeResult = await call('analyze_problem', {
       problem: 'Fix authentication bug - token expiry using wrong timezone'
     });
     const analyzeResp = parseJSONRPC(analyzeResult.stdout).find(r => r.id === 2);
@@ -77,7 +75,7 @@ async function runTests() {
     console.log('  ✓ Problem analyzed');
 
     // Record reasoning thoughts
-    const reasonResult = await callMCP('reason_through', {
+    const reasonResult = await call('reason_through', {
       session_id: reasoningSessionId,
       thought: 'Need to update token expiry to use UTC instead of local time',
       thought_number: 1,
@@ -88,7 +86,7 @@ async function runTests() {
     console.log('  ✓ Reasoning recorded');
 
     // Finalize decision
-    const finalizeResult = await callMCP('finalize_decision', {
+    const finalizeResult = await call('finalize_decision', {
       session_id: reasoningSessionId,
       conclusion: 'Update JWT validation to use UTC timestamps',
       rationale: 'Prevents timezone-related auth failures',
@@ -101,7 +99,7 @@ async function runTests() {
 
     // NOW ready for file operations - verify compliance and get authorization
     console.log('  🔐 Getting authorization for file operations...');
-    const verifyResult = await callMCP('verify_compliance', {
+    const verifyResult = await call('verify_compliance', {
       session_id: sessionId,
       current_phase: 'reason',
       action: 'edit_auth_file'
@@ -114,7 +112,7 @@ async function runTests() {
     console.log('  ✓ Compliance verified, token issued');
 
     // Authorize the operation
-    const authResult = await callMCP('authorize_operation', {
+    const authResult = await call('authorize_operation', {
       operation_token: verifyData.operation_token,
       create_session_token: true
     });
@@ -142,7 +140,7 @@ async function runTests() {
 
     // TEACH: Record knowledge about rate limiting
     console.log('  🎓 TEACH: Recording rate limiting implementation...');
-    await callMCP('record_experience', {
+    await call('record_experience', {
       type: 'effective',
       domain: 'Tools',
       situation: 'Need to prevent API abuse',
@@ -154,7 +152,7 @@ async function runTests() {
 
     // LEARN: Search for related patterns
     console.log('  📚 LEARN: Searching for similar implementations...');
-    const searchResult = await callMCP('search_experiences', {
+    const searchResult = await call('search_experiences', {
       query: 'rate limiting API redis',
       type: 'effective'
     });
@@ -164,12 +162,12 @@ async function runTests() {
 
     // REASON: Analyze and decide
     console.log('  🤔 REASON: Planning implementation...');
-    const analyzeResult = await callMCP('analyze_problem', {
+    const analyzeResult = await call('analyze_problem', {
       problem: 'Add rate limiting to API endpoints'
     });
     const analyzeData = JSON.parse(parseJSONRPC(analyzeResult.stdout).find(r => r.id === 2).result.content[0].text);
 
-    await callMCP('reason_through', {
+    await call('reason_through', {
       session_id: analyzeData.session_id,
       thought: 'Use middleware approach with sliding window algorithm',
       thought_number: 1,
@@ -179,14 +177,14 @@ async function runTests() {
 
     // Get authorization
     console.log('  🔐 Verifying compliance...');
-    const verifyResult = await callMCP('verify_compliance', {
+    const verifyResult = await call('verify_compliance', {
       session_id: sessionId,
       current_phase: 'reason',
       action: 'create_rate_limiter'
     });
     const verifyData = JSON.parse(parseJSONRPC(verifyResult.stdout).find(r => r.id === 2).result.content[0].text);
 
-    const authResult = await callMCP('authorize_operation', {
+    const authResult = await call('authorize_operation', {
       operation_token: verifyData.operation_token,
       create_session_token: true
     });
@@ -205,7 +203,7 @@ async function runTests() {
 
     // TEACH: Record refactoring patterns
     console.log('  🎓 TEACH: Recording refactoring experience...');
-    await callMCP('record_experience', {
+    await call('record_experience', {
       type: 'effective',
       domain: 'Process',
       situation: 'Legacy code with 500-line functions',
@@ -217,19 +215,19 @@ async function runTests() {
 
     // LEARN: Gather context from multiple sources
     console.log('  📚 LEARN: Gathering refactoring context...');
-    const analyzeResult = await callMCP('analyze_problem', {
+    const analyzeResult = await call('analyze_problem', {
       problem: 'Refactor legacy authentication module'
     });
     const analyzeData = JSON.parse(parseJSONRPC(analyzeResult.stdout).find(r => r.id === 2).result.content[0].text);
 
-    const searchResult = await callMCP('search_experiences', {
+    const searchResult = await call('search_experiences', {
       query: 'refactoring legacy code testing',
       type: 'effective'
     });
     const searchData = JSON.parse(parseJSONRPC(searchResult.stdout).find(r => r.id === 2).result.content[0].text);
 
     // Synthesize context
-    const gatherResult = await callMCP('gather_context', {
+    const gatherResult = await call('gather_context', {
       session_id: analyzeData.session_id,
       sources: {
         experiences: searchData.results.map(r => ({ id: r.id, situation: r.situation }))
@@ -240,7 +238,7 @@ async function runTests() {
 
     // REASON: Plan refactoring approach
     console.log('  🤔 REASON: Planning refactoring strategy...');
-    await callMCP('reason_through', {
+    await call('reason_through', {
       session_id: analyzeData.session_id,
       thought: 'Break into smaller modules, add unit tests first, then refactor',
       thought_number: 1,
@@ -250,14 +248,14 @@ async function runTests() {
 
     // Get authorization
     console.log('  🔐 Getting authorization...');
-    const verifyResult = await callMCP('verify_compliance', {
+    const verifyResult = await call('verify_compliance', {
       session_id: sessionId,
       current_phase: 'reason',
       action: 'refactor_code'
     });
     const verifyData = JSON.parse(parseJSONRPC(verifyResult.stdout).find(r => r.id === 2).result.content[0].text);
 
-    const authResult = await callMCP('authorize_operation', {
+    const authResult = await call('authorize_operation', {
       operation_token: verifyData.operation_token
     });
     const authData = JSON.parse(parseJSONRPC(authResult.stdout).find(r => r.id === 2).result.content[0].text);
@@ -275,7 +273,7 @@ async function runTests() {
 
     // Apply strict preset
     console.log('  ⚙️  Applying strict preset...');
-    const presetResult = await callMCP('apply_preset', {
+    const presetResult = await call('apply_preset', {
       preset_name: 'strict',
       session_id: sessionId
     });
@@ -285,7 +283,7 @@ async function runTests() {
 
     // Must complete all required steps
     console.log('  🎓 TEACH: Recording experience (required by strict)...');
-    await callMCP('record_experience', {
+    await call('record_experience', {
       type: 'effective',
       domain: 'Process',
       situation: 'Working under strict workflow',
@@ -296,18 +294,18 @@ async function runTests() {
     console.log('  ✓ Experience recorded');
 
     console.log('  📚 LEARN: Searching experiences (required by strict)...');
-    await callMCP('search_experiences', {
+    await call('search_experiences', {
       query: 'strict workflow compliance'
     });
     console.log('  ✓ Search completed');
 
     console.log('  🤔 REASON: Must use reason_through (required by strict)...');
-    const analyzeResult = await callMCP('analyze_problem', {
+    const analyzeResult = await call('analyze_problem', {
       problem: 'Complete task under strict enforcement'
     });
     const analyzeData = JSON.parse(parseJSONRPC(analyzeResult.stdout).find(r => r.id === 2).result.content[0].text);
 
-    await callMCP('reason_through', {
+    await call('reason_through', {
       session_id: analyzeData.session_id,
       thought: 'Strict preset ensures thorough analysis before action',
       thought_number: 1,
@@ -317,7 +315,7 @@ async function runTests() {
 
     // Verify compliance with strict requirements
     console.log('  🔐 Verifying strict compliance...');
-    const verifyResult = await callMCP('verify_compliance', {
+    const verifyResult = await call('verify_compliance', {
       session_id: sessionId,
       current_phase: 'reason',
       action: 'proceed'
@@ -336,7 +334,7 @@ async function runTests() {
 
     // First operation - TEACH
     console.log('  🎓 Operation 1: Record experience...');
-    await callMCP('record_experience', {
+    await call('record_experience', {
       type: 'effective',
       domain: 'Process',
       situation: 'Session state test',
@@ -346,7 +344,7 @@ async function runTests() {
     });
 
     // Verify compliance creates session
-    await callMCP('verify_compliance', {
+    await call('verify_compliance', {
       session_id: sessionId,
       current_phase: 'teach',
       action: 'step1'
@@ -355,12 +353,12 @@ async function runTests() {
 
     // Second operation - LEARN
     console.log('  📚 Operation 2: Search experiences...');
-    await callMCP('search_experiences', {
+    await call('search_experiences', {
       query: 'session state'
     });
 
     // Check session state after LEARN phase
-    const statusAfterLearn = await callMCP('get_workflow_status', {
+    const statusAfterLearn = await call('get_workflow_status', {
       session_id: sessionId
     });
     const statusData1 = JSON.parse(parseJSONRPC(statusAfterLearn.stdout).find(r => r.id === 2).result.content[0].text);
@@ -369,12 +367,12 @@ async function runTests() {
 
     // Third operation - REASON
     console.log('  🤔 Operation 3: Analyze and reason...');
-    const analyzeResult = await callMCP('analyze_problem', {
+    const analyzeResult = await call('analyze_problem', {
       problem: 'Test session persistence'
     });
     const analyzeData = JSON.parse(parseJSONRPC(analyzeResult.stdout).find(r => r.id === 2).result.content[0].text);
 
-    await callMCP('reason_through', {
+    await call('reason_through', {
       session_id: analyzeData.session_id,
       thought: 'Session maintains state throughout workflow',
       thought_number: 1
@@ -382,7 +380,7 @@ async function runTests() {
     console.log('  ✓ Reasoning tracked in session');
 
     // Get final session state
-    const finalStatus = await callMCP('get_session_state', {
+    const finalStatus = await call('get_session_state', {
       session_id: analyzeData.session_id
     });
     const finalData = JSON.parse(parseJSONRPC(finalStatus.stdout).find(r => r.id === 2).result.content[0].text);
@@ -404,7 +402,14 @@ async function runTests() {
     console.log('\n' + colors.green + '✅ All agent workflows demonstrate proper three-gate compliance!' + colors.reset);
   }
 
+  // v1.4.0: Cleanup test project
+  cleanupTestProject(testDir);
+
   process.exit(stats.testsFailed > 0 ? 1 : 0);
 }
 
-runTests().catch(console.error);
+runTests().catch(e => {
+  cleanupTestProject(testDir);
+  console.error(e);
+  process.exit(1);
+});

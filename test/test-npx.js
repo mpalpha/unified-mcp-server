@@ -10,15 +10,34 @@
  * - CLI flags work (--help, --version, --init)
  * - MCP protocol mode works (no flags)
  * - Zero-config initialization
+ *
+ * v1.4.0: Updated for project-scoped experiences
  */
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { execSync } = require('child_process');
 
 const BOOTSTRAP_PATH = path.join(__dirname, '../bootstrap.js');
 const INDEX_PATH = path.join(__dirname, '../index.js');
 const PACKAGE_PATH = path.join(__dirname, '../package.json');
+
+// v1.4.0: Create a test project for MCP server tests
+const TEST_PROJECT = fs.mkdtempSync(path.join(os.tmpdir(), 'unified-mcp-npx-test-'));
+const CLAUDE_DIR = path.join(TEST_PROJECT, '.claude');
+fs.mkdirSync(CLAUDE_DIR);
+fs.mkdirSync(path.join(CLAUDE_DIR, 'tokens'));
+
+// Helper to run commands in test project context
+function execInProject(cmd, opts = {}) {
+  return execSync(cmd, {
+    encoding: 'utf8',
+    cwd: TEST_PROJECT,
+    env: { ...process.env, PWD: TEST_PROJECT },
+    ...opts
+  });
+}
 
 let passed = 0;
 let failed = 0;
@@ -36,6 +55,7 @@ function test(name, fn) {
 }
 
 console.log('\n=== NPX Compatibility Tests ===\n');
+console.log(`Test project: ${TEST_PROJECT}\n`);
 
 // Test 1: Shebang exists (bootstrap is entry point)
 test('Shebang line exists', () => {
@@ -78,7 +98,7 @@ test('--help flag works', () => {
   if (!output.includes('USAGE:')) {
     throw new Error('Help output missing USAGE section');
   }
-  if (!output.includes('27 TOOLS AVAILABLE:')) {
+  if (!output.includes('28 TOOLS AVAILABLE:')) {
     throw new Error('Help output missing tools list');
   }
 });
@@ -108,7 +128,7 @@ test('--init flag works', () => {
   }
 });
 
-// Test 7: MCP protocol mode works (no flags)
+// Test 7: MCP protocol mode works (no flags) - v1.4.0: runs in test project
 test('MCP protocol mode works (no flags)', () => {
   const input = JSON.stringify({
     jsonrpc: '2.0',
@@ -116,7 +136,8 @@ test('MCP protocol mode works (no flags)', () => {
     params: { protocolVersion: '1.0', capabilities: {} },
     id: 1
   });
-  const output = execSync(`echo '${input}' | node bootstrap.js`, { encoding: 'utf8' });
+  const bootstrapPath = path.join(__dirname, '..', 'bootstrap.js');
+  const output = execInProject(`echo '${input}' | node "${bootstrapPath}"`);
 
   // Parse JSON response (ignore stderr)
   const lines = output.split('\n').filter(line => line.trim().startsWith('{'));
@@ -136,39 +157,36 @@ test('MCP protocol mode works (no flags)', () => {
   }
 });
 
-// Test 8: Zero-config initialization (namespace exists)
-test('Zero-config initialization (namespace exists)', () => {
-  const homeDir = require('os').homedir();
-  const mcpDir = path.join(homeDir, '.unified-mcp');
-  const tokenDir = path.join(mcpDir, 'tokens');
-
-  if (!fs.existsSync(mcpDir)) {
-    throw new Error('MCP directory not created');
+// Test 8: Zero-config initialization (.claude directory exists) - v1.4.0: project-scoped
+test('Zero-config initialization (.claude directory exists)', () => {
+  if (!fs.existsSync(CLAUDE_DIR)) {
+    throw new Error('.claude directory not created');
   }
+  const tokenDir = path.join(CLAUDE_DIR, 'tokens');
   if (!fs.existsSync(tokenDir)) {
     throw new Error('Token directory not created');
   }
 });
 
-// Test 9: Database auto-creation
+// Test 9: Database auto-creation - v1.4.0: project-scoped
 test('Database auto-creation', () => {
-  const homeDir = require('os').homedir();
-  const dbPath = path.join(homeDir, '.unified-mcp', 'data.db');
+  const dbPath = path.join(CLAUDE_DIR, 'experiences.db');
 
   if (!fs.existsSync(dbPath)) {
     throw new Error('Database file not created');
   }
 });
 
-// Test 10: All 27 tools accessible via MCP
-test('All 27 tools accessible via MCP', () => {
+// Test 10: All 28 tools accessible via MCP - v1.4.0: runs in test project, added import_experiences
+test('All 28 tools accessible via MCP', () => {
   const input = JSON.stringify({
     jsonrpc: '2.0',
     method: 'tools/list',
     params: {},
     id: 2
   });
-  const output = execSync(`echo '${input}' | node bootstrap.js`, { encoding: 'utf8' });
+  const bootstrapPath = path.join(__dirname, '..', 'bootstrap.js');
+  const output = execInProject(`echo '${input}' | node "${bootstrapPath}"`);
 
   // Parse JSON response
   const lines = output.split('\n').filter(line => line.trim().startsWith('{'));
@@ -182,23 +200,23 @@ test('All 27 tools accessible via MCP', () => {
   }
 
   const toolCount = response.result.tools.length;
-  if (toolCount !== 27) {
-    throw new Error(`Expected 27 tools, got ${toolCount}`);
+  if (toolCount !== 28) {
+    throw new Error(`Expected 28 tools, got ${toolCount}`);
   }
 });
 
-// Test 11: --preset flag works
+// Test 11: --preset flag works - v1.4.0: project-scoped config
 test('--preset flag works', () => {
-  const output = execSync('node bootstrap.js --preset three-gate', { encoding: 'utf8' });
+  const bootstrapPath = path.join(__dirname, '..', 'bootstrap.js');
+  const output = execInProject(`node "${bootstrapPath}" --preset three-gate`);
   if (!output.includes('Applied three-gate preset')) {
     throw new Error('Preset application output missing');
   }
   if (!output.includes('Config saved to:')) {
     throw new Error('Config path missing from output');
   }
-  // Verify config file was created
-  const homeDir = require('os').homedir();
-  const configPath = path.join(homeDir, '.unified-mcp', 'config.json');
+  // Verify config file was created in project's .claude directory
+  const configPath = path.join(CLAUDE_DIR, 'config.json');
   if (!fs.existsSync(configPath)) {
     throw new Error('Config file not created');
   }
@@ -215,6 +233,13 @@ test('--preset validates preset names', () => {
     }
   }
 });
+
+// v1.4.0: Cleanup test project
+try {
+  fs.rmSync(TEST_PROJECT, { recursive: true, force: true });
+} catch (e) {
+  // Ignore cleanup errors
+}
 
 console.log(`\n=== Results ===`);
 console.log(`Passed: ${passed}/12`);

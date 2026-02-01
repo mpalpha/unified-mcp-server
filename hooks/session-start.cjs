@@ -67,12 +67,11 @@ console.log('Available presets: three-gate (default), minimal, strict, custom\n'
 console.log('Use list_presets to see configuration options.');
 console.log('Use apply_preset to change workflow enforcement.\n');
 
-// Check for post-install prompt file
-const MCP_DIR = path.join(os.homedir(), '.unified-mcp');
-const promptsDir = path.join(MCP_DIR, 'post-install-prompts');
-
+// Check for post-install prompt file (v1.4.0: project-scoped)
 // Use PWD env var if available (more reliable than process.cwd() in hooks)
 const projectDir = process.env.PWD || process.cwd();
+const claudeDir = path.join(projectDir, '.claude');
+const promptsDir = path.join(claudeDir, 'post-install-prompts');
 const projectHash = crypto.createHash('md5').update(projectDir).digest('hex');
 const promptFilePath = path.join(promptsDir, `${projectHash}.md`);
 
