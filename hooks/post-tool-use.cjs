@@ -5,9 +5,11 @@
  *
  * Runs after each tool execution in Claude Code.
  * Suggests recording experiences after file operations (TEACH gate).
+ * Displays postImplementation checklist items after file modifications.
  */
 
 const fs = require('fs');
+const path = require('path');
 
 try {
   // Read stdin
@@ -18,6 +20,34 @@ try {
   const fileTools = ['Write', 'Edit', 'NotebookEdit'];
 
   if (fileTools.includes(data.toolName)) {
+    // Load project context from .claude/project-context.json in project root
+    let projectContext = null;
+    const cwd = process.env.PWD || process.cwd();
+    const contextPath = path.join(cwd, '.claude', 'project-context.json');
+
+    if (fs.existsSync(contextPath)) {
+      try {
+        projectContext = JSON.parse(fs.readFileSync(contextPath, 'utf8'));
+      } catch (e) {
+        // Invalid context file, skip
+      }
+    }
+
+    // Display postImplementation checklist if available
+    if (projectContext && projectContext.enabled &&
+        projectContext.postImplementation &&
+        Array.isArray(projectContext.postImplementation) &&
+        projectContext.postImplementation.length > 0) {
+      console.log('\n📋 POST-IMPLEMENTATION CHECKLIST:\n');
+      console.log('Report status of each item:\n');
+      projectContext.postImplementation.forEach(item => {
+        if (typeof item === 'string') {
+          console.log(`  □ ${item}`);
+        }
+      });
+      console.log('');
+    }
+
     console.log('\n💡 Consider recording this experience (TEACH gate):\n');
     console.log('  finalize_decision({');
     console.log('    session_id: "your-session-id",');

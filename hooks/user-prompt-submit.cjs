@@ -130,6 +130,18 @@ try {
             });
             console.log('');
           }
+
+          // Display preImplementation checklist if available
+          if (projectContext.preImplementation && Array.isArray(projectContext.preImplementation) && projectContext.preImplementation.length > 0) {
+            console.log('📋 PRE-IMPLEMENTATION CHECKLIST (when planning code changes):\n');
+            console.log('When planning code changes, explain how your plan addresses each item:\n');
+            projectContext.preImplementation.forEach(item => {
+              if (typeof item === 'string') {
+                console.log(`  □ ${item}`);
+              }
+            });
+            console.log('');
+          }
         } catch (typeError) {
           // Skip malformed context silently
         }

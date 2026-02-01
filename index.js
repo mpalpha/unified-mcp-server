@@ -21,7 +21,7 @@ const os = require('os');
 const readline = require('readline');
 const crypto = require('crypto');
 
-const VERSION = '1.2.9';
+const VERSION = '1.3.0';
 
 // Consolidated namespace: ~/.unified-mcp/
 const MCP_DIR = path.join(os.homedir(), '.unified-mcp');
@@ -2320,6 +2320,42 @@ function updateProjectContext(params) {
     }
   }
 
+  // Validate preImplementation checklist (optional)
+  if (params.preImplementation) {
+    if (!Array.isArray(params.preImplementation)) {
+      throw new ValidationError('preImplementation must be an array');
+    }
+    if (params.preImplementation.length > 10) {
+      throw new ValidationError('Maximum 10 preImplementation items allowed');
+    }
+    for (const item of params.preImplementation) {
+      if (typeof item !== 'string') {
+        throw new ValidationError('Each preImplementation item must be a string');
+      }
+      if (item.length > 200) {
+        throw new ValidationError('Each preImplementation item must be 200 characters or less');
+      }
+    }
+  }
+
+  // Validate postImplementation checklist (optional)
+  if (params.postImplementation) {
+    if (!Array.isArray(params.postImplementation)) {
+      throw new ValidationError('postImplementation must be an array');
+    }
+    if (params.postImplementation.length > 10) {
+      throw new ValidationError('Maximum 10 postImplementation items allowed');
+    }
+    for (const item of params.postImplementation) {
+      if (typeof item !== 'string') {
+        throw new ValidationError('Each postImplementation item must be a string');
+      }
+      if (item.length > 200) {
+        throw new ValidationError('Each postImplementation item must be 200 characters or less');
+      }
+    }
+  }
+
   // Create .claude directory in project root
   const claudeDir = path.join(projectPath, '.claude');
   if (!fs.existsSync(claudeDir)) {
@@ -2332,6 +2368,8 @@ function updateProjectContext(params) {
     summary: params.summary || null,
     highlights: params.highlights || [],
     reminders: params.reminders || [],
+    preImplementation: params.preImplementation || [],
+    postImplementation: params.postImplementation || [],
     project_path: projectPath,
     updated_at: new Date().toISOString()
   };
@@ -2378,6 +2416,8 @@ function getProjectContext(params) {
     summary: context.summary,
     highlights: context.highlights,
     reminders: context.reminders,
+    preImplementation: context.preImplementation || [],
+    postImplementation: context.postImplementation || [],
     updated_at: context.updated_at
   };
 }
@@ -3383,6 +3423,16 @@ rl.on('line', (line) => {
                     type: 'array',
                     items: { type: 'string' },
                     description: 'Important reminders (max 3 items, 100 chars each)'
+                  },
+                  preImplementation: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description: 'Checklist items to address BEFORE writing code (max 10 items, 200 chars each)'
+                  },
+                  postImplementation: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description: 'Checklist items to verify AFTER writing code (max 10 items, 200 chars each)'
                   },
                   project_path: { type: 'string', description: 'Project directory path (optional, defaults to cwd)' }
                 },

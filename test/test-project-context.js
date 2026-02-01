@@ -13,7 +13,7 @@ const os = require('os');
 const { colors, callMCP, parseJSONRPC, test, assertTrue, assertEquals, getStats } = require('./test-utils');
 
 async function runTests() {
-  console.log(colors.bold + '\nPROJECT CONTEXT TESTS (10 tests)' + colors.reset);
+  console.log(colors.bold + '\nPROJECT CONTEXT TESTS (14 tests)' + colors.reset);
   console.log(colors.cyan + '======================================================================' + colors.reset);
 
   // Note: Context files are now stored in .claude/project-context.json per project
@@ -258,6 +258,120 @@ async function runTests() {
 
     // Cleanup
     fs.unlinkSync(data.context_file);
+    fs.rmdirSync(path.join(testProjectPath, '.claude'));
+  });
+
+  // Test 11: update_project_context with preImplementation checklist
+  await test('update_project_context - create with preImplementation', async () => {
+    const testProjectPath = '/tmp/test-project-pre-' + Date.now();
+    const result = await callMCP('update_project_context', {
+      enabled: true,
+      summary: "Test with checklists",
+      highlights: [],
+      reminders: [],
+      preImplementation: ["Review patterns", "Check for reusable code"],
+      project_path: testProjectPath
+    });
+
+    const responses = parseJSONRPC(result.stdout);
+    const response = responses.find(r => r.id === 2);
+    assertTrue(response && response.result, 'Should return result');
+
+    const data = JSON.parse(response.result.content[0].text);
+    assertTrue(data.success, 'Should be successful');
+
+    // Verify content
+    const content = JSON.parse(fs.readFileSync(data.context_file, 'utf8'));
+    assertTrue(Array.isArray(content.preImplementation), 'preImplementation should be an array');
+    assertEquals(content.preImplementation.length, 2, 'Should have 2 preImplementation items');
+
+    // Cleanup
+    fs.unlinkSync(data.context_file);
+    fs.rmdirSync(path.join(testProjectPath, '.claude'));
+  });
+
+  // Test 12: update_project_context with postImplementation checklist
+  await test('update_project_context - create with postImplementation', async () => {
+    const testProjectPath = '/tmp/test-project-post-' + Date.now();
+    const result = await callMCP('update_project_context', {
+      enabled: true,
+      summary: "Test with checklists",
+      highlights: [],
+      reminders: [],
+      postImplementation: ["Run tests", "Run linter", "Check accessibility"],
+      project_path: testProjectPath
+    });
+
+    const responses = parseJSONRPC(result.stdout);
+    const response = responses.find(r => r.id === 2);
+    assertTrue(response && response.result, 'Should return result');
+
+    const data = JSON.parse(response.result.content[0].text);
+    assertTrue(data.success, 'Should be successful');
+
+    // Verify content
+    const content = JSON.parse(fs.readFileSync(data.context_file, 'utf8'));
+    assertTrue(Array.isArray(content.postImplementation), 'postImplementation should be an array');
+    assertEquals(content.postImplementation.length, 3, 'Should have 3 postImplementation items');
+
+    // Cleanup
+    fs.unlinkSync(data.context_file);
+    fs.rmdirSync(path.join(testProjectPath, '.claude'));
+  });
+
+  // Test 13: update_project_context - too many preImplementation items
+  await test('update_project_context - preImplementation exceeds 10 items', async () => {
+    const testProjectPath = '/tmp/test-project-pre-exceed-' + Date.now();
+    const tooManyItems = Array(11).fill('item');
+
+    const result = await callMCP('update_project_context', {
+      enabled: true,
+      summary: "Test",
+      highlights: [],
+      reminders: [],
+      preImplementation: tooManyItems,
+      project_path: testProjectPath
+    });
+
+    const responses = parseJSONRPC(result.stdout);
+    const response = responses.find(r => r.id === 2);
+    assertTrue(response && response.error, 'Should return error for too many preImplementation items');
+  });
+
+  // Test 14: get_project_context - retrieve with checklists
+  await test('get_project_context - retrieve with pre/post checklists', async () => {
+    const testProjectPath = '/tmp/test-project-get-checklists-' + Date.now();
+
+    // Create context with checklists
+    const createResult = await callMCP('update_project_context', {
+      enabled: true,
+      summary: "Checklist test",
+      highlights: [],
+      reminders: [],
+      preImplementation: ["Pre item 1", "Pre item 2"],
+      postImplementation: ["Post item 1"],
+      project_path: testProjectPath
+    });
+
+    const createResponses = parseJSONRPC(createResult.stdout);
+    const createData = JSON.parse(createResponses.find(r => r.id === 2).result.content[0].text);
+
+    // Retrieve it
+    const getResult = await callMCP('get_project_context', {
+      project_path: testProjectPath
+    });
+
+    const getResponses = parseJSONRPC(getResult.stdout);
+    const getResponse = getResponses.find(r => r.id === 2);
+    assertTrue(getResponse && getResponse.result, 'Should return result');
+
+    const getData = JSON.parse(getResponse.result.content[0].text);
+    assertTrue(getData.exists, 'Context should exist');
+    assertEquals(getData.preImplementation.length, 2, 'Should have 2 preImplementation items');
+    assertEquals(getData.postImplementation.length, 1, 'Should have 1 postImplementation item');
+
+    // Cleanup
+    fs.unlinkSync(createData.context_file);
     fs.rmdirSync(path.join(testProjectPath, '.claude'));
   });
 

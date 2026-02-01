@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-01-31
+
+### Added - Checklist Enforcement Feature
+- **New Fields**: `preImplementation` and `postImplementation` arrays in project context
+- **Purpose**: Store development checklists discovered from project rules (CONTRIBUTING.md, .cursor/rules/*, etc.)
+- **Validation**:
+  - Maximum 10 items per array
+  - Maximum 200 characters per item
+  - Both fields optional (backward compatible)
+- **Hook Integration**:
+  - `user-prompt-submit.cjs`: Displays `preImplementation` items when planning code changes
+  - `post-tool-use.cjs`: Displays `postImplementation` items after file modifications (Write/Edit/NotebookEdit)
+- **Data-Driven**: Hooks only display if arrays exist and have items (no hardcoded defaults)
+- **Files Modified**:
+  - `index.js` - `updateProjectContext` validation, `getProjectContext` return fields, tool inputSchema
+  - `hooks/user-prompt-submit.cjs` - preImplementation display
+  - `hooks/post-tool-use.cjs` - postImplementation display with project context reading
+  - `test/test-project-context.js` - 4 new tests (14 total)
+
 ## [1.2.9] - 2026-01-31
 
 ### Changed - Configuration: Align with Claude Code standard paths
