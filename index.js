@@ -22,7 +22,7 @@ const os = require('os');
 const readline = require('readline');
 const crypto = require('crypto');
 
-const VERSION = '1.4.1';
+const VERSION = '1.4.2';
 
 // v1.4.0: Project-local storage in .claude/ directory
 // All data is stored per-project, no global storage
@@ -2484,9 +2484,6 @@ function updateProjectContext(params) {
     if (!Array.isArray(params.preImplementation)) {
       throw new ValidationError('preImplementation must be an array');
     }
-    if (params.preImplementation.length > 10) {
-      throw new ValidationError('Maximum 10 preImplementation items allowed');
-    }
     for (const item of params.preImplementation) {
       if (typeof item !== 'string') {
         throw new ValidationError('Each preImplementation item must be a string');
@@ -2501,9 +2498,6 @@ function updateProjectContext(params) {
   if (params.postImplementation) {
     if (!Array.isArray(params.postImplementation)) {
       throw new ValidationError('postImplementation must be an array');
-    }
-    if (params.postImplementation.length > 10) {
-      throw new ValidationError('Maximum 10 postImplementation items allowed');
     }
     for (const item of params.postImplementation) {
       if (typeof item !== 'string') {
@@ -3647,12 +3641,12 @@ rl.on('line', (line) => {
                   preImplementation: {
                     type: 'array',
                     items: { type: 'string' },
-                    description: 'Checklist items to address BEFORE writing code (max 10 items, 200 chars each)'
+                    description: 'Checklist items to address BEFORE writing code (200 chars each)'
                   },
                   postImplementation: {
                     type: 'array',
                     items: { type: 'string' },
-                    description: 'Checklist items to verify AFTER writing code (max 10 items, 200 chars each)'
+                    description: 'Checklist items to verify AFTER writing code (200 chars each)'
                   },
                   project_path: { type: 'string', description: 'Project directory path (optional, defaults to cwd)' }
                 },

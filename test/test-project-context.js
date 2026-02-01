@@ -319,23 +319,23 @@ async function runTests() {
     fs.rmdirSync(path.join(testProjectPath, '.claude'));
   });
 
-  // Test 13: update_project_context - too many preImplementation items
-  await test('update_project_context - preImplementation exceeds 10 items', async () => {
-    const testProjectPath = '/tmp/test-project-pre-exceed-' + Date.now();
-    const tooManyItems = Array(11).fill('item');
+  // Test 13: update_project_context - many preImplementation items allowed (no limit)
+  await test('update_project_context - preImplementation allows many items', async () => {
+    const testProjectPath = '/tmp/test-project-pre-many-' + Date.now();
+    const manyItems = Array(15).fill('checklist item'); // v1.4.2: No item count limit
 
     const result = await callMCP('update_project_context', {
       enabled: true,
       summary: "Test",
       highlights: [],
       reminders: [],
-      preImplementation: tooManyItems,
+      preImplementation: manyItems,
       project_path: testProjectPath
     });
 
     const responses = parseJSONRPC(result.stdout);
     const response = responses.find(r => r.id === 2);
-    assertTrue(response && response.error, 'Should return error for too many preImplementation items');
+    assertTrue(response && response.result, 'Should allow many preImplementation items');
   });
 
   // Test 14: get_project_context - retrieve with checklists

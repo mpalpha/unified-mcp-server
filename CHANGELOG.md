@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.2] - 2026-02-01
+
+### Changed - Remove Item Limits for Checklists
+- **Change**: Removed arbitrary 10 item limit from `preImplementation` and `postImplementation` arrays
+- **Rationale**: Some projects have comprehensive checklists (15+ items); limit was arbitrary
+- **Impact**: Users can now store full project checklists without truncation
+- **Files Modified**: `index.js` (validation), tool schema descriptions
+
 ## [1.4.1] - 2026-02-01
 
 ### Fixed - Post-Install Prompt Improvement
