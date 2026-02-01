@@ -95,7 +95,6 @@ targetDb.exec(`
     outcome TEXT NOT NULL,
     reasoning TEXT NOT NULL,
     confidence REAL CHECK(confidence BETWEEN 0 AND 1),
-    scope TEXT CHECK(scope IN ('user', 'project')),
     tags TEXT,
     revision_of INTEGER,
     created_at INTEGER DEFAULT (strftime('%s', 'now')),
@@ -108,8 +107,8 @@ targetDb.close();
 console.log(colors.bold + 'Helper Function Tests' + colors.reset);
 console.log(colors.cyan + '======================================================================' + colors.reset);
 
-// Test scope detection
-test('detectScope - detects project scope from context', () => {
+// Test context detection (v1.4.3: scope removed, but context patterns still useful for metadata)
+test('context detection - detects file context from context field', () => {
   const exp = {
     situation: 'test',
     approach: 'test',
@@ -117,14 +116,14 @@ test('detectScope - detects project scope from context', () => {
     context: 'session: abc, file: /src/app.js, cwd: /project'
   };
 
-  // Inline scope detection (from script)
+  // Context detection pattern (used for metadata tags)
   const context = exp.context || '';
   const hasFileContext = /file:|cwd:/.test(context);
 
   assertTrue(hasFileContext, 'Should detect file context');
 });
 
-test('detectScope - detects user scope for general experiences', () => {
+test('context detection - detects absence of file context', () => {
   const exp = {
     situation: 'general programming pattern',
     approach: 'use best practices',
@@ -299,10 +298,6 @@ async function runAsyncTests() {
 
       const count = db.prepare('SELECT COUNT(*) as count FROM experiences').get();
       assertTrue(count.count >= 8, `Should have migrated experiences (found ${count.count})`);
-
-      // Check scope was detected
-      const projectScoped = db.prepare('SELECT COUNT(*) as count FROM experiences WHERE scope = ?').get('project');
-      assertTrue(projectScoped.count > 0, 'Should have some project-scoped experiences');
 
       // Check tags were created
       const tagged = db.prepare('SELECT tags FROM experiences WHERE tags IS NOT NULL AND tags != \'[]\'').get();

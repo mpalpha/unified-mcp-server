@@ -2,6 +2,21 @@
 
 ## Version History
 
+### v1.4.3 - 2026-02-01 (Patch Release - Migration Script Fix)
+**Fix Migration Script Schema Mismatch**
+- **Bug**: Migration script tried to insert `scope` column removed in v1.4.0
+- **Root Cause**: `scripts/migrate-experiences.js` wasn't updated during v1.4.0 changes
+- **Fix**: Remove all scope references (detectScope function, INSERT, schema)
+- **Cascading Updates**:
+  1. Updated CHANGELOG.md + IMPLEMENTATION_PLAN.md FIRST
+  2. Removed `detectScope()` function
+  3. Removed `scope` from `transformExperience()` return object
+  4. Removed `scope` from INSERT statement (column and value)
+  5. Removed `scope` column from schema creation
+  6. Removed `idx_scope` index creation
+  7. Version bump to 1.4.3
+- **Testing**: Migration tests pass
+
 ### v1.4.2 - 2026-02-01 (Patch Release - Remove Checklist Limits)
 **Remove Arbitrary Item Limits**
 - **Change**: Removed 10 item limit from `preImplementation` and `postImplementation` arrays

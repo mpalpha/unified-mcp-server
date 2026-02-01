@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.3] - 2026-02-01
+
+### Fixed - Migration Script Schema Mismatch
+- **Bug**: Migration script tried to insert `scope` column that was removed in v1.4.0
+- **Root Cause**: `scripts/migrate-experiences.js` wasn't updated when scope was removed
+- **Fix**: Remove all scope references from migration script:
+  - Removed `detectScope()` function
+  - Removed `scope` from transform and INSERT statement
+  - Removed `scope` column and index from schema creation
+- **Files Modified**: `scripts/migrate-experiences.js`
+
 ## [1.4.2] - 2026-02-01
 
 ### Changed - Remove Item Limits for Checklists

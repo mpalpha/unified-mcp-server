@@ -99,34 +99,6 @@ const idMap = new Map();
 // ============================================================================
 
 /**
- * Detect scope (user vs project) from experience fields
- */
-function detectScope(experience) {
-  const context = experience.context || '';
-
-  // Check for project indicators in context
-  if (/file:|cwd:/.test(context)) {
-    return 'project';
-  }
-
-  // Check in situation/approach/outcome
-  const text = `${experience.situation} ${experience.approach} ${experience.outcome}`.toLowerCase();
-  const projectIndicators = [
-    /\bproject\b/, /\bcodebase\b/, /\brepository\b/, /\brepo\b/,
-    /src\//, /components\//, /\.tsx/, /\.jsx/, /\.ts/, /\.js/,
-    /package\.json/, /tsconfig/, /webpack/, /vite/
-  ];
-
-  for (const pattern of projectIndicators) {
-    if (pattern.test(text)) {
-      return 'project';
-    }
-  }
-
-  return 'user';
-}
-
-/**
  * Convert TEXT timestamp to unix timestamp
  */
 function convertTimestamp(textTimestamp) {
@@ -247,7 +219,6 @@ function transformExperience(oldExp) {
     outcome: oldExp.outcome,
     reasoning: mergeAdditionalFields(oldExp),
     confidence: oldExp.confidence,
-    scope: detectScope(oldExp),
     tags: JSON.stringify(createMetadataTags(oldExp)),
     revision_of: oldExp.revision_of || null,
     created_at: convertTimestamp(oldExp.created_at),
@@ -260,8 +231,8 @@ function transformExperience(oldExp) {
  */
 function insertExperience(targetDb, experience) {
   const stmt = targetDb.prepare(`
-    INSERT INTO experiences (type, domain, situation, approach, outcome, reasoning, confidence, scope, tags, revision_of, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO experiences (type, domain, situation, approach, outcome, reasoning, confidence, tags, revision_of, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const result = stmt.run(
@@ -272,7 +243,6 @@ function insertExperience(targetDb, experience) {
     experience.outcome,
     experience.reasoning,
     experience.confidence,
-    experience.scope,
     experience.tags,
     experience.revision_of,
     experience.created_at,
@@ -341,7 +311,6 @@ async function migrate() {
         outcome TEXT NOT NULL,
         reasoning TEXT NOT NULL,
         confidence REAL CHECK(confidence BETWEEN 0 AND 1),
-        scope TEXT CHECK(scope IN ('user', 'project')),
         tags TEXT,
         revision_of INTEGER,
         created_at INTEGER DEFAULT (strftime('%s', 'now')),
@@ -350,7 +319,6 @@ async function migrate() {
       );
 
       CREATE INDEX IF NOT EXISTS idx_domain_type ON experiences(domain, type);
-      CREATE INDEX IF NOT EXISTS idx_scope ON experiences(scope);
       CREATE INDEX IF NOT EXISTS idx_created ON experiences(created_at DESC);
     `);
     console.log('✓ Schema created\n');

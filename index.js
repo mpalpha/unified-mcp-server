@@ -22,7 +22,7 @@ const os = require('os');
 const readline = require('readline');
 const crypto = require('crypto');
 
-const VERSION = '1.4.2';
+const VERSION = '1.4.3';
 
 // v1.4.0: Project-local storage in .claude/ directory
 // All data is stored per-project, no global storage
