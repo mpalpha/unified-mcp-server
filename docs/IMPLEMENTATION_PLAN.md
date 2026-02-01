@@ -2,6 +2,34 @@
 
 ## Version History
 
+### v1.4.2 - 2026-02-01 (Patch Release - Remove Checklist Limits)
+**Remove Arbitrary Item Limits**
+- **Change**: Removed 10 item limit from `preImplementation` and `postImplementation` arrays
+- **Rationale**: Some projects have comprehensive checklists; limit was arbitrary
+- **Cascading Updates**:
+  1. Updated CHANGELOG.md FIRST
+  2. Removed validation checks in `index.js` (lines ~2487, ~2505)
+  3. Updated tool schema descriptions (removed "max 10 items")
+  4. Updated test in `test-project-context.js` to verify many items allowed
+  5. Version bump to 1.4.2
+  6. Ran targeted tests (`test:version-sync`, `test:project-context`)
+  7. Ran full test suite before push
+- **Testing**: All 166 tests pass
+- **Documentation**: CHANGELOG.md, IMPLEMENTATION_PLAN.md updated
+
+### v1.4.1 - 2026-02-01 (Patch Release - Post-Install Prompt)
+**Improve Post-Install Prompt**
+- **Issue**: Agent didn't follow post-install prompt properly
+- **Root Cause**: Prompt had project-specific paths, vague instructions
+- **Solution**: Project-agnostic discovery workflow with explicit tool calls
+- **Changes**:
+  - Replaced hardcoded paths with universal discovery commands
+  - Added pattern searches for `*RULES*.md`, `*CHECKLIST*.md`
+  - New Step 2: Analyze discovered files, extract checklists
+  - Updated Option A with `preImplementation`/`postImplementation` fields
+- **Cascading Updates**: See Example 7 in Cascading Update Requirement section
+- **Testing**: All 166 tests pass
+
 ### v1.4.0 - APPROVED (Minor Release - Project-Scoped Experiences)
 **Project-Local Storage Architecture**
 - **Status**: APPROVED (2026-01-31) - 27 gaps identified and solutions approved
@@ -15,8 +43,8 @@
 **Pre/Post Implementation Checklists**
 - **Feature**: Added checklist enforcement for implementation workflows
 - **Changes**:
-  - Added: `preImplementation` array to project context (max 10 items, 200 chars each)
-  - Added: `postImplementation` array to project context (max 10 items, 200 chars each)
+  - Added: `preImplementation` array to project context (200 chars per item, no item limit as of v1.4.2)
+  - Added: `postImplementation` array to project context (200 chars per item, no item limit as of v1.4.2)
   - Updated: `update_project_context` tool validates new checklist fields
   - Updated: `user-prompt-submit.cjs` displays preImplementation checklist
   - Updated: `post-tool-use.cjs` displays postImplementation after file modifications
