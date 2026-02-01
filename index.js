@@ -22,7 +22,7 @@ const os = require('os');
 const readline = require('readline');
 const crypto = require('crypto');
 
-const VERSION = '1.4.0';
+const VERSION = '1.4.1';
 
 // v1.4.0: Project-local storage in .claude/ directory
 // All data is stored per-project, no global storage
@@ -2977,43 +2977,75 @@ Migrate old database? [Y/n] (default: Yes - preserve your knowledge): `, (answer
         const projectHash = crypto.createHash('md5').update(process.cwd()).digest('hex');
         const promptFilePath = path.join(promptsDir, `${projectHash}.md`);
 
-        const promptContent = `Review the project analysis from installation and propose customization options:
+        const promptContent = `🔍 POST-INSTALLATION: PROJECT DISCOVERY
 
-1. Analyze what you discovered during installation:
-   - File counts, directory structure
-   - .cursorrules, CONTRIBUTING.md, special files
-   - Patterns, project type, complexity
+The MCP server is now connected. Use the available tools to analyze
+this project and configure context for future sessions.
 
-2. Propose customization options with benefits:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-   Option A: Record analysis to database
-   Benefits: Searchable, persistent, reusable across sessions using record_experience tool
+⚠️  DO NOT use prior conversation knowledge. Discover fresh using tools.
 
-   Option B: Add project context to hooks
-   Benefits: Hooks display project-specific reminders
-   Use update_project_context tool with:
-     - summary: "One-line project description"
-     - highlights: ["Key fact 1", "Key fact 2"]
-     - reminders: ["Important note"]
-   Example:
-     update_project_context({
-       enabled: true,
-       summary: "React app with 500 files",
-       highlights: [".cursorrules found"],
-       reminders: ["Check CONTRIBUTING.md"]
-     })
+STEP 1: DISCOVER PROJECT STRUCTURE
 
-   Option C: Search for similar projects
-   Benefits: Learn from patterns in comparable codebases using search_experiences tool
+Run these tool calls now:
 
-3. Explain benefits and wait for user approval before executing any customizations
+  □ Bash: ls -la (root directory overview)
+  □ Bash: find . -name "*.md" -type f | head -20 (find documentation)
+  □ Glob: .cursorrules
+  □ Glob: .cursor/rules/*
+  □ Glob: **/*CLAUDE*.md
+  □ Glob: **/*RULES*.md
+  □ Glob: **/*CHECKLIST*.md
+  □ Glob: CONTRIBUTING.md
 
-4. After completing customization, delete this prompt file:
+STEP 2: ANALYZE DISCOVERED FILES
 
-   AGENT: Run this command to dismiss the prompt:
-     rm .claude/post-install-prompts/${projectHash}.md
+For each .md file found that contains rules/checklists/patterns:
+  □ Read: Read the file content
+  □ Extract: Note any pre-implementation checklists
+  □ Extract: Note any post-implementation verification steps
+  □ Extract: Note any coding standards or patterns
 
-   USER: If you ran the installation manually, delete the file above to stop seeing this prompt.`;
+STEP 3: PRESENT FINDINGS TO USER
+
+Summarize what you discovered (cite tool output):
+  - Project structure and type
+  - Rules files found (with key points from each)
+  - Checklists for planning and verification
+  - Patterns and standards to follow
+
+STEP 4: PROPOSE CUSTOMIZATION OPTIONS
+
+  Option A: Save project context for future sessions
+  → update_project_context({
+      enabled: true,
+      summary: "Project type and key characteristics",
+      highlights: ["Key patterns", "Important files"],
+      reminders: ["Standards to follow"],
+      preImplementation: ["Checklist items before coding"],
+      postImplementation: ["Verification steps after coding"]
+    })
+  Benefits: Every session starts with project-specific guidance
+
+  Option B: Record patterns to knowledge base
+  → record_experience({ type: "effective", domain: "Process", ... })
+  Benefits: Searchable patterns across all projects
+
+  Option C: Search for similar project patterns
+  → search_experiences({ query: "project type keywords" })
+  Benefits: Learn from past experience with similar projects
+
+STEP 5: WAIT FOR USER APPROVAL
+
+Do not execute customization until user confirms which options to apply.
+
+STEP 6: CLEANUP
+
+After completing customization, delete this prompt file:
+  rm .claude/post-install-prompts/${projectHash}.md
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
         try {
           // Ensure prompts directory exists
           if (!fs.existsSync(promptsDir)) {

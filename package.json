@@ -1,6 +1,6 @@
 {
   "name": "unified-mcp-server",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Unified MCP server combining memory-augmented reasoning and protocol enforcement with modern tool ergonomics",
   "author": "Jason Lusk <jason@jasonlusk.com>",
   "license": "MIT",

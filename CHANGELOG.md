@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-02-01
+
+### Fixed - Post-Install Prompt Improvement
+- **Issue**: Agent didn't follow post-install prompt properly
+- **Root Causes**:
+  - Prompt had project-specific paths (e.g., `find src`, `find components`) that may not exist
+  - Didn't mention searching for patterns/checklists/rules in .md files
+  - Vague "analyze" instructions instead of specific tool calls
+  - Didn't emphasize project context customization with checklists
+- **Solution**: Rewrote prompt with project-agnostic discovery workflow
+- **Key Changes**:
+  - Replaced hardcoded paths with universal discovery commands (`ls -la`, `find . -name "*.md"`)
+  - Added pattern searches: `**/*RULES*.md`, `**/*CHECKLIST*.md`
+  - New Step 2: Analyze discovered files, extract pre/post implementation checklists
+  - Updated Option A to show `preImplementation` and `postImplementation` arrays
+  - Clearer step separation with checkboxes for each tool call
+  - Emphasize fresh discovery (no prior knowledge)
+- **Files Modified**: `index.js` (post-install prompt generation)
+- **User Impact**: Agents follow clearer discovery workflow, capture project rules for planning/verification
+
 ## [1.4.0] - 2026-02-01
 
 ### Changed - Project-Scoped Experiences (Major Architecture Change)

@@ -3171,6 +3171,126 @@ console.log(data.userPrompt || data.prompt || '');  // ❌ Should NOT output pro
 
 ---
 
+### Example 7: Post-Install Prompt Improvement (v1.4.1)
+
+**Change:** Improve post-install prompt to be project-agnostic and guide agents to discover patterns
+
+**Issue Identified:**
+- User feedback: Agent didn't follow post-install prompt properly
+- Problems:
+  1. Prompt had project-specific paths (e.g., `src/components`) that may not exist
+  2. Didn't mention searching for patterns/checklists/rules in .md files
+  3. Vague "analyze" instructions instead of specific tool calls
+  4. Didn't emphasize project context customization benefits
+
+**Root Cause:**
+- Prompt assumed specific project structure
+- Instructions were too abstract for agents to follow reliably
+- Missing guidance on discovering project rules for planning/verification
+
+**Required Cascading Updates:**
+
+1. **Documentation (FIRST):**
+   - [x] Document in IMPLEMENTATION_PLAN.md (this section)
+   - [x] Update CHANGELOG.md with fix description
+
+2. **Implementation:**
+   - [x] Update `index.js` post-install prompt (lines ~2980-3016)
+   - Key improvements:
+     - Project-agnostic discovery commands
+     - Explicit tool calls with checkboxes
+     - Search for .md files with rules/checklists
+     - Emphasize update_project_context for future sessions
+     - Clear step separation with verification
+
+3. **New Prompt Design:**
+```markdown
+🔍 POST-INSTALLATION: PROJECT DISCOVERY
+
+The MCP server is now connected. Use the available tools to analyze
+this project and configure context for future sessions.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚠️  DO NOT use prior conversation knowledge. Discover fresh using tools.
+
+STEP 1: DISCOVER PROJECT STRUCTURE
+
+Run these tool calls now:
+
+  □ Bash: ls -la (root directory overview)
+  □ Bash: find . -name "*.md" -type f | head -20 (find documentation)
+  □ Glob: .cursorrules
+  □ Glob: .cursor/rules/*
+  □ Glob: **/*CLAUDE*.md
+  □ Glob: **/*RULES*.md
+  □ Glob: **/*CHECKLIST*.md
+  □ Glob: CONTRIBUTING.md
+
+STEP 2: ANALYZE DISCOVERED FILES
+
+For each .md file found that contains rules/checklists/patterns:
+  □ Read: Read the file content
+  □ Extract: Note any pre-implementation checklists
+  □ Extract: Note any post-implementation verification steps
+  □ Extract: Note any coding standards or patterns
+
+STEP 3: PRESENT FINDINGS TO USER
+
+Summarize what you discovered (cite tool output):
+  - Project structure and type
+  - Rules files found (with key points from each)
+  - Checklists for planning and verification
+  - Patterns and standards to follow
+
+STEP 4: PROPOSE CUSTOMIZATION OPTIONS
+
+  Option A: Save project context for future sessions
+  → update_project_context({
+      enabled: true,
+      summary: "Project type and key characteristics",
+      highlights: ["Key patterns", "Important files"],
+      reminders: ["Standards to follow"],
+      preImplementation: ["Checklist items before coding"],
+      postImplementation: ["Verification steps after coding"]
+    })
+  Benefits: Every session starts with project-specific guidance
+
+  Option B: Record patterns to knowledge base
+  → record_experience({ type: "effective", domain: "Process", ... })
+  Benefits: Searchable patterns across all projects
+
+  Option C: Search for similar project patterns
+  → search_experiences({ query: "project type keywords" })
+  Benefits: Learn from past experience with similar projects
+
+STEP 5: WAIT FOR USER APPROVAL
+
+Do not execute customization until user confirms which options to apply.
+
+STEP 6: CLEANUP
+
+After completing customization, delete this prompt file:
+  rm .claude/post-install-prompts/{hash}.md
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+4. **Testing:**
+   - [x] Verify prompt file is created during --init
+   - [x] Verify session-start hook displays prompt
+   - [x] Test with project that has .cursorrules
+   - [x] Test with project that has no special files
+   - [x] Run full test suite (166/166 passing)
+
+5. **Impact Analysis:**
+   - Affects: `index.js` (prompt generation)
+   - User impact: Agents follow clearer discovery workflow
+   - Project context captures checklists for planning/verification
+   - No breaking changes
+
+---
+
 ## Version Release Checklist
 
 **MANDATORY: Version Synchronization Validation**
