@@ -22,7 +22,7 @@ const os = require('os');
 const readline = require('readline');
 const crypto = require('crypto');
 
-const VERSION = '1.4.3';
+const VERSION = '1.4.4';
 
 // v1.4.0: Project-local storage in .claude/ directory
 // All data is stored per-project, no global storage
@@ -2971,73 +2971,171 @@ Migrate old database? [Y/n] (default: Yes - preserve your knowledge): `, (answer
         const projectHash = crypto.createHash('md5').update(process.cwd()).digest('hex');
         const promptFilePath = path.join(promptsDir, `${projectHash}.md`);
 
-        const promptContent = `🔍 POST-INSTALLATION: PROJECT DISCOVERY
+        const promptContent = `🔍 POST-INSTALLATION: PROJECT CONTEXT CONFIGURATION
 
-The MCP server is now connected. Use the available tools to analyze
-this project and configure context for future sessions.
+The MCP server is now connected. Configure project context to guide
+future sessions toward reading the FULL documentation - not summaries.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-⚠️  DO NOT use prior conversation knowledge. Discover fresh using tools.
+⚠️  CRITICAL: Context is a POINTER, not a REPLACEMENT.
+    DO NOT summarize rules. Create pointers that enforce reading full docs.
 
-STEP 1: DISCOVER PROJECT STRUCTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Run these tool calls now:
+STEP 1: BROAD DISCOVERY
 
-  □ Bash: ls -la (root directory overview)
-  □ Bash: find . -name "*.md" -type f | head -20 (find documentation)
-  □ Glob: .cursorrules
-  □ Glob: .cursor/rules/*
-  □ Glob: **/*CLAUDE*.md
-  □ Glob: **/*RULES*.md
-  □ Glob: **/*CHECKLIST*.md
-  □ Glob: CONTRIBUTING.md
+Search for files that might contain rules, guidelines, or checklists:
 
-STEP 2: ANALYZE DISCOVERED FILES
+  □ Bash: find . -type f \\( -name "*.md" -o -name "*.txt" -o -name ".*rules*" \\) 2>/dev/null | head -100
+  □ Exclude: Filter out paths containing dependency caches, build outputs,
+      vendored code, or version control (determine what these are based on
+      the project's ecosystem)
+  □ Bash: ls -la (root dotfiles)
+  □ Read: package.json, pyproject.toml, or equivalent (scripts, config references)
+  □ Read: README.md
 
-For each .md file found that contains rules/checklists/patterns:
-  □ Read: Read the file content
-  □ Extract: Note any pre-implementation checklists
-  □ Extract: Note any post-implementation verification steps
-  □ Extract: Note any coding standards or patterns
+STEP 2: READ DISCOVERED FILES
 
-STEP 3: PRESENT FINDINGS TO USER
+For each potentially relevant file from Step 1:
+  □ Read the file contents
+  □ Note what type of guidance it contains (code style, testing, accessibility, etc.)
+  □ Note sections relevant to pre-implementation planning
+  □ Note sections relevant to post-implementation verification
+  □ Note any lint/test/build commands referenced
 
-Summarize what you discovered (cite tool output):
-  - Project structure and type
-  - Rules files found (with key points from each)
-  - Checklists for planning and verification
-  - Patterns and standards to follow
+STEP 3: PRESENT FINDINGS
 
-STEP 4: PROPOSE CUSTOMIZATION OPTIONS
+Present discovered files with content summaries:
 
-  Option A: Save project context for future sessions
-  → update_project_context({
-      enabled: true,
-      summary: "Project type and key characteristics",
-      highlights: ["Key patterns", "Important files"],
-      reminders: ["Standards to follow"],
-      preImplementation: ["Checklist items before coding"],
-      postImplementation: ["Verification steps after coding"]
-    })
-  Benefits: Every session starts with project-specific guidance
+  "I found these files containing project rules or guidelines:
 
-  Option B: Record patterns to knowledge base
-  → record_experience({ type: "effective", domain: "Process", ... })
-  Benefits: Searchable patterns across all projects
+   [list each file with description of what it contains]
 
-  Option C: Search for similar project patterns
-  → search_experiences({ query: "project type keywords" })
-  Benefits: Learn from past experience with similar projects
+   Are there other locations where rules, checklists, or guidelines
+   are documented? (other files, wiki, external docs?)"
 
-STEP 5: WAIT FOR USER APPROVAL
+If user identifies additional sources:
+  - For files: discover and read them
+  - For external docs the agent cannot access: ask user to summarize
+    key points or provide links to include in reminders
 
-Do not execute customization until user confirms which options to apply.
+STEP 4: HANDLE NO FORMAL DOCUMENTATION
 
-STEP 6: CLEANUP
+If no rule files are found:
 
-After completing customization, delete this prompt file:
-  rm .claude/post-install-prompts/${projectHash}.md
+  "I didn't find formal documentation for project rules or checklists.
+
+   Would you like to:
+   A) Describe key rules - I'll help structure them into context
+   B) Skip project context for now"
+
+If user chooses A, capture their rules and help identify which are
+critical violations vs general guidelines.
+
+STEP 5: ANALYZE FOR CONFLICTS
+
+Compare rules across all discovered files. Look for:
+  □ Contradictory statements
+  □ Overlapping guidance with different specifics
+  □ Ambiguous precedence
+
+Present conflicts to user for resolution:
+
+  "I found potential conflicts between your rule files:
+
+   CONFLICT: [topic]
+   - [File A] says: '...'
+   - [File B] says: '...'
+
+   Which takes precedence?"
+
+STEP 6: IDENTIFY CRITICAL VIOLATIONS
+
+Ask the user - do not guess:
+
+  "Which rules are MOST COMMONLY VIOLATED - the specific items you
+   frequently have to correct? (3-5 items)
+
+   These become critical reminders shown every session."
+
+STEP 7: MAP FILES TO SCENARIOS
+
+Determine which files apply to which types of changes:
+
+  □ Which files should ALWAYS be read before/after coding?
+  □ Which files apply only to specific scenarios (UI, tests, API, etc.)?
+  □ What verification commands should run after changes?
+
+STEP 8: CONSTRUCT PROJECT CONTEXT
+
+Build context following these principles:
+
+  ✓ HONEST - Summary admits full rules are elsewhere
+  ✓ ACTIONABLE - Points to exact files discovered
+  ✓ CRITICAL ONLY - Highlights are user-identified violations
+  ✓ ENFORCES READING - Pre/post say "READ [file]"
+  ✓ CONFLICT-AWARE - Notes resolved conflicts
+  ✓ CONDITIONAL - Notes which files apply when
+
+Note: Each item has a 200 character limit. Keep pointers concise.
+
+  update_project_context({
+    enabled: true,
+
+    summary: "[Project] - [Stack]. ALWAYS read full docs before/after coding.",
+
+    highlights: [
+      // User-identified most-violated rules from Step 6
+      // These are specific gotchas, not general documentation
+    ],
+
+    reminders: [
+      // Point to primary rule sources discovered
+      "READ [file] BEFORE coding",
+      "READ [file] AFTER coding to verify"
+    ],
+
+    preImplementation: [
+      // "READ [file]" items first, then action items
+      "READ [file1] - [section] (applies: always)",
+      "READ [file2] - [section] (applies: if [scenario])",
+      // Critical actions not covered in files
+    ],
+
+    postImplementation: [
+      // "READ [file]" items first, then verification commands
+      "READ [file1] - [section] (applies: always)",
+      "READ [file2] - [section] (applies: if [scenario])",
+      // Verification commands
+      "[lint/test command] - must pass"
+    ]
+  })
+
+STEP 9: PRESENT FOR APPROVAL
+
+Show the user:
+  □ The constructed project context
+  □ Summary of files referenced
+  □ Conflict resolutions applied
+
+Ask for approval before saving.
+If user requests changes, revise and present again.
+
+STEP 10: CLEANUP
+
+After approval: rm .claude/post-install-prompts/${projectHash}.md
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PRINCIPLES:
+
+  ✓ Context POINTS to docs, doesn't replace them
+  ✓ Discover broadly, don't assume project structure
+  ✓ User identifies critical violations - don't guess
+  ✓ Handle missing documentation gracefully
+  ✓ Resolve conflicts explicitly with user input
+  ✓ Support multiple files with conditional applicability
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
         try {

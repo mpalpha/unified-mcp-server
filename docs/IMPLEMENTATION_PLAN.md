@@ -2,6 +2,34 @@
 
 ## Version History
 
+### v1.4.4 - 2026-02-01 (Patch Release - Pointer Pattern Prompt)
+**Redesign Post-Install Prompt for Pointer Pattern**
+- **Problem**: Previous prompt led agents to summarize rules into context, creating false completeness
+- **Solution**: Context should POINT to docs, not replace them
+- **Principles**:
+  1. HONEST - Admits full rules are elsewhere
+  2. ACTIONABLE - Points to exact files (plural)
+  3. CRITICAL ONLY - User-identified most-violated rules (don't guess)
+  4. ENFORCES READING - Pre/post say "READ [file]"
+  5. CONFLICT-AWARE - Identifies contradictions between sources
+  6. CONDITIONAL - Notes which files apply when
+- **New 10-Step Flow**:
+  1. Broad discovery (no assumptions about structure)
+  2. Read discovered files
+  3. Present findings, ask if more
+  4. Handle no-docs case
+  5. Analyze for conflicts
+  6. Ask user for critical violations
+  7. Map files to scenarios
+  8. Construct context (with 200 char limit note)
+  9. Present for approval (with rejection/revision path)
+  10. Cleanup
+- **Cascading Updates**:
+  1. Updated CHANGELOG.md + IMPLEMENTATION_PLAN.md FIRST
+  2. Updated post-install prompt in `index.js`
+  3. Version bump to 1.4.4
+- **Testing**: All tests pass
+
 ### v1.4.3 - 2026-02-01 (Patch Release - Migration Script Fix)
 **Fix Migration Script Schema Mismatch**
 - **Bug**: Migration script tried to insert `scope` column removed in v1.4.0

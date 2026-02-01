@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.4] - 2026-02-01
+
+### Changed - Post-Install Prompt: Pointer Pattern
+- **Issue**: Previous prompt led agents to summarize rules into context fields, creating false sense of completeness
+- **Solution**: Redesigned prompt to create POINTERS to docs, not replacements
+- **Key Principles**:
+  - HONEST: Context admits full rules are elsewhere
+  - ACTIONABLE: Points to exact files discovered
+  - CRITICAL ONLY: Highlights are user-identified most-violated rules (not guessed)
+  - ENFORCES READING: Pre/post items say "READ [file]"
+  - CONFLICT-AWARE: Identifies contradictions between rule sources
+  - CONDITIONAL: Notes which files apply to which scenarios
+- **New Steps**:
+  - Broad discovery without assuming project structure
+  - Read discovered files before analyzing
+  - Present findings, ask if there's more
+  - Handle no-documentation case gracefully
+  - Analyze for conflicts between rule files
+  - Ask user for most-violated rules (don't guess)
+  - Map files to scenarios (conditional applicability)
+  - Support multiple files, not just one
+  - Handle external docs user describes
+  - Rejection/revision path for approval
+- **Character Limit Note**: Added reminder that items have 200 char limit
+- **Files Modified**: `index.js` (post-install prompt)
+
 ## [1.4.3] - 2026-02-01
 
 ### Fixed - Migration Script Schema Mismatch
