@@ -1353,7 +1353,7 @@ Building a research-based MCP server with 25 tools in phases. **Target: 150 auto
 **ALL changes propagate through entire system:**
 
 ```
-1. Documentation FIRST (CHANGELOG.md) →
+1. Documentation FIRST (CHANGELOG.md + IMPLEMENTATION_PLAN.md) →
    ↓
 2. Implementation (code changes) →
    ↓
@@ -1393,7 +1393,7 @@ Building a research-based MCP server with 25 tools in phases. **Target: 150 auto
 **Examples of cascading updates:**
 
 1. **Add new tool** →
-   - Update CHANGELOG.md FIRST
+   - Update CHANGELOG.md + IMPLEMENTATION_PLAN.md FIRST
    - Implement tool function
    - Add case statement in index.js
    - Add to tools/list response
@@ -1405,7 +1405,7 @@ Building a research-based MCP server with 25 tools in phases. **Target: 150 auto
    - Full test suite before push
 
 2. **Fix bug** →
-   - Update CHANGELOG.md FIRST
+   - Update CHANGELOG.md + IMPLEMENTATION_PLAN.md FIRST
    - Fix code
    - Update or add regression test
    - Run targeted tests for affected area
@@ -1416,7 +1416,7 @@ Building a research-based MCP server with 25 tools in phases. **Target: 150 auto
    - Push
 
 3. **Change behavior** →
-   - Update CHANGELOG.md FIRST
+   - Update CHANGELOG.md + IMPLEMENTATION_PLAN.md FIRST
    - Update implementation
    - Update ALL affected tests
    - Update documentation/examples
@@ -1425,7 +1425,7 @@ Building a research-based MCP server with 25 tools in phases. **Target: 150 auto
    - Full test suite before push
 
 4. **Update requirements** →
-   - Update CHANGELOG.md FIRST
+   - Update CHANGELOG.md + IMPLEMENTATION_PLAN.md FIRST
    - Update implementation
    - Update tests to verify new requirements
    - Update documentation
@@ -1440,7 +1440,7 @@ Building a research-based MCP server with 25 tools in phases. **Target: 150 auto
 - ❌ Tests failing, code shipped anyway
 
 **Change Verification Checklist:**
-- [ ] CHANGELOG updated FIRST (document before code)
+- [ ] CHANGELOG + IMPLEMENTATION_PLAN updated FIRST (document before code)
 - [ ] Implementation complete
 - [ ] Tests written/updated (if needed)
 - [ ] Targeted tests passing (change-aware)
