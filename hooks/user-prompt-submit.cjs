@@ -76,25 +76,30 @@ try {
     const hasReasonGate = gates.reason && gates.reason.required_tools && gates.reason.required_tools.length > 0;
 
     if (hasLearnGate || hasReasonGate || hasTeachGate) {
-      console.log('⚠️  WORKFLOW ENFORCEMENT ACTIVE\n');
-      console.log('This hook was installed to REQUIRE workflow compliance.');
-      console.log('File operations will be BLOCKED until you complete:\n');
+      console.log('⛔ STOP: Complete these steps IN ORDER before any other tool calls:\n');
+
+      let stepNum = 1;
 
       if (hasLearnGate) {
-        console.log('✓ LEARN: Search experiences for relevant patterns');
-        console.log('  → search_experiences({ query: "keywords for this task" })\n');
+        console.log(`${stepNum}. □ LEARN: Search experiences for relevant patterns`);
+        console.log('   REQUIRED CALL: search_experiences({ query: "<keywords for this task>" })\n');
+        stepNum++;
       }
 
       if (hasReasonGate) {
-        console.log('✓ REASON: Analyze problem and gather context');
-        console.log('  → analyze_problem({ problem: "describe task" })');
-        console.log('  → gather_context({ session_id: "...", sources: {...} })\n');
+        console.log(`${stepNum}. □ REASON: Analyze problem and gather context`);
+        console.log('   REQUIRED CALL: analyze_problem({ problem: "<describe task>" })');
+        console.log('   REQUIRED CALL: gather_context({ session_id: "...", sources: {...} })\n');
+        stepNum++;
       }
 
       if (hasTeachGate) {
-        console.log('✓ TEACH: Record your solution after completion');
-        console.log('  → record_experience({ type: "effective", ... })\n');
+        console.log(`${stepNum}. □ TEACH: Record your solution after completion`);
+        console.log('   REQUIRED CALL: record_experience({ type: "effective", ... })\n');
       }
+
+      console.log('DO NOT call Read, Glob, Grep, Write, Edit, or Bash until steps above are complete.\n');
+      console.log('Skipping this workflow will result in incomplete context and potential rework.\n');
 
       // Display project-specific context if available
       if (projectContext && projectContext.enabled) {

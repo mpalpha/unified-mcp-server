@@ -22,7 +22,7 @@ const os = require('os');
 const readline = require('readline');
 const crypto = require('crypto');
 
-const VERSION = '1.4.4';
+const VERSION = '1.4.5';
 
 // v1.4.0: Project-local storage in .claude/ directory
 // All data is stored per-project, no global storage
@@ -2219,28 +2219,42 @@ function uninstallHooks(params) {
   if (settings.hooks) {
     for (const hookName of hooksToRemove) {
       if (settings.hooks[hookName]) {
-        const hookPath = settings.hooks[hookName].command;
+        // Handle nested structure: "HookName": [{ "hooks": [{ "type": "command", "command": "..." }] }]
+        let hookPath = null;
+        const hookEntry = settings.hooks[hookName];
+        if (Array.isArray(hookEntry) && hookEntry[0]?.hooks?.[0]?.command) {
+          hookPath = hookEntry[0].hooks[0].command;
+        } else if (hookEntry?.command) {
+          // Legacy flat structure
+          hookPath = hookEntry.command;
+        }
 
-        // Delete hook file
-        if (fs.existsSync(hookPath)) {
+        // Delete hook file if it exists
+        if (hookPath && fs.existsSync(hookPath)) {
           try {
             fs.unlinkSync(hookPath);
             removedHooks.push({ name: hookName, path: hookPath });
           } catch (e) {
             errors.push({ hook: hookName, error: `Failed to delete file: ${e.message}` });
           }
+        } else if (hookPath) {
+          // File doesn't exist but we still remove from settings
+          removedHooks.push({ name: hookName, path: hookPath, file_missing: true });
         }
 
-        // Remove from settings
+        // Remove from settings regardless of file existence
         delete settings.hooks[hookName];
-      } else {
-        errors.push({ hook: hookName, error: 'Hook not found in settings' });
       }
+      // Don't error if hook not found - makes it idempotent
     }
 
-    // Write updated settings
+    // Write updated settings if any hooks were removed
     if (settingsPath && removedHooks.length > 0) {
       try {
+        // Clean up empty hooks object
+        if (Object.keys(settings.hooks).length === 0) {
+          delete settings.hooks;
+        }
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
       } catch (e) {
         errors.push({ hook: 'settings', error: `Failed to update settings: ${e.message}` });

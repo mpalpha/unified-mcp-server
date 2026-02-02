@@ -2,6 +2,33 @@
 
 ## Version History
 
+### v1.4.5 - 2026-02-02 (Patch Release - Hook Message Clarity)
+**Fix v1.0.4 Regression: Checkmarks vs Checkboxes**
+- **Problem**: v1.0.4 commit claimed "checkboxes" but implemented "checkmarks"
+  - Checkmarks (✓) signal "completed" → agents skip steps
+  - Checkboxes (□) signal "to-do" → agents complete steps
+- **Root Cause**: Format changed without testing real agent compliance
+- **Solution**: Replace ambiguous symbols with directive language:
+  - ✓ → □ (the v1.0.4 bug fix)
+  - → → REQUIRED CALL:
+  - ⚠️ → ⛔ STOP: header
+  - Added tool blocklist ("DO NOT call...")
+  - Added consequence statement
+- **Cascading Updates**:
+  1. Updated CHANGELOG.md + IMPLEMENTATION_PLAN.md FIRST
+  2. Created test/test-hook-message-compliance.js (real agent testing)
+  3. Updated hooks/user-prompt-submit.cjs (message format)
+  4. Updated hooks/pre-tool-use.cjs (message format)
+  5. Ran real agent compliance test - achieved 100%
+  6. Version bump to 1.4.5
+- **Testing**: Real agent compliance test with @anthropic-ai/sdk
+  - 5 test prompts, all must call search_experiences FIRST
+  - 100% compliance rate required
+- **Flow Preservation**: Only console.log/console.error strings changed
+  - Token validation logic UNCHANGED
+  - Exit codes UNCHANGED
+  - Config paths UNCHANGED
+
 ### v1.4.4 - 2026-02-01 (Patch Release - Pointer Pattern Prompt)
 **Redesign Post-Install Prompt for Pointer Pattern**
 - **Problem**: Previous prompt led agents to summarize rules into context, creating false completeness

@@ -152,7 +152,8 @@ async function runTests() {
     }
 
     const result = await call('install_hooks', {
-      hooks: ['all']
+      hooks: ['all'],
+      update_settings: false  // Don't modify global ~/.claude/settings.json
     });
     const resp = parseJSONRPC(result.stdout).find(r => r.id === 2);
     assertTrue(resp && resp.result, 'Hook installation should succeed');
@@ -170,7 +171,7 @@ async function runTests() {
 
   // Test 6: pre-tool-use hook has blocking logic
   await test('pre-tool-use hook contains blocking logic', async () => {
-    await call('install_hooks', { hooks: ['all'] });
+    await call('install_hooks', { hooks: ['all'], update_settings: false });
 
     const hookPath = path.join(HOOKS_DIR, 'pre-tool-use.cjs');
     assertTrue(fs.existsSync(hookPath), 'Hook file should exist');

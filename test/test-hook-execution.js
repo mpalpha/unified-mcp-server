@@ -35,8 +35,8 @@ async function runTests() {
   // Helper to call MCP with project context
   const call = (tool, args) => callMCP(tool, args, { cwd: testDir });
 
-  // Install hooks first
-  await call('install_hooks', { hooks: ['all'] });
+  // Install hooks first (don't modify global settings)
+  await call('install_hooks', { hooks: ['all'], update_settings: false });
   console.log('✓ Hooks installed\n');
 
   // Test 1: pre-tool-use hook blocks Write without token

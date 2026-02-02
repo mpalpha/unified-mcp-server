@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.5] - 2026-02-02
+
+### Fixed - Hook Message Clarity (v1.0.4 Regression Fix)
+- **Issue**: Hook messages use symbols that signal "completed" instead of "required", causing agents to skip workflow
+- **Root Cause**: v1.0.4 commit claimed "checkboxes" but implemented "checkmarks" (semantic difference):
+  - `✓` (checkmark) = "already done" → agents skip step
+  - `□` (checkbox) = "to-do item" → agents complete step
+  - `→` (arrow) = "example/suggestion" → agents treat as optional
+  - `REQUIRED CALL:` = "must execute this" → agents execute call
+- **Fix**: Replace ambiguous symbols with directive language in both hooks:
+  - Changed `✓` to `□` (v1.0.4 bug fix)
+  - Changed `→` to `REQUIRED CALL:`
+  - Changed `⚠️` header to `⛔ STOP:` header
+  - Added explicit tool blocklist ("DO NOT call Read, Glob, Grep...")
+  - Added consequence statement ("incomplete context and potential rework")
+- **Hooks Modified**:
+  - `hooks/user-prompt-submit.cjs` - workflow guidance messages
+  - `hooks/pre-tool-use.cjs` - blocking messages
+- **Testing**: Real agent compliance test with @anthropic-ai/sdk
+  - Created `test/test-hook-message-compliance.js`
+  - Tested 5 prompts against Claude to verify first tool call is `search_experiences`
+  - Required 100% compliance rate achieved
+- **Flow Preservation**: NO breaking changes to:
+  - Token validation logic (expires_at check)
+  - Exit codes (process.exit(0/1))
+  - Config file paths (.claude/config.json, etc.)
+  - Conditional gate logic (hasLearnGate, hasReasonGate, hasTeachGate)
+
 ## [1.4.4] - 2026-02-01
 
 ### Changed - Post-Install Prompt: Pointer Pattern

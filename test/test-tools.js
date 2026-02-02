@@ -642,7 +642,7 @@ async function runTests() {
   console.log(colors.cyan + '======================================================================' + colors.reset);
 
   await test('install_hooks - successful installation', async () => {
-    const result = await call('install_hooks', {});
+    const result = await call('install_hooks', { update_settings: false });
 
     const responses = parseJSONRPC(result.stdout);
     const response = responses.find(r => r.id === 2);
@@ -653,7 +653,7 @@ async function runTests() {
   });
 
   await test('install_hooks - returns hook list', async () => {
-    const result = await call('install_hooks', {});
+    const result = await call('install_hooks', { update_settings: false });
     const data = JSON.parse(parseJSONRPC(result.stdout).find(r => r.id === 2).result.content[0].text);
     const hookNames = data.hooks.map(h => h.name);
     assertTrue(hookNames.includes('PreToolUse'), 'Should include PreToolUse hook');
@@ -661,14 +661,14 @@ async function runTests() {
   });
 
   await test('install_hooks - returns location', async () => {
-    const result = await call('install_hooks', {});
+    const result = await call('install_hooks', { update_settings: false });
     const data = JSON.parse(parseJSONRPC(result.stdout).find(r => r.id === 2).result.content[0].text);
     assertTrue(data.location, 'Should have location');
   });
 
   await test('install_hooks - idempotent', async () => {
-    await call('install_hooks', {});
-    const result = await call('install_hooks', {});
+    await call('install_hooks', { update_settings: false });
+    const result = await call('install_hooks', { update_settings: false });
     const data = JSON.parse(parseJSONRPC(result.stdout).find(r => r.id === 2).result.content[0].text);
     assertTrue(data.installed, 'Should handle repeated installation');
   });
@@ -698,7 +698,7 @@ async function runTests() {
   });
 
   await test('uninstall_hooks - after install', async () => {
-    await call('install_hooks', {});
+    await call('install_hooks', { update_settings: false });
     const result = await call('uninstall_hooks', {});
     const data = JSON.parse(parseJSONRPC(result.stdout).find(r => r.id === 2).result.content[0].text);
     assertTrue(data.uninstalled, 'Should uninstall after install');

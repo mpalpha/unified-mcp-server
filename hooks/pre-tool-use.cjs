@@ -59,20 +59,18 @@ try {
 
   if (!hasValidToken) {
     // Block the operation
-    console.error('🔵 WORKFLOW ENFORCEMENT (Research-Based)\n');
-    console.error('This file operation requires workflow compliance.\n');
-    console.error('WHY: Research shows agents fail without systematic learning:');
-    console.error('  • ChatDev: 25% correctness without workflow (arXiv:2503.13657)');
-    console.error('  • AgentErrorTaxonomy: Memory, planning, action failures (arXiv:2509.25370)');
-    console.error('  • Multi-agent fragility: Context not shared (Cognition.ai 2025)\n');
-    console.error('SOLUTION: TEACH → LEARN → REASON workflow before file operations\n');
-    console.error('Required steps:');
-    console.error('1. record_experience   (TEACH: Document approach)');
-    console.error('2. search_experiences  (LEARN: Find similar patterns)');
-    console.error('3. analyze_problem     (REASON: Synthesize solution)');
-    console.error('4. verify_compliance   (Get operation token)');
-    console.error('5. authorize_operation (Create 60-min session token)\n');
-    console.error('This ensures every request builds on accumulated knowledge.\n');
+    console.error('⛔ STOP: This file operation is BLOCKED.\n');
+    console.error('Complete these steps IN ORDER before file operations:\n');
+    console.error('1. □ search_experiences  (LEARN: Find similar patterns)');
+    console.error('   REQUIRED CALL: search_experiences({ query: "<keywords>" })\n');
+    console.error('2. □ analyze_problem     (REASON: Synthesize solution)');
+    console.error('   REQUIRED CALL: analyze_problem({ problem: "<task>" })\n');
+    console.error('3. □ verify_compliance   (Get operation token)');
+    console.error('   REQUIRED CALL: verify_compliance({ session_id: "...", ... })\n');
+    console.error('4. □ authorize_operation (Create 60-min session token)');
+    console.error('   REQUIRED CALL: authorize_operation({ operation_token: "...", ... })\n');
+    console.error('DO NOT call Write, Edit, or NotebookEdit until steps 1-4 are complete.\n');
+    console.error('Skipping this workflow will result in incomplete context and potential rework.\n');
 
     process.exit(1); // Block the operation
   }

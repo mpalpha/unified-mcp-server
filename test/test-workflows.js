@@ -201,11 +201,12 @@ async function runTests() {
 
   await test('Hook installation workflow', async () => {
     const result = await call('install_hooks', {
-      hooks: ['all']
+      hooks: ['all'],
+      update_settings: false  // Don't modify global ~/.claude/settings.json
     });
     const resp = parseJSONRPC(result.stdout).find(r => r.id === 2);
     assertTrue(resp && resp.result, 'Install should work');
-    
+
     const data = JSON.parse(resp.result.content[0].text);
     assertTrue(data.installed, 'Should be installed');
     assertTrue(data.hooks.length > 0, 'Should have hooks');
