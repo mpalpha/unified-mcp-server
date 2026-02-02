@@ -2,103 +2,43 @@
 
 ## Version History
 
+### v1.4.6 - 2026-02-02 (Patch Release - Project-Local Hook Installation)
+**Fix Global Hook Installation - Install to Project Only**
+- **Problem**: Hooks configured in global `~/.claude/settings.json` instead of project-local
+- **Solution**: Configure hooks in `.claude/settings.local.json` (project-local)
+- **Details**: See [Project-Local Hook Installation (v1.4.6)](#project-local-hook-installation-v146) section
+- **Additional**: CHORES checklist should use ☑ for applied items (not □)
+  - Current: Agent lists "CHORES: □ CONSTRAINTS, □ REASONING"
+  - Should be: Agent shows "CHORES: ☑ CONSTRAINTS, ☑ REASONING" for verified items
+  - Aligns with v1.4.5 symbol semantics: □ = to-do, ☑ = done
+
 ### v1.4.5 - 2026-02-02 (Patch Release - Hook Message Clarity)
 **Fix v1.0.4 Regression: Checkmarks vs Checkboxes**
-- **Problem**: v1.0.4 commit claimed "checkboxes" but implemented "checkmarks"
-  - Checkmarks (✓) signal "completed" → agents skip steps
-  - Checkboxes (□) signal "to-do" → agents complete steps
-- **Root Cause**: Format changed without testing real agent compliance
-- **Solution**: Replace ambiguous symbols with directive language:
-  - ✓ → □ (the v1.0.4 bug fix)
-  - → → REQUIRED CALL:
-  - ⚠️ → ⛔ STOP: header
-  - Added tool blocklist ("DO NOT call...")
-  - Added consequence statement
-- **Cascading Updates**:
-  1. Updated CHANGELOG.md + IMPLEMENTATION_PLAN.md FIRST
-  2. Created test/test-hook-message-compliance.js (real agent testing)
-  3. Updated hooks/user-prompt-submit.cjs (message format)
-  4. Updated hooks/pre-tool-use.cjs (message format)
-  5. Ran real agent compliance test - achieved 100%
-  6. Version bump to 1.4.5
-- **Testing**: Real agent compliance test with @anthropic-ai/sdk
-  - 5 test prompts, all must call search_experiences FIRST
-  - 100% compliance rate required
-- **Flow Preservation**: Only console.log/console.error strings changed
-  - Token validation logic UNCHANGED
-  - Exit codes UNCHANGED
-  - Config paths UNCHANGED
+- **Problem**: v1.0.4 used ✓ (checkmarks) instead of □ (checkboxes), causing agents to skip steps
+- **Solution**: Replace ambiguous symbols with directive language (□, REQUIRED CALL:, ⛔ STOP:)
+- **Testing**: 100% agent compliance achieved with Claude Code CLI testing
+- **Details**: See [Hook Message Clarity (v1.4.5)](#hook-message-clarity-v145) section
 
 ### v1.4.4 - 2026-02-01 (Patch Release - Pointer Pattern Prompt)
 **Redesign Post-Install Prompt for Pointer Pattern**
-- **Problem**: Previous prompt led agents to summarize rules into context, creating false completeness
-- **Solution**: Context should POINT to docs, not replace them
-- **Principles**:
-  1. HONEST - Admits full rules are elsewhere
-  2. ACTIONABLE - Points to exact files (plural)
-  3. CRITICAL ONLY - User-identified most-violated rules (don't guess)
-  4. ENFORCES READING - Pre/post say "READ [file]"
-  5. CONFLICT-AWARE - Identifies contradictions between sources
-  6. CONDITIONAL - Notes which files apply when
-- **New 10-Step Flow**:
-  1. Broad discovery (no assumptions about structure)
-  2. Read discovered files
-  3. Present findings, ask if more
-  4. Handle no-docs case
-  5. Analyze for conflicts
-  6. Ask user for critical violations
-  7. Map files to scenarios
-  8. Construct context (with 200 char limit note)
-  9. Present for approval (with rejection/revision path)
-  10. Cleanup
-- **Cascading Updates**:
-  1. Updated CHANGELOG.md + IMPLEMENTATION_PLAN.md FIRST
-  2. Updated post-install prompt in `index.js`
-  3. Version bump to 1.4.4
-- **Testing**: All tests pass
+- **Problem**: Prompts led agents to summarize rules, creating false completeness
+- **Solution**: Context should POINT to docs, not replace them (6 principles, 10-step flow)
+- **Details**: See [Post-Install Prompt Design (v1.4.4)](#post-install-prompt-design-v144) section
 
 ### v1.4.3 - 2026-02-01 (Patch Release - Migration Script Fix)
 **Fix Migration Script Schema Mismatch**
 - **Bug**: Migration script tried to insert `scope` column removed in v1.4.0
-- **Root Cause**: `scripts/migrate-experiences.js` wasn't updated during v1.4.0 changes
-- **Fix**: Remove all scope references (detectScope function, INSERT, schema)
-- **Cascading Updates**:
-  1. Updated CHANGELOG.md + IMPLEMENTATION_PLAN.md FIRST
-  2. Removed `detectScope()` function
-  3. Removed `scope` from `transformExperience()` return object
-  4. Removed `scope` from INSERT statement (column and value)
-  5. Removed `scope` column from schema creation
-  6. Removed `idx_scope` index creation
-  7. Version bump to 1.4.3
-- **Testing**: Migration tests pass
+- **Fix**: Remove all scope references from `scripts/migrate-experiences.js`
 
 ### v1.4.2 - 2026-02-01 (Patch Release - Remove Checklist Limits)
 **Remove Arbitrary Item Limits**
 - **Change**: Removed 10 item limit from `preImplementation` and `postImplementation` arrays
 - **Rationale**: Some projects have comprehensive checklists; limit was arbitrary
-- **Cascading Updates**:
-  1. Updated CHANGELOG.md FIRST
-  2. Removed validation checks in `index.js` (lines ~2487, ~2505)
-  3. Updated tool schema descriptions (removed "max 10 items")
-  4. Updated test in `test-project-context.js` to verify many items allowed
-  5. Version bump to 1.4.2
-  6. Ran targeted tests (`test:version-sync`, `test:project-context`)
-  7. Ran full test suite before push
-- **Testing**: All 166 tests pass
-- **Documentation**: CHANGELOG.md, IMPLEMENTATION_PLAN.md updated
 
 ### v1.4.1 - 2026-02-01 (Patch Release - Post-Install Prompt)
 **Improve Post-Install Prompt**
-- **Issue**: Agent didn't follow post-install prompt properly
-- **Root Cause**: Prompt had project-specific paths, vague instructions
+- **Problem**: Agent didn't follow post-install prompt (project-specific paths, vague instructions)
 - **Solution**: Project-agnostic discovery workflow with explicit tool calls
-- **Changes**:
-  - Replaced hardcoded paths with universal discovery commands
-  - Added pattern searches for `*RULES*.md`, `*CHECKLIST*.md`
-  - New Step 2: Analyze discovered files, extract checklists
-  - Updated Option A with `preImplementation`/`postImplementation` fields
-- **Cascading Updates**: See Example 7 in Cascading Update Requirement section
-- **Testing**: All 166 tests pass
 
 ### v1.4.0 - APPROVED (Minor Release - Project-Scoped Experiences)
 **Project-Local Storage Architecture**
@@ -111,151 +51,30 @@
 
 ### v1.3.0 - 2026-01-31 (Minor Release - Checklist Enforcement)
 **Pre/Post Implementation Checklists**
-- **Feature**: Added checklist enforcement for implementation workflows
-- **Changes**:
-  - Added: `preImplementation` array to project context (200 chars per item, no item limit as of v1.4.2)
-  - Added: `postImplementation` array to project context (200 chars per item, no item limit as of v1.4.2)
-  - Updated: `update_project_context` tool validates new checklist fields
-  - Updated: `user-prompt-submit.cjs` displays preImplementation checklist
-  - Updated: `post-tool-use.cjs` displays postImplementation after file modifications
-- **Cascading Updates**:
-  1. Added validation in `updateProjectContext` for new arrays
-  2. Updated context object to include new fields
-  3. Updated tool inputSchema with new properties
-  4. Updated `getProjectContext` to return new fields
-  5. Updated hooks to display checklists conditionally
-  6. Added 4 new tests to `test-project-context.js`
-- **Testing**: All 14 project context tests pass, full test suite passes
-- **Backward Compatible**: New fields optional with empty array defaults
-- **Documentation**: CHANGELOG.md, IMPLEMENTATION_PLAN.md updated
+- **Feature**: Added `preImplementation` and `postImplementation` arrays to project context
+- **Integration**: Hooks display checklists at session start and after file modifications
+- **Details**: See [Checklist Enforcement (v1.3.0)](#checklist-enforcement-v130) section
 
 ### v1.2.0 - 2026-01-30 (Minor Release - Safety-First Redesign)
 **Data-Driven Architecture for Post-Reload Customization**
-- **Critical**: Fixed all safety issues found in v1.1.0 real testing
-- **v1.1.0 Testing Results** (100 real sub-agent scenarios):
-  - ❌ Deadlock rate: 5.00% (5/100 tests deadlocked from infinite loops)
-  - ❌ Fallback success: 50.0% (syntax errors crashed badly)
-  - ❌ Recovery success: 50.0% (bypass mechanism failed)
-  - **Verdict**: ZERO-TOLERANCE policy → Complete redesign required
-- **Root Cause**: Code generation approach inherently unsafe
-  - Generated custom hook code based on project analysis
-  - Infinite loops, syntax errors, type errors in generated code
-  - No way to guarantee safety of arbitrary generated code
-- **Solution**: Data-driven architecture (no code generation)
-  - Store project context as JSON data
-  - Hooks read and display data (no code execution)
-  - Type validation + graceful fallback
-- **Changes**:
-  - Added: Tool 26 `update_project_context` - Store project context as validated JSON
-  - Added: Tool 27 `get_project_context` - Retrieve current project context
-  - Changed: `hooks/user-prompt-submit.cjs` now reads context from JSON files
-  - Changed: Hook validates types and handles malformed data gracefully
-  - Changed: STEP 4 in --init now shows `update_project_context` usage
-  - Changed: Total tools: 25 → 27
-  - Changed: All version constants to 1.2.0
-  - Deprecated: v1.1.0 marked as unsafe, upgrade immediately
-- **Tool Specifications**:
-  - `update_project_context({ enabled, summary, highlights, reminders, project_path })`
-    - `summary`: string, max 200 chars
-    - `highlights`: array of strings, max 5 items, 100 chars each
-    - `reminders`: array of strings, max 3 items, 100 chars each
-    - Validates input, stores in `~/.unified-mcp/project-contexts/{hash}.json`
-  - `get_project_context({ project_path })` - Returns current configuration
-- **Hook Behavior**:
-  - Loads context from `~/.unified-mcp/project-contexts/{project-hash}.json`
-  - Displays "📋 PROJECT CONTEXT:" section if enabled
-  - Shows summary, highlights (• bullets), reminders (⚠️ icons)
-  - Type validation: highlights/reminders must be arrays
-  - Graceful fallback: malformed data silently skipped (no crash)
-- **Testing** (v1.2.0 Real Testing - 20 scenarios):
-  - Created: `test/test-post-reload-safe.js` - Data-driven safety tests
-  - Created: `test/test-post-reload-real.js` - Code generation tests (exposed issues)
-  - Coverage: baseline, valid, invalid, malformed, filesystem issues
-  - Results: 20/20 passed, 0.00% deadlock, 100% fallback success
-  - Average duration: 69ms (fast)
-  - Updated: `test/test-npx.js` for 27 tools
-  - All existing tests: 223+ tests passing
-- **Safety Guarantees**:
-  - ✅ No code generation
-  - ✅ No code execution
-  - ✅ Validated input (schema enforcement)
-  - ✅ Graceful fallback (malformed data skipped)
-  - ✅ Type safety (runtime checking)
-  - ✅ Fast (69ms average)
-- **Documentation**: CHANGELOG.md, IMPLEMENTATION_PLAN.md updated
-- **Impact**: Post-reload customization is now production-safe with 0% deadlock guarantee
+- **Problem**: v1.1.0 code generation approach caused 5% deadlock rate
+- **Solution**: Data-driven architecture (no code generation, hooks read JSON)
+- **Added**: Tools 26-27 (`update_project_context`, `get_project_context`)
+- **Result**: 0% deadlock, 100% fallback success
+- **Details**: See [Safety-First Architecture (v1.2.0)](#safety-first-architecture-v120) section
 
 ### v1.1.0 - 2026-01-30 [DEPRECATED - SAFETY ISSUES]
-**CRITICAL: This version has been deprecated due to safety issues discovered in real testing.**
-**DO NOT USE v1.1.0 - Upgrade to v1.2.0 immediately.**
-
-### v1.1.0 - 2026-01-30 (Minor Release - New Feature)
-**Post-Reload Customization Proposal Step**
-- **Feature**: Added post-reload customization proposal step to --init workflow
-- **Issue**: Analysis was performed but not persisted; hooks were generic for all projects
-- **User Feedback**:
-  - "agent didn't actually customize hooks to the project"
-  - "it looks like the agent is missing the .cursor directory and other misc md files"
-  - "analysis should include .cursorrules, CONTRIBUTING.md, etc."
-  - "post customization options should be approved by the user with explanations of benefits"
-- **Solution**: New STEP 4 in --init where agent proposes customization options for approval
-- **Changes**:
-  - Added: STEP 4 "Propose Configuration Customization"
-  - Added: Copy-paste prompt for post-reload customization proposal
-  - Added: Agent proposes OPTIONS (not directive steps)
-  - Added: Agent explains benefits for each option
-  - Added: User approval required before customization
-  - Changed: Step numbering updated (verification now STEP 5, start using now STEP 6)
-  - Changed: All version constants to 1.1.0 (minor version - new feature)
-- **Customization Prompt Structure**:
-  1. Review analysis from installation (file counts, .cursorrules, CONTRIBUTING.md, patterns)
-  2. Propose customization options with benefits:
-     - Record analysis to database? (Benefits: searchable, persistent, reusable)
-     - Customize hooks with project context? (Benefits: relevant reminders, specific guidance)
-     - Search for similar projects? (Benefits: learn from comparable codebases)
-  3. Explain benefits and wait for approval before proceeding
-- **Benefits**:
-  - Agent proposes informed options based on actual analysis
-  - User makes informed decision with benefit explanations
-  - Customization happens only with explicit consent
-  - Analysis persisted to database only if approved
-  - Project-specific knowledge accumulates with user awareness
-- **Safety**:
-  - Dry testing framework created (proof of concept, simulated)
-  - 0.00% deadlock rate in simulated tests
-  - Generic hooks never replaced (customization supplements only)
-  - User approval gate prevents unwanted customization
-  - Real sub-agent testing required before production
-- **Testing**: All 150 tests passing (no code changes to tested functionality)
-- **Documentation**: CHANGELOG.md, IMPLEMENTATION_PLAN.md updated
-- **Impact**: Agents propose customizations with benefits; users approve informed decisions
+**CRITICAL: Deprecated due to safety issues. DO NOT USE - Upgrade to v1.2.0.**
+- **Problem**: Code generation approach caused deadlocks and crashes
+- **Lesson**: Never generate custom hook code; use data-driven architecture instead
+- **User Feedback**: See [User Feedback & Design Validation](#user-feedback--design-validation) section
 
 ### v1.0.5 - 2026-01-30 (Patch Release)
 **User Feedback: Project Analysis Guidance**
-- **Issue**: Agents needed explicit guidance to analyze project before configuration
-- **User Quotes**:
-  - "agent should analyze the project to maximum configuration efficiency using information discovered from analysis"
-  - "this should happen before it's prompted for a reload"
-  - "tell it to utilize any installed mcp tools it may benefit from to gather more informed analysis"
-  - "directed at the agent or user" (works for both)
-- **Problem**: v1.0.4 had defaults but no analysis guidance; agents might skip to defaults without project analysis
-- **Solution**: Added comprehensive analysis checklist before preset selection
-- **Changes**:
-  - Added: Analysis checklist displayed before configuration questions
-  - Added: "CURRENT and COMPLETE analysis of actual project state" requirement
-  - Added: Anti-shortcut language ("Do not rely on assumptions or prior knowledge")
-  - Added: Tool discovery step FIRST (list available MCP tools)
-  - Added: Explicit instruction to use discovered tools for remaining steps
-  - Added: Six checklist items with tool usage suggestions (filesystem, git, code analysis)
-  - Changed: Preset selection prompt to "Based on your analysis, enter choice..."
-  - Changed: All version constants to 1.0.5
-- **Design Validation**: Tested 4 verbiage options with spawned sub-agents
-  - All agents performed thorough analysis (no shortcuts)
-  - Checklist format produced most structured responses
-  - Selected Option 3: "actual/current/complete" + checklist (optimal balance)
-- **Testing**: No new tests needed (output formatting change)
-- **Documentation**: CHANGELOG.md, IMPLEMENTATION_PLAN.md updated
-- **Impact**: Agents analyze actual project characteristics before selecting optimal configuration
+- **Problem**: Agents skipped project analysis, went straight to defaults
+- **Solution**: Analysis checklist with "actual/current/complete" language
+- **Validation**: Tested 4 verbiage options; checklist format performed best
+- **Details**: See [User Feedback & Design Validation](#user-feedback--design-validation) section
 
 ## Future Enhancements
 
@@ -263,8 +82,8 @@
 
 **Concept**: Use spawned sub-agents to systematically test where sub-agent usage provides benefit across the entire unified-mcp-server workflow.
 
-**Current Approach (v1.0.5):**
-- All 25 tools execute directly in main agent context
+**Current Approach (v1.4.5):**
+- All 27 tools execute directly in main agent context
 - No sub-agent spawning for any operations
 - Agent performs all tasks sequentially in current session
 
@@ -277,7 +96,7 @@
   - **reason_through**: Spawn sub-agents for parallel reasoning branches vs. linear
   - **record_experience**: Spawn sub-agent for experience writing vs. direct write
   - **verify_compliance**: Spawn sub-agent for compliance checking vs. inline check
-  - Any of the 25 tools where parallelization or isolation might help
+  - Any of the 27 tools where parallelization or isolation might help
 - Measure effectiveness for each tool:
   - **Speed**: Time to completion (parallel vs. sequential)
   - **Accuracy**: Quality of results (specialized vs. generalized)
@@ -325,7 +144,7 @@ for (const tool of tools) {
 **Implementation Approach:**
 1. Create dry testing framework for tool variations
 2. Define metrics (speed, accuracy, tokens, context preservation)
-3. Generate test scenarios for each of 25 tools
+3. Generate test scenarios for each of 27 tools
 4. Spawn parallel tests: direct vs. sub-agent execution
 5. Aggregate results and identify beneficial integration points
 6. Document findings with recommendations
@@ -1211,7 +1030,7 @@ Phase 6: --init & Docs (Final)
 
 | # | Gap | Solution |
 |---|-----|----------|
-| 15 | Tool count shows "25 tools" | Update to "26 tools" |
+| 15 | Tool count shows "25 tools" | Update to "27 tools" |
 | 16 | PRESETS_DIR global only | Add `.claude/presets/` for custom |
 | 17 | installHooks() copies files | Return bundled paths only |
 
@@ -1439,6 +1258,50 @@ Building a research-based MCP server with 25 tools in phases. **Target: 150 auto
    ↓
 7. Push (only after full suite passes)
 ```
+
+**HOW to Update IMPLEMENTATION_PLAN.md (Living Document)**
+
+This plan is a **living specification**, not a changelog. Updates must maintain it as a reflection of current state:
+
+| Change Scope | Version History | Dedicated Section | Other Sections |
+|--------------|-----------------|-------------------|----------------|
+| Patch fix | Summary entry | No | Update if affected |
+| New feature | Summary entry | Yes, if significant | Update affected sections |
+| Breaking change | Detailed entry | Yes | Update all affected sections |
+| Process change | Summary entry | No | Update relevant process sections |
+
+**Sections to consider updating:**
+
+1. **Version History** (always) - Summary of what changed and why
+2. **Validation Checklist** - New verification commands, acceptance criteria
+3. **Testing Requirements** - New testing approaches or requirements
+4. **Development Principles** - Process changes, new requirements
+5. **Phase Breakdown** - If change affects a phase's completion status
+6. **Current Status** - If change affects deployment readiness
+7. **Dedicated Section** - For significant features (like v1.4.0 Project-Scoped Experiences)
+
+**Version History Entry Guidelines:**
+- **Summary**: Problem, root cause, solution (1-2 sentences each)
+- **Cascading Updates**: List of files/sections changed
+- **Testing**: What was tested and results
+- Keep detailed acceptance criteria, verification commands in dedicated sections
+
+**Example: v1.4.5 should have:**
+- Version History: Summary entry (problem, solution, testing results)
+- Validation Checklist: Updated with A1-A26 verification commands
+- Testing Requirements: Added "Hook Message Compliance Testing" subsection
+- NOT: 100+ lines of detail crammed into Version History
+
+**Anti-pattern (what was happening):**
+- ❌ All details dumped into Version History entry
+- ❌ Other sections stale, not reflecting current state
+- ❌ Plan becomes a changelog instead of a specification
+
+**Correct pattern:**
+- ✅ Version History has concise summary
+- ✅ Details live in appropriate sections
+- ✅ Sections updated to reflect current implementation
+- ✅ Plan remains useful as a specification, not just history
 
 **Change-Aware Test Mapping:**
 | Change Type | Targeted Test Command |
@@ -1885,59 +1748,468 @@ node scripts/migrate-experiences.js --source ~/old.db --skip-duplicates
 - ✅ No production data in test suite
 - ✅ Ready for user testing
 
+---
+
+## Hook Message Clarity (v1.4.5)
+
+### Problem Statement
+v1.0.4 commit claimed "checkboxes" but implemented "checkmarks". The semantic difference causes agents to skip workflow steps instead of completing them.
+
+### Symbol Semantics Reference
+
+| Symbol | Meaning to Agent | Effect |
+|--------|------------------|--------|
+| ✓ | "Already done" | Skips step |
+| □ | "To-do item" | Completes step |
+| → | "Example/suggestion" | Treats as optional |
+| REQUIRED CALL: | "Must execute this" | Executes call |
+| ⚠️ | "Warning/info" | May ignore |
+| ⛔ | "Stop/blocked" | Halts and reads |
+
+### Message Format Specification
+
+**user-prompt-submit.cjs format:**
+```
+⛔ STOP: Complete these steps IN ORDER before any other tool calls:
+
+1. □ LEARN: Search experiences for relevant patterns
+   REQUIRED CALL: search_experiences({ query: "<keywords for this task>" })
+
+2. □ REASON: Analyze problem and gather context
+   REQUIRED CALL: analyze_problem({ problem: "<describe task>" })
+   REQUIRED CALL: gather_context({ session_id: "...", sources: {...} })
+
+3. □ TEACH: Record your solution after completion
+   REQUIRED CALL: record_experience({ type: "effective", ... })
+
+DO NOT call Read, Glob, Grep, Write, Edit, or Bash until steps 1-3 are complete.
+
+Skipping this workflow will result in incomplete context and potential rework.
+```
+
+**pre-tool-use.cjs format:**
+```
+⛔ STOP: This file operation is BLOCKED.
+
+Complete these steps IN ORDER before file operations:
+
+1. □ search_experiences  (LEARN: Find similar patterns)
+   REQUIRED CALL: search_experiences({ query: "<keywords>" })
+
+2. □ analyze_problem     (REASON: Synthesize solution)
+   REQUIRED CALL: analyze_problem({ problem: "<task>" })
+
+3. □ verify_compliance   (Get operation token)
+   REQUIRED CALL: verify_compliance({ session_id: "...", ... })
+
+4. □ authorize_operation (Create 60-min session token)
+   REQUIRED CALL: authorize_operation({ operation_token: "...", ... })
+
+DO NOT call Write, Edit, or NotebookEdit until steps 1-4 are complete.
+
+Skipping this workflow will result in incomplete context and potential rework.
+```
+
+### Acceptance Criteria
+
+**Format (user-prompt-submit.cjs):**
+- A1. Contains NO ✓ characters (the v1.0.4 bug)
+- A2. Contains NO "  →" pattern (arrow with leading spaces)
+- A3. Contains "⛔ STOP:" header
+- A4. Contains "REQUIRED CALL:" (at least 3 occurrences)
+- A5. Contains "DO NOT call" blocklist
+- A6. Contains "incomplete context" consequence
+- A7. Contains "□" checkbox symbols (at least 3 occurrences)
+
+**Format (pre-tool-use.cjs):**
+- A8. Contains "⛔ STOP:" header
+- A9. Contains "□" checkbox symbols (at least 3 occurrences)
+- A10. Contains "REQUIRED CALL:" (at least 3 occurrences)
+- A11. Contains "DO NOT call" blocklist
+- A12. Contains "incomplete context" consequence
+
+**Version and docs:**
+- A13. package.json version is "1.4.5"
+- A14. index.js VERSION constant is "1.4.5"
+- A15. CHANGELOG.md contains "1.4.5" entry
+- A16. CHANGELOG.md mentions "v1.0.4" regression or fix
+- A17. docs/IMPLEMENTATION_PLAN.md contains "v1.4.5" entry
+
+**Testing:**
+- A18. npm test passes with 0 failures
+- A19. test/test-hook-message-compliance.js exists
+- A20. Message format compliance test passes
+
+**Flow preservation (NO BREAKING CHANGES):**
+- A21. hooks/user-prompt-submit.cjs: NO changes to if/else logic (only console.log strings)
+- A22. hooks/user-prompt-submit.cjs: NO changes to process.exit() calls
+- A23. hooks/pre-tool-use.cjs: NO changes to if/else logic (only console.error strings)
+- A24. hooks/pre-tool-use.cjs: process.exit(1) still blocks, process.exit(0) still allows
+- A25. Token validation logic UNCHANGED (expires_at check)
+- A26. Config file paths UNCHANGED (.claude/config.json, etc.)
+
+### Testing Methodology
+
+**Approach:** Claude Code CLI (NO @anthropic-ai/sdk dependency)
+- Uses `claude --print` to spawn fresh agent sessions
+- Each test runs in isolated temp directory with NO prior context
+- Tests use project-local `.claude/settings.local.json` (never modifies global settings)
+- 5 test prompts, all must call search_experiences FIRST
+- 100% compliance rate required (80% minimum if not achievable after 5 iterations)
+
+**Deadlock Prevention:**
+- Max 5 iterations on message format refinement
+- If 100% compliance not achieved after 5 iterations, ship best result >= 80%
+- Document which prompts failed and hypothesize why
+
+### Verification Commands
+
+```bash
+# A1-A2: No old symbols (v1.0.4 bug)
+! grep -q "✓" hooks/user-prompt-submit.cjs
+! grep -q "  →" hooks/user-prompt-submit.cjs
+
+# A3-A7: New format in user-prompt-submit
+grep -q "⛔ STOP:" hooks/user-prompt-submit.cjs
+test $(grep -c "REQUIRED CALL:" hooks/user-prompt-submit.cjs) -ge 3
+grep -q "DO NOT call" hooks/user-prompt-submit.cjs
+grep -q "incomplete context" hooks/user-prompt-submit.cjs
+test $(grep -c "□" hooks/user-prompt-submit.cjs) -ge 3
+
+# A8-A12: New format in pre-tool-use
+grep -q "⛔ STOP:" hooks/pre-tool-use.cjs
+test $(grep -c "□" hooks/pre-tool-use.cjs) -ge 3
+test $(grep -c "REQUIRED CALL:" hooks/pre-tool-use.cjs) -ge 3
+grep -q "DO NOT call" hooks/pre-tool-use.cjs
+grep -q "incomplete context" hooks/pre-tool-use.cjs
+
+# A13-A17: Version and docs
+grep -q '"version": "1.4.5"' package.json
+grep -q "VERSION = '1.4.5'" index.js
+grep -q "1.4.5" CHANGELOG.md
+grep -q "1.0.4" CHANGELOG.md
+grep -q "v1.4.5" docs/IMPLEMENTATION_PLAN.md
+
+# A18-A20: Testing
+npm test
+test -f test/test-hook-message-compliance.js
+node test/test-hook-message-compliance.js
+
+# A21-A26: Flow preservation
+grep -q "process.exit(1)" hooks/pre-tool-use.cjs
+grep -q "process.exit(0)" hooks/pre-tool-use.cjs
+grep -q "expires_at > Date.now()" hooks/user-prompt-submit.cjs
+grep -q "expires_at > Date.now()" hooks/pre-tool-use.cjs
+```
+
+---
+
+## Project-Local Hook Installation (v1.4.6)
+
+### Problem Statement
+`install_hooks` installs hooks locally (`.claude/hooks/`) but configures them in global `~/.claude/settings.json`. This causes hooks to fire on ALL Claude Code sessions, violating v1.4.0's "eliminate global state" principle.
+
+### Architecture
+
+```
+MCP Server Registration (GLOBAL - required by Claude Code):
+  ~/.claude/settings.json
+    └── mcpServers: { "unified-mcp-server": {...} }
+
+Hook Configuration (PROJECT-LOCAL - per-project enforcement):
+  .claude/settings.local.json
+    └── hooks: { "UserPromptSubmit": [...], "PreToolUse": [...] }
+
+Hook Files (PROJECT-LOCAL):
+  .claude/hooks/
+    ├── user-prompt-submit.cjs
+    ├── pre-tool-use.cjs
+    ├── post-tool-use.cjs
+    ├── stop.cjs
+    └── session-start.cjs
+```
+
+**Key Principle:** MCP server must be global (Claude Code architecture requirement), but hooks are behavioral enforcement and should be opt-in per-project.
+
+### Implementation Changes
+
+1. **installHooks()**: Change default settings path to `.claude/settings.local.json`
+2. **installHooks()**: Set `project_hooks: true` by default (hooks go to `.claude/hooks/`)
+3. **uninstallHooks()**: Update to read from project-local settings
+4. **Settings detection**: Prefer project-local over global for hook configuration
+
+### Acceptance Criteria
+
+- Hooks are configured in `.claude/settings.local.json` (project-local)
+- Hooks do NOT appear in `~/.claude/settings.json` (global)
+- Hooks still fire correctly when in project context
+- MCP server registration remains in global settings (required)
+- Existing tests pass after changes
+
+### Verification Commands
+
+```bash
+# Verify hooks configured locally
+test -f .claude/settings.local.json
+grep -q "hooks" .claude/settings.local.json
+
+# Verify hooks NOT in global settings (after fresh install)
+! grep -q "user-prompt-submit" ~/.claude/settings.json
+
+# Verify hook files in project
+test -f .claude/hooks/user-prompt-submit.cjs
+test -f .claude/hooks/pre-tool-use.cjs
+
+# Verify MCP server still in global (required)
+grep -q "unified-mcp-server" ~/.claude/settings.json
+```
+
+---
+
+## Post-Install Prompt Design (v1.4.4)
+
+### Problem Statement
+Previous prompts led agents to summarize rules into context, creating false completeness. Context should POINT to documentation, not replace it.
+
+### Design Principles
+
+| # | Principle | Description |
+|---|-----------|-------------|
+| 1 | HONEST | Summary admits full rules are elsewhere |
+| 2 | ACTIONABLE | Points to exact files (plural) |
+| 3 | CRITICAL ONLY | User-identified most-violated rules (don't guess) |
+| 4 | ENFORCES READING | Pre/post say "READ [file]" |
+| 5 | CONFLICT-AWARE | Identifies contradictions between sources |
+| 6 | CONDITIONAL | Notes which files apply when |
+
+### 10-Step Post-Install Flow
+
+1. **Broad discovery** - No assumptions about project structure
+2. **Read discovered files** - Analyze each potentially relevant file
+3. **Present findings** - Ask user if there are additional sources
+4. **Handle no-docs case** - Offer to help structure rules or skip
+5. **Analyze for conflicts** - Compare rules across files, resolve contradictions
+6. **Ask for critical violations** - User identifies most-violated rules (3-5 items)
+7. **Map files to scenarios** - Which files apply when (always, UI changes, API changes, etc.)
+8. **Construct context** - Build project context following principles (200 char limit per item)
+9. **Present for approval** - Show constructed context, allow revision
+10. **Cleanup** - Remove temporary prompt files after completion
+
+### Key Constraints
+- Each context item has 200 character limit
+- Context is a POINTER, not a REPLACEMENT for documentation
+- User identifies critical violations - don't guess
+- Support multiple files with conditional applicability
+
+---
+
+## Checklist Enforcement (v1.3.0)
+
+### Feature Overview
+Pre/post implementation checklists that display during workflow to ensure compliance with project-specific requirements.
+
+### Schema
+
+```javascript
+// In project-context.json
+{
+  "enabled": true,
+  "summary": "Project description",
+  "highlights": ["key point 1", "key point 2"],
+  "reminders": ["reminder 1", "reminder 2"],
+  "preImplementation": [
+    "READ docs/RULES.md before coding",
+    "Verify test coverage requirements",
+    "Check for breaking changes"
+  ],
+  "postImplementation": [
+    "READ docs/CHECKLIST.md to verify",
+    "Run npm test - must pass",
+    "Update CHANGELOG.md"
+  ]
+}
+```
+
+### Field Specifications
+
+| Field | Type | Limit | Display |
+|-------|------|-------|---------|
+| `preImplementation` | string[] | 200 chars/item, no count limit | user-prompt-submit hook |
+| `postImplementation` | string[] | 200 chars/item, no count limit | post-tool-use hook (after file modifications) |
+
+### Hook Integration
+- `user-prompt-submit.cjs`: Displays preImplementation checklist at session start
+- `post-tool-use.cjs`: Displays postImplementation checklist after Write/Edit/NotebookEdit operations
+- Both hooks read from `.claude/project-context.json`
+
+---
+
+## Safety-First Architecture (v1.2.0)
+
+### Background: v1.1.0 Failure Analysis
+
+v1.1.0 attempted code generation for custom hooks. Real testing (100 scenarios) revealed critical issues:
+
+| Metric | v1.1.0 Result | Acceptable |
+|--------|---------------|------------|
+| Deadlock rate | 5.00% | 0.00% |
+| Fallback success | 50.0% | 100% |
+| Recovery success | 50.0% | 100% |
+
+**Root Cause**: Generated code is inherently unsafe - syntax errors, infinite loops, type errors.
+
+### Solution: Data-Driven Architecture
+
+**Principle**: No code generation. Hooks read validated JSON data.
+
+```
+Before (v1.1.0 - UNSAFE):
+  Agent generates custom hook code → Syntax errors, deadlocks
+
+After (v1.2.0 - SAFE):
+  Agent writes validated JSON → Hooks read and display data
+```
+
+### Safety Guarantees
+
+| Guarantee | Implementation |
+|-----------|----------------|
+| No code generation | Hooks are static, only data changes |
+| No code execution | Hooks read JSON, never eval() |
+| Validated input | Schema enforcement on all fields |
+| Graceful fallback | Malformed data silently skipped |
+| Type safety | Runtime checking of arrays/strings |
+| Fast execution | 69ms average (no compilation) |
+
+### Tool Specifications
+
+**update_project_context**
+```javascript
+{
+  enabled: boolean,      // Required
+  summary: string,       // Max 200 chars
+  highlights: string[],  // Max 5 items, 100 chars each (relaxed in v1.3.0)
+  reminders: string[],   // Max 3 items, 100 chars each
+  preImplementation: string[],   // Added v1.3.0, 200 chars/item
+  postImplementation: string[]   // Added v1.3.0, 200 chars/item
+}
+```
+
+**get_project_context**
+- Returns current project context configuration
+- Returns empty/default if no context configured
+
+### Testing Results (v1.2.0)
+
+| Test Category | Result |
+|---------------|--------|
+| Baseline (no context) | ✅ Pass |
+| Valid context | ✅ Pass |
+| Invalid fields | ✅ Graceful fallback |
+| Malformed JSON | ✅ Graceful fallback |
+| Filesystem errors | ✅ Graceful fallback |
+| **Deadlock rate** | **0.00%** |
+
+---
+
+## User Feedback & Design Validation
+
+### User Feedback (v1.0.5, v1.1.0)
+
+Direct user quotes that shaped the design:
+
+**v1.0.5 - Analysis Guidance:**
+> "agent should analyze the project to maximum configuration efficiency using information discovered from analysis"
+> "this should happen before it's prompted for a reload"
+> "tell it to utilize any installed mcp tools it may benefit from to gather more informed analysis"
+
+**v1.1.0 - Customization:**
+> "agent didn't actually customize hooks to the project"
+> "it looks like the agent is missing the .cursor directory and other misc md files"
+> "analysis should include .cursorrules, CONTRIBUTING.md, etc."
+> "post customization options should be approved by the user with explanations of benefits"
+
+### Design Validation Methodology (v1.0.5)
+
+Tested 4 verbiage options with spawned sub-agents:
+
+| Option | Approach | Result |
+|--------|----------|--------|
+| 1 | Imperative only | Agents sometimes skipped steps |
+| 2 | "Do not assume" language | Better but inconsistent |
+| 3 | "actual/current/complete" + checklist | **Selected** - Most structured |
+| 4 | Detailed examples | Too verbose, agents got lost |
+
+**Finding**: Checklist format with explicit "actual/current/complete" language produced the most reliable agent behavior.
+
+### Lessons Learned
+
+1. **Test with real agents** - Simulated tests don't catch compliance issues (v1.0.4 → v1.4.5)
+2. **No code generation** - Data-driven architecture is safer (v1.1.0 → v1.2.0)
+3. **User approval gates** - Don't auto-customize, propose options (v1.1.0)
+4. **Pointer pattern** - Context should point to docs, not replace them (v1.4.4)
+5. **Symbol semantics matter** - ✓ means "done", □ means "to-do" (v1.4.5)
+
+---
+
 ## Validation Checklist
 
-Before outputting `<promise>SYSTEM_OPERATIONAL</promise>`:
+### Core System Checks
 
 ```bash
 # 1. All automated tests pass
 npm test
-# Expected: 150/150 automated tests passing
+# Expected: All tests passing (166+ tests as of v1.4.5)
 
 # 2. Documentation complete
 ls docs/ | wc -l
-# Expected: 6
-
-wc -l README.md
-# Expected: < 200
+# Expected: 15 (as of v1.4.5)
 
 # 3. Version consistency
 grep -E '"version"' package.json
-grep "Version:" index.js | head -1
 grep "VERSION =" index.js | head -1
-# Expected: All match (e.g., 1.0.0)
+# Expected: All match current version (1.4.5)
 
 # 4. Tool count
-grep "case '[a-z_]*':" index.js | wc -l
-# Expected: 25
+grep -c "name: '[a-z_]" index.js
+# Expected: 27 tools (as of v1.4.0)
 
-# 5. Hooks output plain text
-echo '{"test":1}' | node hooks/user-prompt-submit.cjs 2>&1 | head -1
-# Expected: Plain text (not {"hookSpecificOutput":...})
-# CRITICAL: Hook files don't exist yet - install_hooks is a stub
-
-# 6. NPX compatibility
+# 5. NPX compatibility
 head -1 bootstrap.js
-# Expected: #!/usr/bin/env node (v1.0.1: changed from index.js to bootstrap.js)
-
-ls -la index.js | grep -E 'x'
-# Expected: Executable permissions (`-rwxr-xr-x`)
-
-grep '"bin"' package.json
-# Expected: "bin": { "unified-mcp-server": "./bootstrap.js" } (v1.0.1: changed from ./index.js)
-
-npx . --help
-# Expected: Usage information
+# Expected: #!/usr/bin/env node
 
 npx . --version
-# Expected: Version number
+# Expected: Current version number
 
-echo '{"jsonrpc":"2.0","method":"initialize","params":{},"id":1}' | npx .
-# Expected: Valid JSON-RPC response
+# 6. Hook message format (v1.4.5)
+! grep -q "✓" hooks/user-prompt-submit.cjs  # No checkmarks
+grep -q "⛔ STOP:" hooks/user-prompt-submit.cjs  # Has stop header
+grep -q "REQUIRED CALL:" hooks/user-prompt-submit.cjs  # Has directive language
+grep -q "□" hooks/user-prompt-submit.cjs  # Has checkboxes
+```
 
-# 7. Gist deployment verified (AFTER NPX IMPLEMENTED)
-npx mpalpha/unified-mcp-server --version
-# Expected: Version matches local
+### v1.4.5 Hook Message Clarity Checks
+
+See [Hook Message Clarity (v1.4.5)](#hook-message-clarity-v145) for full acceptance criteria (A1-A26).
+
+```bash
+# Quick validation
+! grep -q "✓" hooks/user-prompt-submit.cjs && \
+  grep -q "⛔ STOP:" hooks/user-prompt-submit.cjs && \
+  grep -q "REQUIRED CALL:" hooks/user-prompt-submit.cjs && \
+  grep -q "DO NOT call" hooks/user-prompt-submit.cjs && \
+  echo "v1.4.5 format: PASS" || echo "v1.4.5 format: FAIL"
+```
+
+### v1.4.6 Project-Local Hook Checks (when implemented)
+
+See [Project-Local Hook Installation (v1.4.6)](#project-local-hook-installation-v146) for full acceptance criteria.
+
+```bash
+# Quick validation (after v1.4.6 implementation)
+test -f .claude/settings.local.json && \
+  grep -q "hooks" .claude/settings.local.json && \
+  echo "v1.4.6 local hooks: PASS" || echo "v1.4.6 local hooks: FAIL"
 ```
 
 ## NPX Integration Checklist
@@ -1991,86 +2263,85 @@ npx mpalpha/unified-mcp-server --version
 - [x] GitHub repo includes shebang and CLI argument parsing ✅
 - [x] Native module compatibility fixes deployed ✅ (v1.0.1)
 
-## Current Status - VERIFIED 2026-01-30
+## Current Status - v1.4.5 (2026-02-02)
+- **Version: 1.4.5** - Hook message clarity fix
 - **Phase: ALL 8 PHASES COMPLETE** ✅
 - **Progress: 100%** - All features implemented and operational
-- **Tests Passing: 140/140 automated tests in npm test** ✅
-- **Additional: 50 compliance scenarios** ✅ (test-agent-compliance.js, runs separately)
-- **Tools Working: 25/25** ✅ (all tools fully implemented, no stubs)
-- **Documentation: 13 files** ✅ (exceeds original requirement of 6-7 files)
+- **Tests Passing: 166+ automated tests** ✅
+- **Tools Working: 27/27** ✅ (all tools fully implemented, no stubs)
+- **Documentation: 15 files** ✅
+- **Test Files: 24 files** ✅
 - **NPX Compatibility: Fully Implemented & Deployed** ✅
-- **Hooks Framework: Fully Implemented with Research Citations** ✅
+- **Hooks Framework: v1.4.5 message format with directive language** ✅
 - **CLI Flags: All Implemented** ✅ (--help, --version, --init, --health, --validate)
+- **Project-Local Storage: v1.4.0 architecture** ✅ (all data in `.claude/`)
 - **Status: PRODUCTION READY** ✅
 
+### Recent Changes (v1.4.x):
+- v1.4.5: Hook message clarity fix (✓→□, →→REQUIRED CALL:, ⛔ STOP:)
+- v1.4.4: Post-install prompt redesign (pointer pattern)
+- v1.4.3: Migration script schema fix
+- v1.4.2: Removed arbitrary checklist limits
+- v1.4.1: Post-install prompt improvements
+- v1.4.0: Project-local storage architecture (eliminated global `~/.unified-mcp/`)
+
 ### Implementation Verification (Code-Confirmed):
-1. ✅ Shebang in bootstrap.js (`#!/usr/bin/env node`) (v1.0.1: changed from index.js)
+1. ✅ Shebang in bootstrap.js (`#!/usr/bin/env node`)
 2. ✅ Executable permissions set (`-rwxr-xr-x`)
-3. ✅ package.json bin field configured (v1.0.1: points to bootstrap.js)
-4. ✅ CLI argument parsing COMPLETE (all 5 flags working: --help, --version, --init, --health, --validate)
+3. ✅ package.json bin field configured (points to bootstrap.js)
+4. ✅ CLI argument parsing COMPLETE (all 5 flags working)
 5. ✅ --init is fully interactive (preset selection, hook installation prompts)
 6. ✅ MCP vs CLI mode detection working
-7. ✅ NPX test suite (10 tests, all passing)
+7. ✅ NPX test suite passing
 8. ✅ Local npx functionality verified
-9. ✅ Gist deployed with NPX support (mpalpha/unified-mcp-server)
-10. ✅ install_hooks fully implemented (creates 5 .cjs files, updates Claude Code settings)
+9. ✅ GitHub repo deployed (mpalpha/unified-mcp-server)
+10. ✅ install_hooks fully implemented (creates 5 .cjs files)
 11. ✅ uninstall_hooks fully implemented (removes files, updates settings)
-12. ✅ 5 hook files created with executable permissions
-13. ✅ --health CLI flag implemented (runs health_check tool)
-14. ✅ --validate CLI flag implemented (validates config files)
-15. ✅ 4 preset JSON files in presets/ directory (three-gate, minimal, strict, custom)
+12. ✅ 5 hook files with v1.4.5 message format
+13. ✅ Hook messages use □, REQUIRED CALL:, ⛔ STOP: (not ✓, →)
+14. ✅ Project-local storage in `.claude/` directory
+15. ✅ 4 preset JSON files in presets/ directory
 16. ✅ LICENSE file (MIT)
 17. ✅ .gitignore file
-18. ✅ Test files split into 17 separate files (far exceeds original 6 file requirement)
-19. ✅ CONTRIBUTING.md created
-20. ✅ All supporting documentation files complete
+18. ✅ CONTRIBUTING.md created
+19. ✅ All supporting documentation files complete
 
-## Completion Summary - VERIFIED
+## Completion Summary - v1.4.5
 
 **Phase Status:**
-- ✅ Phase 1: Foundation (6 tools, 55 tool tests + 10 NPX tests) - COMPLETE
-- ✅ Phase 2: Reasoning (4 tools, 16 tests in workflows) - COMPLETE
-- ✅ Phase 3: Workflow Enforcement (5 tools, 30 tests) - COMPLETE
-- ✅ Phase 4: Configuration (5 tools, 15 tests) - COMPLETE
-- ✅ Phase 5: Automation (5 tools, 20 tests) - COMPLETE
-- ✅ Phase 6: Documentation (13 files) - COMPLETE
-- ✅ Phase 7: Integration (10 tests) + NPX Deployment + CLI Flags - COMPLETE
-- ✅ Phase 8: Research-Based Compliance (50 scenarios) - COMPLETE
+- ✅ Phase 1: Foundation (7 tools including import_experiences) - COMPLETE
+- ✅ Phase 2: Reasoning (4 tools) - COMPLETE
+- ✅ Phase 3: Workflow Enforcement (5 tools) - COMPLETE
+- ✅ Phase 4: Configuration (5 tools) - COMPLETE
+- ✅ Phase 5: Automation (5 tools) - COMPLETE
+- ✅ Phase 6: Documentation (15 files) - COMPLETE
+- ✅ Phase 7: Integration + NPX Deployment + CLI Flags - COMPLETE
+- ✅ Phase 8: Research-Based Compliance - COMPLETE
+- ✅ v1.4.0: Project-local storage architecture - COMPLETE
+- ✅ v1.4.5: Hook message clarity fix - COMPLETE
 
-**Test Coverage (Code-Verified):**
-- **140 automated tests in `npm test`** (100% passing)
-  - test-tools.js: 55 tests
-  - test-workflows.js: 10 tests
-  - test-compliance.js: 20 tests
-  - test-config.js: 15 tests
-  - test-integration.js: 10 tests
-  - test-enforcement.js: 10 tests
-  - test-agent-workflows.js: 5 tests
-  - test-hook-execution.js: 5 tests
-  - test-tool-guidance.js: 10 tests
-  - test-npx.js: 10 tests
-- **50 research-based compliance scenarios** (test-agent-compliance.js, runs separately)
-- **All 5 AgentErrorTaxonomy categories covered**
-- **Simple to complex range** (single-step to multi-agent decomposition)
+**Test Coverage (as of v1.4.5):**
+- **166+ automated tests in `npm test`** (100% passing)
+- **24 test files** in test/ directory
+- **50 research-based compliance scenarios** (test-agent-compliance.js)
+- **Hook message compliance tests** (test-hook-message-compliance.js)
 
-**Current Stats (Filesystem-Verified):**
-- ✅ 25/25 atomic tools fully implemented (no stubs, all functional)
-- ✅ 140/140 automated tests passing in npm test
-- ✅ 50/50 compliance scenarios passing (separate test file)
-- ✅ 13 documentation files (README, GETTING_STARTED, ARCHITECTURE, TOOL_REFERENCE, WORKFLOWS, CONFIGURATION, CONTRIBUTING, TROUBLESHOOTING, CHANGELOG, FINAL_STATUS, IMPLEMENTATION_PLAN, MANUAL_TESTING_GUIDE, AGENT_TESTING_LIMITATIONS)
-- ✅ README.md: 215 lines
-- ✅ Version: 1.0.0 (consistent across package.json, index.js)
-- ✅ Database: SQLite with FTS5
+**Current Stats (v1.4.5):**
+- ✅ 27/27 atomic tools fully implemented
+- ✅ 166+ automated tests passing
+- ✅ 15 documentation files
+- ✅ Version: 1.4.5 (consistent across package.json, index.js)
+- ✅ Database: SQLite with FTS5 (project-local in `.claude/`)
 - ✅ Token system: Operational (5min operation tokens, 60min session tokens)
 - ✅ Health check: Passing
 - ✅ NPX compatibility: Fully deployed
-- ✅ Gist deployment: mpalpha/unified-mcp-server
-- ✅ Hooks framework: 5 .cjs files with research citations
+- ✅ GitHub deployment: mpalpha/unified-mcp-server
+- ✅ Hooks framework: 5 .cjs files with v1.4.5 message format
+- ✅ Hook messages: □ checkboxes, REQUIRED CALL:, ⛔ STOP: (not ✓, →)
 - ✅ CLI flags: All 5 implemented (--help, --version, --init, --health, --validate)
-- ✅ Interactive setup wizard: --init fully interactive with preset selection
+- ✅ Project-local storage: All data in `.claude/` directory
 - ✅ 4 preset files: three-gate.json, minimal.json, strict.json, custom-example.json
 - ✅ LICENSE: MIT
-- ✅ .gitignore: Present
 - ✅ CONTRIBUTING.md: Complete
 
 **NPX Features (Code-Verified):**
@@ -2109,7 +2380,9 @@ npx mpalpha/unified-mcp-server --version
 
 ---
 
-## FINAL STATUS: v1.0.0 COMPLETE ✅
+## v1.0.0 Completion Status (Historical)
+
+> **Note:** This section documents the state at v1.0.0 completion. For current status, see [Current Status - v1.4.5](#current-status---v145-2026-02-02).
 
 ### Completion Summary (Verified 2026-01-30)
 **Date:** 2026-01-29 (Updated 2026-01-30)

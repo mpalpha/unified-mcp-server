@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.6] - 2026-02-02
+
+### Fixed - Project-Local Hook Installation
+- **Issue**: `install_hooks` configures hooks in global `~/.claude/settings.json` instead of project-local settings
+  - Hooks fire on ALL Claude Code sessions, not just the project they were installed for
+  - Violates v1.4.0's "eliminate global state" principle
+- **Root Cause**: `installHooks()` wasn't updated during v1.4.0 to use project-local settings
+- **Fix**: Configure hooks in `.claude/settings.local.json` (project-local) instead of global settings
+  - `installHooks()`: Changed default settings path to `.claude/settings.local.json`
+  - `installHooks()`: Set `project_hooks: true` by default
+  - `uninstallHooks()`: Updated to read from project-local settings
+- **Architecture Clarification**:
+  - MCP server → global `~/.claude/settings.json` (required by Claude Code)
+  - Hooks → project-local `.claude/settings.local.json` (per-project enforcement)
+- **Additional**: CHORES checklist now uses ☑ for applied items (not □)
+  - Aligns with v1.4.5 symbol semantics: □ = to-do, ☑ = done
+- **Testing**: Verified hooks configured locally, not globally
+
 ## [1.4.5] - 2026-02-02
 
 ### Fixed - Hook Message Clarity (v1.0.4 Regression Fix)

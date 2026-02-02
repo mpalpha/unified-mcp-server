@@ -22,7 +22,7 @@ const os = require('os');
 const readline = require('readline');
 const crypto = require('crypto');
 
-const VERSION = '1.4.5';
+const VERSION = '1.4.6';
 
 // v1.4.0: Project-local storage in .claude/ directory
 // All data is stored per-project, no global storage
@@ -2047,24 +2047,35 @@ function installHooks(params) {
     : hooks;
 
   // Detect Claude Code settings path
+  // v1.4.6: Default to project-local settings, not global
   let settingsPath = params.settings_path;
   if (!settingsPath) {
-    const possiblePaths = [
-      path.join(os.homedir(), '.claude', 'settings.json'),
-      path.join(os.homedir(), '.config', 'claude', 'settings.json'),
-      path.join(os.homedir(), 'Library', 'Application Support', 'Claude', 'settings.json')
-    ];
+    // Prefer project-local settings first
+    const projectLocalPath = path.join(process.cwd(), '.claude', 'settings.local.json');
+    if (fs.existsSync(projectLocalPath) || params.project_hooks !== false) {
+      // Use project-local if it exists OR if project_hooks is not explicitly false
+      settingsPath = projectLocalPath;
+    } else {
+      // Fall back to global settings only if explicitly requested
+      const possiblePaths = [
+        path.join(os.homedir(), '.claude', 'settings.json'),
+        path.join(os.homedir(), '.config', 'claude', 'settings.json'),
+        path.join(os.homedir(), 'Library', 'Application Support', 'Claude', 'settings.json')
+      ];
 
-    for (const p of possiblePaths) {
-      if (fs.existsSync(p)) {
-        settingsPath = p;
-        break;
+      for (const p of possiblePaths) {
+        if (fs.existsSync(p)) {
+          settingsPath = p;
+          break;
+        }
       }
     }
   }
 
   // Determine hook installation location
-  const hooksDir = params.project_hooks
+  // v1.4.6: Default to project-local hooks (project_hooks: true by default)
+  const projectHooks = params.project_hooks !== false; // Default true
+  const hooksDir = projectHooks
     ? path.join(process.cwd(), '.claude', 'hooks')
     : path.join(MCP_DIR, 'hooks');
 
@@ -2181,18 +2192,26 @@ function uninstallHooks(params) {
   }
 
   // Detect Claude Code settings path
+  // v1.4.6: Default to project-local settings, not global
   let settingsPath = params.settings_path;
   if (!settingsPath) {
-    const possiblePaths = [
-      path.join(os.homedir(), '.claude', 'settings.json'),
-      path.join(os.homedir(), '.config', 'claude', 'settings.json'),
-      path.join(os.homedir(), 'Library', 'Application Support', 'Claude', 'settings.json')
-    ];
+    // Prefer project-local settings first
+    const projectLocalPath = path.join(process.cwd(), '.claude', 'settings.local.json');
+    if (fs.existsSync(projectLocalPath)) {
+      settingsPath = projectLocalPath;
+    } else {
+      // Fall back to global settings
+      const possiblePaths = [
+        path.join(os.homedir(), '.claude', 'settings.json'),
+        path.join(os.homedir(), '.config', 'claude', 'settings.json'),
+        path.join(os.homedir(), 'Library', 'Application Support', 'Claude', 'settings.json')
+      ];
 
-    for (const p of possiblePaths) {
-      if (fs.existsSync(p)) {
-        settingsPath = p;
-        break;
+      for (const p of possiblePaths) {
+        if (fs.existsSync(p)) {
+          settingsPath = p;
+          break;
+        }
       }
     }
   }
