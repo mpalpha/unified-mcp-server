@@ -2,7 +2,7 @@
 
 > Protocol-enforced learning system combining memory-augmented reasoning with workflow automation for AI assistants
 
-[![Tests](https://img.shields.io/badge/tests-241%2F241%20passing-brightgreen)](test/)
+[![Tests](https://img.shields.io/badge/tests-182%2F182%20passing-brightgreen)](test/)
 [![Node](https://img.shields.io/badge/node-%3E%3D16.0.0-brightgreen)](package.json)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
@@ -15,7 +15,7 @@ Unified MCP Server is a Model Context Protocol server that enforces research-bas
 - 🔒 **Protocol enforcement**: Hooks prevent file operations without learning
 - 📚 **Knowledge libraries**: Organize experiences by project/domain
 - 🔄 **Experience migration**: Import from old database formats
-- ✅ **241 automated tests**: 100% test coverage
+- ✅ **182 automated tests**: 100% test coverage
 
 ## Quick Start
 
@@ -68,7 +68,9 @@ npx unified-mcp-server --init
 
 ### Configuration
 
-Add to your MCP settings (e.g., `~/.config/claude/claude_desktop_config.json`):
+**v1.5.2+: Auto-configured!** The MCP server automatically configures `~/.claude/settings.json` on every run. No manual setup needed.
+
+If you need to manually configure (e.g., custom args), add to your MCP settings:
 
 ```json
 {
@@ -80,6 +82,8 @@ Add to your MCP settings (e.g., `~/.config/claude/claude_desktop_config.json`):
   }
 }
 ```
+
+After any manual changes, restart Claude Code for settings to take effect.
 
 ## v1.4.0: Project-Scoped Experiences
 
@@ -227,7 +231,7 @@ Our enforcement approach addresses:
 
 ```bash
 npm test
-# Expected: 155/155 core tests passing
+# Expected: 182/182 tests passing
 ```
 
 ### Test Suites
@@ -261,7 +265,7 @@ node test/test-edge-scenarios.js
 node test/test-migration.js
 ```
 
-**Total: 241 automated tests** ✅
+**Total: 182 automated tests** ✅
 
 ## CLI Commands
 

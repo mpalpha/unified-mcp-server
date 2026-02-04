@@ -2,7 +2,7 @@
 
 ## Version History
 
-### v1.5.2 - 2026-02-04 (Patch Release - Settings Auto-Configuration + Instruction Design) ⚠️ README PENDING
+### v1.5.2 - 2026-02-04 (Patch Release - Settings Auto-Configuration + Instruction Design) ✅ COMPLETE
 **Automatic Global Config + Clean --init Separation + Effective Hook Messages**
 - **Problem 1**: Users must manually configure global settings; `--init` conflates global and project setup
 - **Problem 2**: Hook reminders (search_experiences, record_experience) have ~51% compliance - agents ignore them
@@ -2602,9 +2602,9 @@ npm test
 - [x] IMPLEMENTATION_PLAN.md: v1.4.6 marked as SUPERSEDED
 - [x] IMPLEMENTATION_PLAN.md: v1.5.0 marked as INCOMPLETE (--init output)
 - [x] CHANGELOG.md: v1.5.2 entry added
-- [ ] README.md: Update Configuration section (now auto-configured)
-- [ ] README.md: Update test count badge (182 tests)
-- [ ] README.md: Add v1.5.2 auto-configuration note
+- [x] README.md: Update Configuration section (now auto-configured)
+- [x] README.md: Update test count badge (182 tests)
+- [x] README.md: Add v1.5.2 auto-configuration note
 
 **Implementation:**
 - [x] `ensureGlobalConfig()` function added to index.js
