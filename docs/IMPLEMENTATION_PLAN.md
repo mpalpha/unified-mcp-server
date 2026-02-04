@@ -4107,6 +4107,112 @@ const VERSION = require('./package.json').version;
 
 ---
 
+## Pre-Push Verification Checklist
+
+**MANDATORY: Run before every `git push`**
+
+This checklist prevents the "did you forget anything?" cycle where issues are caught incrementally instead of upfront.
+
+### 1. Version Consistency
+```bash
+# All must show same version
+grep '"version"' package.json
+grep "const VERSION" index.js
+head -20 CHANGELOG.md | grep -E "^\#\# \["
+```
+
+### 2. Package Lock Sync
+```bash
+# Must match package.json version
+grep '"version"' package-lock.json | head -1
+# If mismatch, run: npm install --package-lock-only
+```
+
+### 3. Documentation Path Audit
+```bash
+# Check for outdated paths (adjust pattern for your change)
+grep -rn "~/.unified-mcp" docs/ README.md 2>/dev/null
+# Should return empty (or only historical references)
+```
+
+### 4. Broken Link Check
+```bash
+# Find markdown links and verify targets exist
+grep -ohE '\[.*\]\([^)]+\.md[^)]*\)' README.md docs/*.md 2>/dev/null | \
+  grep -oE '\([^)]+\)' | tr -d '()' | sort -u | \
+  while read f; do
+    # Skip URLs and anchors
+    [[ "$f" == http* ]] && continue
+    [[ "$f" == \#* ]] && continue
+    # Check file exists
+    base=$(echo "$f" | cut -d'#' -f1)
+    [[ -f "$base" ]] || [[ -f "docs/$base" ]] || echo "BROKEN: $f"
+  done
+```
+
+### 5. Gitignore Coverage
+```bash
+# New directories should be in .gitignore if they contain generated/local data
+# Check .gitignore includes project data directories
+grep -E "^\.claude/|^\.unified-mcp/" .gitignore
+```
+
+### 6. Acceptance Criteria Marked Complete
+```bash
+# Find acceptance criteria sections, verify all [x] not [ ]
+grep -n "\- \[ \]" docs/IMPLEMENTATION_PLAN.md | grep -i "acceptance\|criteria" || echo "All criteria marked complete"
+```
+
+### 7. Hook Headers (if hooks changed)
+```bash
+# All hooks must have DO NOT MODIFY header
+for f in hooks/*.cjs; do
+  head -8 "$f" | grep -q "DO NOT MODIFY" && echo "✅ $f" || echo "❌ $f MISSING HEADER"
+done
+```
+
+### 8. Test Suite Passes
+```bash
+npm test
+# Must show all tests passing
+```
+
+### 9. Dead Code Documentation
+```bash
+# If deprecating code, ensure it's documented
+# Check src/README.md exists if src/ is dead code
+[[ -d src/ ]] && [[ -f src/README.md ]] && echo "✅ src/ documented" || echo "⚠️  Check if src/ needs documentation"
+```
+
+### Quick One-Liner
+```bash
+# Run all critical checks at once
+echo "=== PRE-PUSH CHECKS ===" && \
+grep '"version"' package.json package-lock.json index.js 2>/dev/null && \
+echo "---" && \
+npm test 2>&1 | tail -5 && \
+echo "---" && \
+for f in hooks/*.cjs; do head -8 "$f" | grep -q "DO NOT MODIFY" || echo "❌ $f"; done && \
+echo "=== CHECKS COMPLETE ==="
+```
+
+### Why This Exists
+
+**v1.5.0 Post-Mortem:** During v1.5.0 implementation, the following were missed and caught only by repeated "did you forget anything?" prompts:
+
+1. `.gitignore` missing `.claude/` entry
+2. `package-lock.json` still at v1.4.4
+3. Broken links to non-existent `docs/HOOKS.md` and `docs/API.md`
+4. `src/` directory dead code not documented
+5. Acceptance criteria showing `[ ]` instead of `[x]`
+6. Multiple docs with outdated `~/.unified-mcp` paths
+
+**Root Cause:** No comprehensive pre-push checklist existed. The "Version Release Checklist" only covered version numbers.
+
+**Solution:** This checklist catches common oversights before push, eliminating the iterative discovery cycle.
+
+---
+
 ## Fix Priority & Timeline
 
 ### Phase 1: Quick Fixes (35 minutes)
