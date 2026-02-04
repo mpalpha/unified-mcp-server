@@ -108,7 +108,7 @@ CREATE TABLE activity_log (
 - Single-use, 5-minute TTL
 - Created by `verify_compliance`
 - Consumed by `authorize_operation`
-- Stored as JSON in `~/.unified-mcp/tokens/`
+- Stored as JSON in `.claude/tokens/` (project-local)
 
 ### Session Tokens
 - Multi-use, 60-minute TTL
@@ -177,14 +177,27 @@ Each preset defines:
 
 ## File Organization
 
+**Global (v1.5.0+):**
 ```
-~/.unified-mcp/
-├── data.db              # SQLite database
-├── tokens/              # Operation & session tokens
-│   ├── op-*.json       # Operation tokens
-│   └── session-*.json  # Session tokens
-└── presets/            # Custom presets
-    └── *.json          # User-defined configs
+~/.claude/
+├── hooks/                    # Global hooks (DO NOT MODIFY)
+│   ├── user-prompt-submit.cjs
+│   ├── pre-tool-use.cjs
+│   ├── post-tool-use.cjs
+│   ├── stop.cjs
+│   └── session-start.cjs
+└── settings.json             # Hook configuration
+```
+
+**Project-Local (per project):**
+```
+.claude/
+├── experiences.db            # SQLite database (project-scoped)
+├── config.json               # Workflow configuration
+├── project-context.json      # Checklists, reminders
+└── tokens/                   # Operation & session tokens
+    ├── op-*.json            # Operation tokens
+    └── session-*.json       # Session tokens
 ```
 
 ## Performance Characteristics

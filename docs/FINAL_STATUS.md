@@ -282,11 +282,12 @@ npx mpalpha/unified-mcp-server --help
 - **5 Configuration:** list, apply, validate, get, export
 - **5 Automation:** install hooks, uninstall, state, health, import
 
-### Zero-Config Defaults
-- Database auto-creates at `~/.unified-mcp/data.db`
-- Tokens stored in `~/.unified-mcp/tokens/`
-- Hooks deploy to `~/.unified-mcp/hooks/`
-- No configuration files required
+### Storage Architecture (v1.5.0+)
+- **Global hooks:** `~/.claude/hooks/` (immutable, DO NOT MODIFY)
+- **Global settings:** `~/.claude/settings.json` (hook configuration)
+- **Project database:** `.claude/experiences.db` (project-scoped)
+- **Project tokens:** `.claude/tokens/` (session tokens)
+- **Project context:** `.claude/project-context.json` (checklists, reminders)
 
 ### Automated Enforcement
 - pre-tool-use hook BLOCKS Write/Edit without authorization
@@ -364,7 +365,7 @@ The system builds a knowledge base where agents:
 1. Run `npm test` to verify all tests pass
 2. Deploy via NPX: `npx mpalpha/unified-mcp-server --init`
 3. Follow manual testing guide to verify with real agent
-4. Monitor `~/.unified-mcp/data.db` for knowledge accumulation
+4. Monitor `.claude/experiences.db` for knowledge accumulation
 
 ### For Development
 1. See `docs/CONTRIBUTING.md` for development setup

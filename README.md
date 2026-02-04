@@ -341,15 +341,18 @@ your-project/
 
 ### Hook Files
 
-Hooks are bundled with the package and read from `.claude/`:
-- `user_prompt_submit.cjs` - Workflow guidance
-- `pre_tool_use.cjs` - Token validation
-- `stop.cjs` - Session cleanup
-- `session_start.cjs` - CHORES display
+Hooks are installed globally to `~/.claude/hooks/` (v1.5.0+):
+- `user-prompt-submit.cjs` - Workflow guidance + universal search prompt
+- `pre-tool-use.cjs` - Token validation (only for initialized projects)
+- `post-tool-use.cjs` - Universal record prompt
+- `stop.cjs` - Session cleanup + record reminder
+- `session-start.cjs` - CHORES display
+
+**Note:** Hooks are immutable infrastructure. Customize behavior via `update_project_context()`.
 
 ### Claude Code Settings
 
-Hooks automatically update: `~/.config/claude-code/settings.json`
+Hooks automatically update: `~/.claude/settings.json`
 
 ## Development
 

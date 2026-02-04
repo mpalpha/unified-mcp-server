@@ -124,18 +124,27 @@ Template for custom workflows - modify as needed.
 
 ## File Locations
 
+**Global (v1.5.0+):**
 ```
-~/.unified-mcp/
-├── data.db              # SQLite database
-├── tokens/              # Operation & session tokens
-└── presets/             # Custom configuration presets
+~/.claude/
+├── hooks/               # Global hooks (DO NOT MODIFY)
+└── settings.json        # Hook configuration
+```
+
+**Project-Local:**
+```
+.claude/
+├── experiences.db       # SQLite database (project-scoped)
+├── config.json          # Workflow configuration
+├── project-context.json # Checklists, reminders
+└── tokens/              # Operation & session tokens
 ```
 
 ## Token System
 
 - **Operation Tokens**: 5-minute TTL for single operations
 - **Session Tokens**: 60-minute TTL for multi-operation workflows
-- Tokens stored as JSON in `~/.unified-mcp/tokens/`
+- Tokens stored as JSON in `.claude/tokens/` (project-local)
 
 ## Health Check
 

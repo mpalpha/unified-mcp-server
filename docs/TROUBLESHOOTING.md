@@ -9,7 +9,7 @@
 **Solution:**
 - Wait for concurrent operations to complete
 - Check for zombie processes: `ps aux | grep node`
-- Delete lock file if stale: `rm ~/.unified-mcp/data.db-*`
+- Delete lock file if stale: `rm .claude/data.db-*`
 
 ### FTS5 Corruption
 
@@ -19,7 +19,7 @@
 1. Run health check: `health_check`
 2. If corrupted, rebuild index:
 ```bash
-rm ~/.unified-mcp/data.db
+rm .claude/data.db
 node test-suite.js  # Recreates with test data
 ```
 
@@ -49,7 +49,7 @@ node test-suite.js  # Recreates with test data
 
 **Solution:**
 - Tests automatically clean database before running
-- If issues persist: `rm ~/.unified-mcp/data.db`
+- If issues persist: `rm .claude/data.db`
 - Run tests: `node test-suite.js`
 
 ### Import Failures
@@ -74,7 +74,7 @@ node index.js 2> debug.log
 ### Check Database
 
 ```bash
-sqlite3 ~/.unified-mcp/data.db
+sqlite3 .claude/data.db
 .tables
 SELECT COUNT(*) FROM experiences;
 .quit
@@ -83,7 +83,7 @@ SELECT COUNT(*) FROM experiences;
 ### Verify Token Directory
 
 ```bash
-ls -la ~/.unified-mcp/tokens/
+ls -la .claude/tokens/
 ```
 
 ### Health Check
@@ -123,7 +123,7 @@ Returns diagnostic information about:
 ### Database Size
 
 ```bash
-du -h ~/.unified-mcp/data.db
+du -h .claude/data.db
 ```
 
 Export and reimport to compact:

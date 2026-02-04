@@ -66,7 +66,7 @@ Template for custom workflows.
   "name": "export_config",
   "arguments": {
     "preset_name": "three-gate",
-    "file_path": "~/.unified-mcp/presets/my-custom.json"
+    "file_path": ".claude/presets/my-custom.json"
   }
 }
 ```
@@ -101,4 +101,4 @@ Returns errors and warnings for invalid configurations.
 ## Preset Storage
 
 - Built-in presets: Defined in server code
-- Custom presets: `~/.unified-mcp/presets/*.json`
+- Custom presets: `.claude/presets/*.json` (project-local)
