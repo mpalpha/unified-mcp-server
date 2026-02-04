@@ -2178,16 +2178,16 @@ fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
 ### Acceptance Criteria
 
-- [ ] Hooks installed to `~/.claude/hooks/` by default
-- [ ] Hook configuration in `~/.claude/settings.json`
-- [ ] All 5 hooks have "DO NOT MODIFY" header
-- [ ] `search_experiences` prompt appears at session start (every session)
-- [ ] `record_experience` prompt appears after every tool use
-- [ ] `record_experience` prompt appears before session end
-- [ ] pre-tool-use.cjs only blocks file ops for initialized projects
-- [ ] Non-initialized projects get prompts but no blocking
-- [ ] User's existing settings.json entries preserved
-- [ ] All documentation updated with correct paths
+- [x] Hooks installed to `~/.claude/hooks/` by default
+- [x] Hook configuration in `~/.claude/settings.json`
+- [x] All 5 hooks have "DO NOT MODIFY" header
+- [x] `search_experiences` prompt appears at session start (every session)
+- [x] `record_experience` prompt appears after every tool use
+- [x] `record_experience` prompt appears before session end
+- [x] pre-tool-use.cjs only blocks file ops for initialized projects
+- [x] Non-initialized projects get prompts but no blocking
+- [x] User's existing settings.json entries preserved
+- [x] All documentation updated with correct paths
 
 ### Verification Commands
 
