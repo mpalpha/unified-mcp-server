@@ -2,6 +2,14 @@
 
 ## Version History
 
+### v1.5.1 - 2026-02-03 (Patch Release - Fix --init Hook Path Output)
+**Fix Inconsistent Hook Paths in Post-Install Instructions**
+- **Problem**: `--init` wizard shows project-local paths (`.claude/hooks/`) in STEP 2 output even when hooks are installed globally (`~/.claude/hooks/`)
+- **Root Cause**: Code uses `MCP_DIR` (always project-local) instead of tracking actual install location
+- **Solution**: Track `hooksLocation` in setupState and use it in STEP 2 output
+- **Reporter**: Agent feedback after v1.5.0 installation
+- **Details**: See [Fix --init Hook Path Output (v1.5.1)](#fix---init-hook-path-output-v151) section
+
 ### v1.5.0 - 2026-02-03 (Minor Release - Global Hooks + Universal Workflow Enforcement)
 **Global Hook Architecture + Mandatory Experience Workflow**
 - **Problem**: Hooks in project `.claude/hooks/` confuse agents into modifying them; agents skip experience workflow
@@ -1908,6 +1916,90 @@ grep -q "process.exit(0)" hooks/pre-tool-use.cjs
 grep -q "expires_at > Date.now()" hooks/user-prompt-submit.cjs
 grep -q "expires_at > Date.now()" hooks/pre-tool-use.cjs
 ```
+
+---
+
+## Fix --init Hook Path Output (v1.5.1)
+
+### Problem Statement
+
+When running `--init`, the STEP 2 output shows hook paths like:
+```
+"command": "/Users/user/project/.claude/hooks/session-start.cjs"
+```
+
+But v1.5.0 installs hooks globally to `~/.claude/hooks/` by default. The output should show:
+```
+"command": "/Users/user/.claude/hooks/session-start.cjs"
+```
+
+### Root Cause
+
+The `--init` wizard uses `MCP_DIR` constant (line ~2986) which is always set to the project-local `.claude/` directory:
+```javascript
+console.log(`        "command": "${path.join(MCP_DIR, 'hooks', 'session-start.cjs')}" }] }],`);
+```
+
+But `installHooks()` returns the actual location in `result.location`, which could be global or project-local.
+
+### Solution
+
+1. Add `hooksLocation: null` to `setupState` initialization (line ~2768)
+2. Store `result.location` in `setupState.hooksLocation` when hooks are installed (line ~2907)
+3. Use `setupState.hooksLocation` instead of `MCP_DIR` in STEP 2 output (lines ~2986-2990)
+
+### Implementation (PROPOSED - changes already in index.js)
+
+```javascript
+// 1. Add to setupState (line ~2768)
+const setupState = {
+  preset: null,
+  installHooks: false,
+  hooksInstalled: false,
+  hooksLocation: null  // v1.5.1: Track actual install location
+};
+
+// 2. Store location when hooks installed (line ~2907)
+setupState.hooksLocation = result.location;
+
+// 3. Use in STEP 2 output (lines ~2986-2990)
+console.log(`        "command": "${path.join(setupState.hooksLocation, 'session-start.cjs')}" }] }],`);
+```
+
+### Acceptance Criteria
+
+- [x] A1. `setupState` includes `hooksLocation: null` field
+- [x] A2. `hooksLocation` is set to `result.location` after successful hook installation
+- [x] A3. STEP 2 output uses `setupState.hooksLocation` not `MCP_DIR`
+- [x] A4. Global install shows `~/.claude/hooks/` paths
+- [x] A5. Project-local install (with `project_hooks: true`) shows `.claude/hooks/` paths
+- [x] A6. All existing tests pass
+
+### Validation Commands
+
+```bash
+# Verify setupState has hooksLocation
+grep -A5 "const setupState" index.js | grep hooksLocation
+
+# Verify hooksLocation is set after install
+grep "setupState.hooksLocation" index.js
+
+# Verify STEP 2 uses setupState.hooksLocation
+grep -A10 "STEP 2: Configure Workflow Hooks" index.js | grep hooksLocation
+
+# Run tests
+npm test
+```
+
+### Cascading Updates Checklist
+
+- [x] Documentation: IMPLEMENTATION_PLAN.md updated (this section)
+- [x] Implementation: index.js changes verified
+- [x] Tests: Run full test suite (12/12 passing)
+- [x] Version: Bump to 1.5.1 in package.json, index.js
+- [x] CHANGELOG: Add v1.5.1 entry
+- [ ] Commit: "v1.5.1: Fix --init hook path output"
+- [ ] Push: After all tests pass
 
 ---
 

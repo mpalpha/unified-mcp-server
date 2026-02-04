@@ -22,7 +22,7 @@ const os = require('os');
 const readline = require('readline');
 const crypto = require('crypto');
 
-const VERSION = '1.5.0';
+const VERSION = '1.5.1';
 
 // v1.4.0: Project-local storage in .claude/ directory
 // All data is stored per-project, no global storage
@@ -2768,7 +2768,8 @@ To remove: rm -rf ${oldGlobalDir}
   const setupState = {
     preset: null,
     installHooks: false,
-    hooksInstalled: false
+    hooksInstalled: false,
+    hooksLocation: null  // v1.5.0: Track actual install location (global vs project-local)
   };
 
   // Display analysis checklist before configuration
@@ -2905,6 +2906,7 @@ Migrate old database? [Y/n] (default: Yes - preserve your knowledge): `, (answer
               console.log(`✓ Installed ${result.hooks.length} hooks to ${result.location}`);
               console.log('  Note: You need to manually add hooks to Claude Code settings.json');
               setupState.hooksInstalled = true;
+              setupState.hooksLocation = result.location;  // v1.5.0: Track where hooks were installed
             }
           } catch (e) {
             console.log(`✗ Hook installation failed: ${e.message}`);
@@ -2976,18 +2978,18 @@ Migrate old database? [Y/n] (default: Yes - preserve your knowledge): `, (answer
         console.log(`    open "${settingsPath}"\n`);
 
         // Step 2: Configure hooks if installed
-        if (setupState.hooksInstalled) {
+        if (setupState.hooksInstalled && setupState.hooksLocation) {
           console.log('STEP 2: Configure Workflow Hooks\n');
           console.log(`  File Location: ${settingsPath}\n`);
           console.log('  Action: Add the following to your settings.json:\n');
           console.log('  {');
           console.log('    "hooks": {');
           console.log('      "SessionStart": [{ "hooks": [{ "type": "command",');
-          console.log(`        "command": "${path.join(MCP_DIR, 'hooks', 'session-start.cjs')}" }] }],`);
+          console.log(`        "command": "${path.join(setupState.hooksLocation, 'session-start.cjs')}" }] }],`);
           console.log('      "UserPromptSubmit": [{ "hooks": [{ "type": "command",');
-          console.log(`        "command": "${path.join(MCP_DIR, 'hooks', 'user-prompt-submit.cjs')}" }] }],`);
+          console.log(`        "command": "${path.join(setupState.hooksLocation, 'user-prompt-submit.cjs')}" }] }],`);
           console.log('      "PreToolUse": [{ "hooks": [{ "type": "command",');
-          console.log(`        "command": "${path.join(MCP_DIR, 'hooks', 'pre-tool-use.cjs')}" }] }]`);
+          console.log(`        "command": "${path.join(setupState.hooksLocation, 'pre-tool-use.cjs')}" }] }]`);
           console.log('    }');
           console.log('  }\n');
         }

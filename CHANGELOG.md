@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-02-03
+
+### Fixed
+- **--init wizard**: Hook paths in STEP 2 output now show correct location (global `~/.claude/hooks/` vs project-local `.claude/hooks/`)
+  - Previously used hardcoded `MCP_DIR` which always showed project-local paths
+  - Now tracks actual install location via `setupState.hooksLocation`
+
 ## [1.5.0] - 2026-02-03
 
 ### Changed - Global Hook Architecture
