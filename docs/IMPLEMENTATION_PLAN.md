@@ -2,6 +2,13 @@
 
 ## Version History
 
+### v1.5.0 - 2026-02-03 (Minor Release - Global Hooks + Universal Workflow Enforcement)
+**Global Hook Architecture + Mandatory Experience Workflow**
+- **Problem**: Hooks in project `.claude/hooks/` confuse agents into modifying them; agents skip experience workflow
+- **Solution**: Install hooks globally (`~/.claude/hooks/`), enforce search/record for ALL tasks
+- **Breaking Changes**: Hooks move from project-local to global; prompts become mandatory
+- **Details**: See [Global Hook Architecture (v1.5.0)](#global-hook-architecture-v150) section
+
 ### v1.4.6 - 2026-02-02 (Patch Release - Project-Local Hook Installation)
 **Fix Global Hook Installation - Install to Project Only**
 - **Problem**: Hooks configured in global `~/.claude/settings.json` instead of project-local
@@ -1900,6 +1907,315 @@ grep -q "process.exit(1)" hooks/pre-tool-use.cjs
 grep -q "process.exit(0)" hooks/pre-tool-use.cjs
 grep -q "expires_at > Date.now()" hooks/user-prompt-submit.cjs
 grep -q "expires_at > Date.now()" hooks/pre-tool-use.cjs
+```
+
+---
+
+## Global Hook Architecture (v1.5.0)
+
+### Problem Statement
+
+**Problem 1: Agent Confusion with Project Hooks**
+v1.4.6 installs hooks to `.claude/hooks/` in project directory. Agents see these files and attempt to modify them, breaking workflow enforcement. Hooks should be immutable infrastructure.
+
+**Problem 2: Agents Skip Experience Workflow**
+Agents frequently bypass `search_experiences` and `record_experience` - jumping directly to implementation without learning from past experiences or recording new ones. The workflow provides value only when consistently used.
+
+### Architecture
+
+```
+GLOBAL (Immutable Infrastructure - DO NOT MODIFY):
+  ~/.claude/hooks/
+    ├── user-prompt-submit.cjs   ─┐
+    ├── pre-tool-use.cjs         │ Installed by MCP server
+    ├── post-tool-use.cjs        │ Read project data at runtime
+    ├── stop.cjs                 │ Never modified by agents
+    └── session-start.cjs       ─┘
+
+  ~/.claude/settings.json
+    └── hooks: { ... }           ← Hook configuration
+    └── mcpServers: { ... }      ← MCP server registration
+
+PROJECT-LOCAL (Per-Project Data - Customizable):
+  .claude/
+    ├── config.json              ← Project MCP config
+    ├── project-context.json     ← Checklists, reminders
+    ├── experiences.db           ← Project-scoped experiences
+    └── tokens/                  ← Session tokens
+```
+
+**Key Principle**: Hook CODE is global (immutable), hook DATA is project-local (resolved via `process.env.PWD` at runtime).
+
+### Two-Tier Experience Model
+
+| Tier | Requirements | Features |
+|------|--------------|----------|
+| **Tier 1: Global Benefits** | MCP server installed | Experience tools, basic prompts, CHORES checklist |
+| **Tier 2: Full Features** | `--init` in project | File operation gating, token enforcement, project context |
+
+### Design Decisions
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Hook location | Global `~/.claude/hooks/` | Prevents agent modification, single source of truth |
+| Hook customization | Via DATA, not CODE | Agents configure `project-context.json`, not hook files |
+| Workflow enforcement | Unconditional prompts | Every task benefits from search/record |
+| Pre-tool-use gating | Only for initialized projects | Non-init projects get prompts but no blocking |
+| Settings merge | Read-modify-write | Preserve user's existing settings |
+
+### Universal Workflow Enforcement
+
+**Approach: Stronger Default Prompting**
+
+All hooks include mandatory, actionable prompts for `search_experiences` and `record_experience`. These prompts:
+- Display for EVERY task (not just file operations)
+- Provide exact tool call syntax agents can copy
+- Explain the benefit of each step
+- Use imperative language ("EXECUTE NOW", "RUN")
+
+#### Hook: user-prompt-submit.cjs (Session Start)
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔍 FIRST ACTION: Search for relevant experiences
+
+EXECUTE NOW:
+search_experiences({
+  query: "<keywords from current task>"
+})
+
+WHY: Past solutions inform better decisions. Skip this = repeat past mistakes.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+#### Hook: post-tool-use.cjs (After ANY Tool)
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📝 RECORD: Capture what you learned
+
+EXECUTE BEFORE NEXT TASK:
+record_experience({
+  type: "effective",           // or "ineffective" if approach failed
+  domain: "Process",           // Tools, Protocol, Communication, Debugging, Decision
+  situation: "<what you were trying to do>",
+  approach: "<how you solved it>",
+  outcome: "<result>",
+  reasoning: "<why this worked/failed>"
+})
+
+WHY: Your solution helps future tasks. Unrecorded = knowledge lost.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+#### Hook: stop.cjs (Session End)
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️  SESSION ENDING - RECORD YOUR EXPERIENCE
+
+EXECUTE BEFORE EXIT:
+record_experience({
+  type: "effective",
+  domain: "<category>",
+  situation: "<task from this session>",
+  approach: "<solution implemented>",
+  outcome: "<result achieved>",
+  reasoning: "<key insight>"
+})
+
+Session ends in 5 seconds. Record now or lose this knowledge.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+### Implementation Changes
+
+#### 1. installHooks() in index.js
+
+**Current (v1.4.6):**
+```javascript
+const hooksDir = params.project_hooks
+  ? path.join(process.cwd(), '.claude', 'hooks')
+  : path.join(MCP_DIR, 'hooks');
+```
+
+**Change to:**
+```javascript
+// Default: global hooks
+const hooksDir = params.project_hooks
+  ? path.join(process.cwd(), '.claude', 'hooks')
+  : path.join(os.homedir(), '.claude', 'hooks');
+
+// Settings: always global
+const settingsPath = path.join(os.homedir(), '.claude', 'settings.json');
+```
+
+#### 2. All Hook Files - Add Immutability Header
+
+```javascript
+/**
+ * ⚠️  DO NOT MODIFY THIS FILE
+ *
+ * This hook is managed by unified-mcp-server.
+ * Customization: Use update_project_context() to configure behavior.
+ * Location: ~/.claude/hooks/ (global, immutable)
+ * Data source: .claude/project-context.json (project-local, customizable)
+ */
+```
+
+#### 3. pre-tool-use.cjs - Check for Initialized Project
+
+```javascript
+// Check if this is an initialized project
+const claudeDir = path.join(projectDir, '.claude');
+if (!fs.existsSync(claudeDir)) {
+  // Not initialized - allow without enforcement
+  // Prompts still display (Tier 1), but no blocking
+  process.exit(0);
+}
+```
+
+#### 4. user-prompt-submit.cjs - Universal Search Prompt
+
+Add to output (unconditional):
+```javascript
+console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+console.log('🔍 FIRST ACTION: Search for relevant experiences\n');
+console.log('EXECUTE NOW:');
+console.log('search_experiences({');
+console.log('  query: "<keywords from current task>"');
+console.log('})\n');
+console.log('WHY: Past solutions inform better decisions. Skip this = repeat past mistakes.');
+console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+```
+
+#### 5. post-tool-use.cjs - Universal Record Prompt
+
+Add to output (unconditional, after every tool):
+```javascript
+console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+console.log('📝 RECORD: Capture what you learned\n');
+console.log('EXECUTE BEFORE NEXT TASK:');
+console.log('record_experience({');
+console.log('  type: "effective",');
+console.log('  domain: "Process",');
+console.log('  situation: "<what you were trying to do>",');
+console.log('  approach: "<how you solved it>",');
+console.log('  outcome: "<result>",');
+console.log('  reasoning: "<why this worked/failed>"');
+console.log('})\n');
+console.log('WHY: Your solution helps future tasks. Unrecorded = knowledge lost.');
+console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+```
+
+#### 6. stop.cjs - Session End Reminder
+
+```javascript
+console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+console.log('⚠️  SESSION ENDING - RECORD YOUR EXPERIENCE\n');
+console.log('EXECUTE BEFORE EXIT:');
+console.log('record_experience({');
+console.log('  type: "effective",');
+console.log('  domain: "<category>",');
+console.log('  situation: "<task from this session>",');
+console.log('  approach: "<solution implemented>",');
+console.log('  outcome: "<result achieved>",');
+console.log('  reasoning: "<key insight>"');
+console.log('})\n');
+console.log('Session ends in 5 seconds. Record now or lose this knowledge.');
+console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+```
+
+### Files to Update
+
+| File | Change Type | Description |
+|------|-------------|-------------|
+| `index.js` | Modify | installHooks() default to global path |
+| `hooks/user-prompt-submit.cjs` | Modify | Add DO NOT MODIFY header, universal search prompt |
+| `hooks/pre-tool-use.cjs` | Modify | Add header, check for .claude/ before enforcing |
+| `hooks/post-tool-use.cjs` | Modify | Add header, universal record prompt after ALL tools |
+| `hooks/stop.cjs` | Modify | Add header, session-end record reminder |
+| `hooks/session-start.cjs` | Modify | Add header |
+| `docs/GETTING_STARTED.md` | Modify | Update hook paths, clarify global vs local |
+| `docs/MANUAL_TESTING_GUIDE.md` | Modify | Update outdated hook paths |
+| `src/tools/automation.js` | Delete or annotate | Dead code - not used in actual flow |
+
+### Issues & Resolutions
+
+| # | Issue | Severity | Resolution |
+|---|-------|----------|------------|
+| 1 | Agents modify project hooks | HIGH | Move hooks to global `~/.claude/hooks/` |
+| 2 | Agents skip search_experiences | HIGH | Unconditional prompt with exact tool syntax |
+| 3 | Agents skip record_experience | HIGH | Unconditional prompt after every tool |
+| 4 | Settings overwrite user config | MEDIUM | Read-modify-write merge strategy |
+| 5 | Dead code in src/tools/ | LOW | Add deprecation comment or delete |
+| 6 | Outdated docs paths | LOW | Update all documentation |
+
+### Settings Merge Strategy
+
+**Current user settings must be preserved:**
+
+```javascript
+// Read existing settings
+let settings = {};
+if (fs.existsSync(settingsPath)) {
+  settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+}
+
+// Merge hooks (preserve existing)
+settings.hooks = settings.hooks || {};
+for (const hook of installedHooks) {
+  settings.hooks[hook.name] = { command: hook.path };
+}
+
+// Merge mcpServers (preserve existing)
+settings.mcpServers = settings.mcpServers || {};
+settings.mcpServers['unified-mcp'] = { ... };
+
+// Write back
+fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+```
+
+### Acceptance Criteria
+
+- [ ] Hooks installed to `~/.claude/hooks/` by default
+- [ ] Hook configuration in `~/.claude/settings.json`
+- [ ] All 5 hooks have "DO NOT MODIFY" header
+- [ ] `search_experiences` prompt appears at session start (every session)
+- [ ] `record_experience` prompt appears after every tool use
+- [ ] `record_experience` prompt appears before session end
+- [ ] pre-tool-use.cjs only blocks file ops for initialized projects
+- [ ] Non-initialized projects get prompts but no blocking
+- [ ] User's existing settings.json entries preserved
+- [ ] All documentation updated with correct paths
+
+### Verification Commands
+
+```bash
+# Verify hooks in global location
+test -f ~/.claude/hooks/user-prompt-submit.cjs
+test -f ~/.claude/hooks/pre-tool-use.cjs
+test -f ~/.claude/hooks/post-tool-use.cjs
+test -f ~/.claude/hooks/stop.cjs
+test -f ~/.claude/hooks/session-start.cjs
+
+# Verify hooks NOT in project (after fresh install)
+! test -d .claude/hooks/
+
+# Verify DO NOT MODIFY header
+grep -q "DO NOT MODIFY" ~/.claude/hooks/user-prompt-submit.cjs
+
+# Verify search prompt in user-prompt-submit
+grep -q "search_experiences" ~/.claude/hooks/user-prompt-submit.cjs
+
+# Verify record prompt in post-tool-use
+grep -q "record_experience" ~/.claude/hooks/post-tool-use.cjs
+
+# Verify record prompt in stop
+grep -q "record_experience" ~/.claude/hooks/stop.cjs
+
+# Verify settings merge preserved existing
+grep -q "mcpServers" ~/.claude/settings.json
 ```
 
 ---

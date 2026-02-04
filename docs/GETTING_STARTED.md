@@ -97,9 +97,19 @@ Search for it:
 }
 ```
 
-## Database Location
+## Storage Locations
 
-All data stored in: `~/.unified-mcp/data.db`
+**Global (Immutable Infrastructure):**
+- Hooks: `~/.claude/hooks/` (DO NOT MODIFY - managed by unified-mcp-server)
+- Settings: `~/.claude/settings.json` (hook configuration, MCP server registration)
+
+**Project-Local (Per-Project Data):**
+- Database: `.claude/data.db` (project-scoped experiences)
+- Context: `.claude/project-context.json` (checklists, reminders)
+- Config: `.claude/config.json` (workflow configuration)
+- Tokens: `.claude/tokens/` (session tokens)
+
+Run `--init` in a project directory to enable full features (file operation gating, token enforcement).
 
 ## Health Check
 

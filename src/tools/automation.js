@@ -1,8 +1,13 @@
 /**
- * Automation Tools
- * 
- * Tools for managing git hooks, session state, health checks, and data import.
- * Supports automated workflow integration.
+ * @deprecated This file is DEAD CODE - not used in the actual flow.
+ *
+ * The actual implementations live in index.js (installHooks, uninstallHooks, etc.)
+ * This file was part of an earlier refactoring attempt that was never completed.
+ *
+ * DO NOT USE - kept for reference only. Will be removed in a future version.
+ *
+ * Original description:
+ * Automation Tools - Tools for managing git hooks, session state, health checks, and data import.
  */
 
 const fs = require('fs');

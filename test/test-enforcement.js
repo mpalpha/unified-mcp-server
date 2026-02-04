@@ -151,8 +151,10 @@ async function runTests() {
       files.forEach(f => fs.unlinkSync(path.join(HOOKS_DIR, f)));
     }
 
+    // v1.5.0: Must explicitly request project_hooks: true since default changed to global
     const result = await call('install_hooks', {
       hooks: ['all'],
+      project_hooks: true,
       update_settings: false  // Don't modify global ~/.claude/settings.json
     });
     const resp = parseJSONRPC(result.stdout).find(r => r.id === 2);
@@ -171,7 +173,8 @@ async function runTests() {
 
   // Test 6: pre-tool-use hook has blocking logic
   await test('pre-tool-use hook contains blocking logic', async () => {
-    await call('install_hooks', { hooks: ['all'], update_settings: false });
+    // v1.5.0: Must explicitly request project_hooks: true since default changed to global
+    await call('install_hooks', { hooks: ['all'], project_hooks: true, update_settings: false });
 
     const hookPath = path.join(HOOKS_DIR, 'pre-tool-use.cjs');
     assertTrue(fs.existsSync(hookPath), 'Hook file should exist');

@@ -1,6 +1,13 @@
 #!/usr/bin/env node
 
 /**
+ * ⚠️  DO NOT MODIFY THIS FILE
+ *
+ * This hook is managed by unified-mcp-server.
+ * Customization: Use update_project_context() to configure behavior.
+ * Location: ~/.claude/hooks/ (global, immutable)
+ * Data source: .claude/project-context.json (project-local, customizable)
+ *
  * Session Start Hook
  *
  * Runs when Claude Code session starts.

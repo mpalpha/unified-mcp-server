@@ -16,23 +16,8 @@ This guide shows how to test that a real Claude Code agent follows the three-gat
      }
    }
    ```
-3. Install hooks: `node index.js --init` and choose "yes" to install hooks
-4. Add hooks to Claude Code settings.json:
-   ```json
-   {
-     "hooks": {
-       "user_prompt_submit": {
-         "command": "/Users/USERNAME/.unified-mcp/hooks/user-prompt-submit.cjs"
-       },
-       "pre_tool_use": {
-         "command": "/Users/USERNAME/.unified-mcp/hooks/pre-tool-use.cjs"
-       },
-       "post_tool_use": {
-         "command": "/Users/USERNAME/.unified-mcp/hooks/post-tool-use.cjs"
-       }
-     }
-   }
-   ```
+3. Install hooks: `node index.js --init` (hooks auto-install to `~/.claude/hooks/`)
+4. Hooks are automatically configured in `~/.claude/settings.json` during installation
 5. Restart Claude Code
 
 ## Test 1: Agent Bug Fix Workflow
@@ -42,7 +27,7 @@ This guide shows how to test that a real Claude Code agent follows the three-gat
 ### Setup
 ```bash
 # Clean state
-rm -rf ~/.unified-mcp/data.db ~/.unified-mcp/tokens/*
+rm -rf .claude/data.db .claude/tokens/*
 ```
 
 ### Test Steps
@@ -103,13 +88,13 @@ rm -rf ~/.unified-mcp/data.db ~/.unified-mcp/tokens/*
 Check the workflow was followed:
 ```bash
 # Check experiences were recorded
-echo "SELECT * FROM experiences ORDER BY created_at DESC LIMIT 5;" | sqlite3 ~/.unified-mcp/data.db
+echo "SELECT * FROM experiences ORDER BY created_at DESC LIMIT 5;" | sqlite3 .claude/data.db
 
 # Check reasoning session
-echo "SELECT * FROM reasoning_sessions ORDER BY created_at DESC LIMIT 1;" | sqlite3 ~/.unified-mcp/data.db
+echo "SELECT * FROM reasoning_sessions ORDER BY created_at DESC LIMIT 1;" | sqlite3 .claude/data.db
 
 # Check tokens were created
-ls -la ~/.unified-mcp/tokens/
+ls -la .claude/tokens/
 ```
 
 Expected output:
@@ -124,7 +109,7 @@ Expected output:
 ### Setup
 ```bash
 # Clean state
-rm -rf ~/.unified-mcp/data.db ~/.unified-mcp/tokens/*
+rm -rf .claude/data.db .claude/tokens/*
 ```
 
 ### Test Steps
@@ -162,7 +147,7 @@ rm -rf ~/.unified-mcp/data.db ~/.unified-mcp/tokens/*
 
 1. **Clean tokens:**
    ```bash
-   rm -f ~/.unified-mcp/tokens/session-*
+   rm -f .claude/tokens/session-*
    ```
 
 2. **Prompt with explicit file request:**
@@ -187,7 +172,7 @@ rm -rf ~/.unified-mcp/data.db ~/.unified-mcp/tokens/*
    # Hook will log to stderr - check Claude Code output
 
    # Check if workflow was followed
-   sqlite3 ~/.unified-mcp/data.db "SELECT COUNT(*) FROM experiences;"
+   sqlite3 .claude/data.db "SELECT COUNT(*) FROM experiences;"
    # Should be > 0 if agent followed workflow
    ```
 
@@ -197,7 +182,7 @@ rm -rf ~/.unified-mcp/data.db ~/.unified-mcp/tokens/*
 
 ### Setup
 ```bash
-rm -rf ~/.unified-mcp/data.db ~/.unified-mcp/tokens/*
+rm -rf .claude/data.db .claude/tokens/*
 
 # Apply strict preset programmatically
 node -e "
@@ -239,7 +224,7 @@ server.stdout.on('data', d => process.stdout.write(d));
 
 1. **Clean state:**
    ```bash
-   rm -rf ~/.unified-mcp/data.db ~/.unified-mcp/tokens/*
+   rm -rf .claude/data.db .claude/tokens/*
    ```
 
 2. **Multi-step prompt:**
@@ -261,7 +246,7 @@ server.stdout.on('data', d => process.stdout.write(d));
 4. **Verification:**
    ```bash
    # Check session has multiple thoughts
-   sqlite3 ~/.unified-mcp/data.db "
+   sqlite3 .claude/data.db "
    SELECT s.session_id, COUNT(t.id) as thought_count
    FROM reasoning_sessions s
    LEFT JOIN reasoning_thoughts t ON s.session_id = t.session_id
@@ -296,7 +281,7 @@ sqlite3 "$DB" "SELECT COUNT(*) FROM reasoning_sessions WHERE concluded = 1;"
 
 echo ""
 echo "Session tokens issued:"
-ls -1 ~/.unified-mcp/tokens/session-* 2>/dev/null | wc -l
+ls -1 .claude/tokens/session-* 2>/dev/null | wc -l
 
 echo ""
 if [ $(sqlite3 "$DB" "SELECT COUNT(*) FROM experiences;") -gt 0 ] && \
@@ -318,8 +303,8 @@ echo "  - 'Protocol guidance' from user-prompt-submit hook"
 echo "  - 'BLOCKED' from pre-tool-use hook (if no token)"
 echo "  - 'ALLOWED' from pre-tool-use hook (with token)"
 echo ""
-echo "Tokens in ~/.unified-mcp/tokens/:"
-watch -n 1 "ls -lh ~/.unified-mcp/tokens/ 2>/dev/null || echo 'No tokens yet'"
+echo "Tokens in .claude/tokens/:"
+watch -n 1 "ls -lh .claude/tokens/ 2>/dev/null || echo 'No tokens yet'"
 ```
 
 ## Success Criteria
@@ -337,9 +322,9 @@ For each test, the agent should demonstrate:
 ## Troubleshooting
 
 ### Agent skips workflow
-- Check hook installation: `ls ~/.unified-mcp/hooks/`
+- Check hook installation: `ls .claude/hooks/`
 - Verify hooks in Claude Code settings.json
-- Check hook permissions: `chmod +x ~/.unified-mcp/hooks/*.cjs`
+- Check hook permissions: `chmod +x .claude/hooks/*.cjs`
 
 ### Agent doesn't use tools
 - Verify MCP server is running: check Claude Code logs
@@ -348,7 +333,7 @@ For each test, the agent should demonstrate:
 
 ### Hooks don't block
 - Test hook execution: `npm run test:hook-execution`
-- Check hook syntax: `node ~/.unified-mcp/hooks/pre-tool-use.cjs`
+- Check hook syntax: `node .claude/hooks/pre-tool-use.cjs`
 - Verify Claude Code hook configuration
 
 ## Next Steps

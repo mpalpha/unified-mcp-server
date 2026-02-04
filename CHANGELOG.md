@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-02-03
+
+### Changed - Global Hook Architecture
+- **Breaking Change**: Hooks now install to global `~/.claude/hooks/` by default (was project-local)
+  - Prevents agents from modifying hook files (immutable infrastructure)
+  - Hook CODE is global, hook DATA is project-local (via `.claude/project-context.json`)
+  - Use `project_hooks: true` parameter for explicit project-local installation
+- **Settings**: Hook configuration now goes to global `~/.claude/settings.json`
+  - Read-modify-write merge strategy preserves existing user settings
+
+### Added - Universal Workflow Enforcement
+- **Problem**: Agents frequently skip `search_experiences` and `record_experience`
+- **Solution**: Unconditional, actionable prompts in all hooks
+- **Hook Changes**:
+  - `user-prompt-submit.cjs`: Added universal search prompt with exact tool call syntax
+  - `post-tool-use.cjs`: Added universal record prompt after ANY tool use
+  - `stop.cjs`: Added session-end record reminder
+  - All hooks: Added "DO NOT MODIFY" header comment
+- **Two-Tier Experience Model**:
+  - Tier 1 (Global Benefits): MCP server installed → experience tools, prompts, CHORES
+  - Tier 2 (Full Features): `--init` in project → file operation gating, token enforcement
+
+### Fixed
+- `pre-tool-use.cjs`: Only enforces file operation blocking for initialized projects (`.claude/` exists)
+  - Non-initialized projects get prompts but no blocking
+
 ## [1.4.6] - 2026-02-02
 
 ### Fixed - Project-Local Hook Installation

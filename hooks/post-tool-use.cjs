@@ -1,6 +1,13 @@
 #!/usr/bin/env node
 
 /**
+ * ⚠️  DO NOT MODIFY THIS FILE
+ *
+ * This hook is managed by unified-mcp-server.
+ * Customization: Use update_project_context() to configure behavior.
+ * Location: ~/.claude/hooks/ (global, immutable)
+ * Data source: .claude/project-context.json (project-local, customizable)
+ *
  * Post-Tool-Use Hook
  *
  * Runs after each tool execution in Claude Code.
@@ -56,6 +63,21 @@ try {
     console.log('  })\n');
     console.log('This helps future tasks by building a knowledge base of patterns.\n');
   }
+
+  // v1.5.0: Universal record prompt - show after ANY tool (not just file ops)
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('📝 RECORD: Capture what you learned\n');
+  console.log('EXECUTE BEFORE NEXT TASK:');
+  console.log('record_experience({');
+  console.log('  type: "effective",           // or "ineffective" if approach failed');
+  console.log('  domain: "Process",           // Tools, Protocol, Communication, Debugging, Decision');
+  console.log('  situation: "<what you were trying to do>",');
+  console.log('  approach: "<how you solved it>",');
+  console.log('  outcome: "<result>",');
+  console.log('  reasoning: "<why this worked/failed>"');
+  console.log('})\n');
+  console.log('WHY: Your solution helps future tasks. Unrecorded = knowledge lost.');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
   process.exit(0);
 

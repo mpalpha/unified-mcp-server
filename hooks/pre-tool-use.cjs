@@ -1,6 +1,13 @@
 #!/usr/bin/env node
 
 /**
+ * ⚠️  DO NOT MODIFY THIS FILE
+ *
+ * This hook is managed by unified-mcp-server.
+ * Customization: Use update_project_context() to configure behavior.
+ * Location: ~/.claude/hooks/ (global, immutable)
+ * Data source: .claude/project-context.json (project-local, customizable)
+ *
  * Pre-Tool-Use Hook
  *
  * Runs before each tool execution in Claude Code.
@@ -31,6 +38,14 @@ try {
 
   // Check for valid session token (v1.4.0: project-scoped)
   const projectDir = process.env.PWD || process.cwd();
+
+  // v1.5.0: Check if this is an initialized project
+  const claudeDir = path.join(projectDir, '.claude');
+  if (!fs.existsSync(claudeDir)) {
+    // Not initialized - allow without enforcement
+    // Prompts still display (Tier 1), but no blocking
+    process.exit(0);
+  }
   const tokenDir = path.join(projectDir, '.claude', 'tokens');
 
   let hasValidToken = false;
