@@ -3700,7 +3700,7 @@ rl.on('line', (line) => {
             },
             {
               name: 'install_hooks',
-              description: 'Install workflow automation hooks',
+              description: 'Install workflow automation hooks to ~/.claude/hooks/ (global by default, use project_hooks:true for project-local)',
               inputSchema: {
                 type: 'object',
                 properties: {}
@@ -3708,7 +3708,7 @@ rl.on('line', (line) => {
             },
             {
               name: 'uninstall_hooks',
-              description: 'Remove installed workflow hooks',
+              description: 'Remove installed workflow hooks from ~/.claude/hooks/',
               inputSchema: {
                 type: 'object',
                 properties: {}

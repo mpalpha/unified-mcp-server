@@ -224,7 +224,7 @@ Since full automation isn't feasible, we use a layered approach:
 ### For Continuous Improvement
 
 1. **Collect real usage data**
-   - Monitor `~/.unified-mcp/data.db`
+   - Monitor `.claude/experiences.db`
    - Check if experiences are being recorded
    - Verify searches happen before implementations
    - Track compliance rate
