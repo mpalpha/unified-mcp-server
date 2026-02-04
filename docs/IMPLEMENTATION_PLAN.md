@@ -2475,20 +2475,20 @@ Tested 4 verbiage options with spawned sub-agents:
 ```bash
 # 1. All automated tests pass
 npm test
-# Expected: All tests passing (166+ tests as of v1.4.5)
+# Expected: All tests passing (110+ tests as of v1.5.0)
 
 # 2. Documentation complete
 ls docs/ | wc -l
-# Expected: 15 (as of v1.4.5)
+# Expected: 15 (as of v1.5.0)
 
 # 3. Version consistency
 grep -E '"version"' package.json
 grep "VERSION =" index.js | head -1
-# Expected: All match current version (1.4.5)
+# Expected: All match current version (1.5.0)
 
 # 4. Tool count
 grep -c "name: '[a-z_]" index.js
-# Expected: 27 tools (as of v1.4.0)
+# Expected: 28 tools (as of v1.5.0)
 
 # 5. NPX compatibility
 head -1 bootstrap.js
@@ -2497,11 +2497,11 @@ head -1 bootstrap.js
 npx . --version
 # Expected: Current version number
 
-# 6. Hook message format (v1.4.5)
-! grep -q "✓" hooks/user-prompt-submit.cjs  # No checkmarks
-grep -q "⛔ STOP:" hooks/user-prompt-submit.cjs  # Has stop header
-grep -q "REQUIRED CALL:" hooks/user-prompt-submit.cjs  # Has directive language
-grep -q "□" hooks/user-prompt-submit.cjs  # Has checkboxes
+# 6. Hook message format (v1.5.0)
+grep -q "DO NOT MODIFY" hooks/user-prompt-submit.cjs  # Has immutability header
+grep -q "search_experiences" hooks/user-prompt-submit.cjs  # Has universal search prompt
+grep -q "record_experience" hooks/post-tool-use.cjs  # Has universal record prompt
+grep -q "record_experience" hooks/stop.cjs  # Has session-end reminder
 ```
 
 ### v1.4.5 Hook Message Clarity Checks
@@ -2517,16 +2517,29 @@ See [Hook Message Clarity (v1.4.5)](#hook-message-clarity-v145) for full accepta
   echo "v1.4.5 format: PASS" || echo "v1.4.5 format: FAIL"
 ```
 
-### v1.4.6 Project-Local Hook Checks (when implemented)
+### v1.5.0 Global Hooks + Universal Workflow Checks
 
-See [Project-Local Hook Installation (v1.4.6)](#project-local-hook-installation-v146) for full acceptance criteria.
+See [Global Hook Architecture (v1.5.0)](#global-hook-architecture-v150) for full acceptance criteria.
 
 ```bash
-# Quick validation (after v1.4.6 implementation)
-test -f .claude/settings.local.json && \
-  grep -q "hooks" .claude/settings.local.json && \
-  echo "v1.4.6 local hooks: PASS" || echo "v1.4.6 local hooks: FAIL"
+# Quick validation
+test -f ~/.claude/hooks/user-prompt-submit.cjs && \
+  grep -q "DO NOT MODIFY" ~/.claude/hooks/user-prompt-submit.cjs && \
+  grep -q "search_experiences" ~/.claude/hooks/user-prompt-submit.cjs && \
+  grep -q "record_experience" ~/.claude/hooks/post-tool-use.cjs && \
+  grep -q "record_experience" ~/.claude/hooks/stop.cjs && \
+  echo "v1.5.0 global hooks: PASS" || echo "v1.5.0 global hooks: FAIL"
+
+# Verify pre-tool-use only blocks for initialized projects
+grep -q "fs.existsSync(claudeDir)" ~/.claude/hooks/pre-tool-use.cjs && \
+  echo "v1.5.0 tier check: PASS" || echo "v1.5.0 tier check: FAIL"
 ```
+
+### v1.4.6 Project-Local Hook Checks (SUPERSEDED by v1.5.0)
+
+**Note:** v1.5.0 changed default to global hooks. Use `project_hooks: true` for project-local installation.
+
+See [Project-Local Hook Installation (v1.4.6)](#project-local-hook-installation-v146) for project-local acceptance criteria.
 
 ## NPX Integration Checklist
 
@@ -2579,21 +2592,23 @@ test -f .claude/settings.local.json && \
 - [x] GitHub repo includes shebang and CLI argument parsing ✅
 - [x] Native module compatibility fixes deployed ✅ (v1.0.1)
 
-## Current Status - v1.4.5 (2026-02-02)
-- **Version: 1.4.5** - Hook message clarity fix
+## Current Status - v1.5.0 (2026-02-03)
+- **Version: 1.5.0** - Global hooks + universal workflow enforcement
 - **Phase: ALL 8 PHASES COMPLETE** ✅
 - **Progress: 100%** - All features implemented and operational
-- **Tests Passing: 166+ automated tests** ✅
-- **Tools Working: 27/27** ✅ (all tools fully implemented, no stubs)
+- **Tests Passing: 110+ automated tests** ✅
+- **Tools Working: 28/28** ✅ (all tools fully implemented, no stubs)
 - **Documentation: 15 files** ✅
 - **Test Files: 24 files** ✅
 - **NPX Compatibility: Fully Implemented & Deployed** ✅
-- **Hooks Framework: v1.4.5 message format with directive language** ✅
+- **Hooks Framework: v1.5.0 global hooks with universal prompts** ✅
 - **CLI Flags: All Implemented** ✅ (--help, --version, --init, --health, --validate)
-- **Project-Local Storage: v1.4.0 architecture** ✅ (all data in `.claude/`)
+- **Storage Architecture: Global hooks (`~/.claude/hooks/`), project-local data (`.claude/`)** ✅
 - **Status: PRODUCTION READY** ✅
 
-### Recent Changes (v1.4.x):
+### Recent Changes:
+- v1.5.0: Global hooks + universal workflow enforcement (BREAKING: hooks now global by default)
+- v1.4.6: Project-local hook installation
 - v1.4.5: Hook message clarity fix (✓→□, →→REQUIRED CALL:, ⛔ STOP:)
 - v1.4.4: Post-install prompt redesign (pointer pattern)
 - v1.4.3: Migration script schema fix
