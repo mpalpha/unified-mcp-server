@@ -204,7 +204,7 @@ node index.js --install-hooks
 node index.js --uninstall-hooks
 ```
 
-**See [docs/HOOKS.md](docs/HOOKS.md) for details.**
+**See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for hook file organization.**
 
 ## Research Foundation
 
@@ -299,8 +299,8 @@ npx unified-mcp-server --validate
 
 - **[MIGRATION_GUIDE.md](docs/MIGRATION_GUIDE.md)** - Migrate old databases
 - **[IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md)** - Development roadmap
-- **[HOOKS.md](docs/HOOKS.md)** - Hook integration (if exists)
-- **[API.md](docs/API.md)** - Tool documentation (if exists)
+- **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** - System design and hook files
+- **[TOOL_REFERENCE.md](docs/TOOL_REFERENCE.md)** - Tool documentation
 - **[CHANGELOG.md](CHANGELOG.md)** - Release history
 
 ## Architecture
