@@ -2,7 +2,7 @@
 
 > Protocol-enforced learning system combining memory-augmented reasoning with workflow automation for AI assistants
 
-[![Tests](https://img.shields.io/badge/tests-200%2F200%20passing-brightgreen)](test/)
+[![Tests](https://img.shields.io/badge/tests-241%2F241%20passing-brightgreen)](test/)
 [![Node](https://img.shields.io/badge/node-%3E%3D16.0.0-brightgreen)](package.json)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
@@ -15,7 +15,7 @@ Unified MCP Server is a Model Context Protocol server that enforces research-bas
 - 🔒 **Protocol enforcement**: Hooks prevent file operations without learning
 - 📚 **Knowledge libraries**: Organize experiences by project/domain
 - 🔄 **Experience migration**: Import from old database formats
-- ✅ **200 automated tests**: 100% test coverage
+- ✅ **241 automated tests**: 100% test coverage
 
 ## Quick Start
 
@@ -227,7 +227,7 @@ Our enforcement approach addresses:
 
 ```bash
 npm test
-# Expected: 140/140 core tests passing
+# Expected: 155/155 core tests passing
 ```
 
 ### Test Suites
@@ -261,7 +261,7 @@ node test/test-edge-scenarios.js
 node test/test-migration.js
 ```
 
-**Total: 200 automated tests** ✅
+**Total: 241 automated tests** ✅
 
 ## CLI Commands
 
