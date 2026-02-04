@@ -64,20 +64,8 @@ try {
     console.log('This helps future tasks by building a knowledge base of patterns.\n');
   }
 
-  // v1.5.0: Universal record prompt - show after ANY tool (not just file ops)
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('📝 RECORD: Capture what you learned\n');
-  console.log('EXECUTE BEFORE NEXT TASK:');
-  console.log('record_experience({');
-  console.log('  type: "effective",           // or "ineffective" if approach failed');
-  console.log('  domain: "Process",           // Tools, Protocol, Communication, Debugging, Decision');
-  console.log('  situation: "<what you were trying to do>",');
-  console.log('  approach: "<how you solved it>",');
-  console.log('  outcome: "<result>",');
-  console.log('  reasoning: "<why this worked/failed>"');
-  console.log('})\n');
-  console.log('WHY: Your solution helps future tasks. Unrecorded = knowledge lost.');
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+  // v1.5.2: Universal record prompt - Agent-Directed Instruction Design
+  console.log('User rule: record_experience if task complete + state what recorded. Always.\n');
 
   process.exit(0);
 

@@ -112,6 +112,7 @@ test('--version flag works', () => {
 });
 
 // Test 6: --init flag works
+// v1.5.2: Updated for new output format - global config is auto-configured
 test('--init flag works', () => {
   const output = execSync('echo -e "5\\n\\n" | node bootstrap.js --init', { encoding: 'utf8', shell: '/bin/bash' });
   if (!output.includes('Interactive Setup')) {
@@ -120,11 +121,14 @@ test('--init flag works', () => {
   if (!output.includes('DATABASE LOCATION:')) {
     throw new Error('Init output missing database info');
   }
-  if (!output.includes('NEXT STEPS FOR AUTOMATIC CONFIGURATION:')) {
-    throw new Error('Init output missing next steps');
+  if (!output.includes('SETUP COMPLETE!')) {
+    throw new Error('Init output missing setup complete confirmation');
   }
-  if (!output.includes('STEP 1: Configure Claude Code MCP Settings')) {
-    throw new Error('Init output missing configuration steps');
+  if (!output.includes('PROJECT INITIALIZED:')) {
+    throw new Error('Init output missing project initialized section');
+  }
+  if (!output.includes('auto-configured on server start')) {
+    throw new Error('Init output missing auto-configuration note');
   }
 });
 

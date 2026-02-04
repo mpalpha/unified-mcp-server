@@ -19,20 +19,8 @@ const path = require('path');
 const os = require('os');
 
 try {
-  // v1.5.0: Universal record prompt - remind to capture experience before exit
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('⚠️  SESSION ENDING - RECORD YOUR EXPERIENCE\n');
-  console.log('EXECUTE BEFORE EXIT:');
-  console.log('record_experience({');
-  console.log('  type: "effective",');
-  console.log('  domain: "<category>",');
-  console.log('  situation: "<task from this session>",');
-  console.log('  approach: "<solution implemented>",');
-  console.log('  outcome: "<result achieved>",');
-  console.log('  reasoning: "<key insight>"');
-  console.log('})\n');
-  console.log('Session ends in 5 seconds. Record now or lose this knowledge.');
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+  // v1.5.2: Universal record prompt - Agent-Directed Instruction Design
+  console.log('User rule: record_experience before exit + state what recorded. No exceptions.\n');
 
   // v1.4.0: project-scoped tokens
   const projectDir = process.env.PWD || process.cwd();

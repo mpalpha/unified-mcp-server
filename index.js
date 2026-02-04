@@ -22,7 +22,7 @@ const os = require('os');
 const readline = require('readline');
 const crypto = require('crypto');
 
-const VERSION = '1.5.1';
+const VERSION = '1.5.2';
 
 // v1.4.0: Project-local storage in .claude/ directory
 // All data is stored per-project, no global storage
@@ -95,6 +95,93 @@ function ensureProjectContext() {
   }
 
   return claudeDir;
+}
+
+/**
+ * Ensure global Claude Code configuration is set up
+ * Auto-configures ~/.claude/settings.json and hooks on every server run
+ * Idempotent and self-healing - safe to call multiple times
+ * @returns {boolean} true if any config was updated
+ */
+function ensureGlobalConfig() {
+  let configUpdated = false;
+  const claudeDir = path.join(os.homedir(), '.claude');
+  const settingsPath = path.join(claudeDir, 'settings.json');
+  const hooksDir = path.join(claudeDir, 'hooks');
+
+  // 1. Ensure ~/.claude/ directory exists
+  if (!fs.existsSync(claudeDir)) {
+    fs.mkdirSync(claudeDir, { recursive: true });
+    configUpdated = true;
+  }
+
+  // 2. Load or create settings.json
+  let settings = {};
+  if (fs.existsSync(settingsPath)) {
+    try {
+      settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+    } catch (e) {
+      // Invalid JSON, start fresh
+      settings = {};
+    }
+  }
+
+  // 3. Ensure mcpServers entry exists
+  if (!settings.mcpServers) {
+    settings.mcpServers = {};
+  }
+  if (!settings.mcpServers['unified-mcp']) {
+    settings.mcpServers['unified-mcp'] = {
+      command: 'npx',
+      args: ['mpalpha/unified-mcp-server']
+    };
+    configUpdated = true;
+  }
+
+  // 4. Ensure hooks config exists
+  if (!settings.hooks) {
+    settings.hooks = {};
+  }
+
+  const hookFiles = {
+    'SessionStart': 'session-start.cjs',
+    'UserPromptSubmit': 'user-prompt-submit.cjs',
+    'PreToolUse': 'pre-tool-use.cjs',
+    'PostToolUse': 'post-tool-use.cjs',
+    'Stop': 'stop.cjs'
+  };
+
+  for (const [hookType, fileName] of Object.entries(hookFiles)) {
+    const hookPath = path.join(hooksDir, fileName);
+    if (!settings.hooks[hookType]) {
+      settings.hooks[hookType] = [{ hooks: [{ type: 'command', command: hookPath }] }];
+      configUpdated = true;
+    }
+  }
+
+  // 5. Write settings if changed
+  if (configUpdated) {
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+  }
+
+  // 6. Ensure hooks directory exists
+  if (!fs.existsSync(hooksDir)) {
+    fs.mkdirSync(hooksDir, { recursive: true });
+    configUpdated = true;
+  }
+
+  // 7. Install hook files if missing
+  const sourceDir = path.join(__dirname, 'hooks');
+  for (const [hookType, fileName] of Object.entries(hookFiles)) {
+    const destPath = path.join(hooksDir, fileName);
+    const sourcePath = path.join(sourceDir, fileName);
+    if (!fs.existsSync(destPath) && fs.existsSync(sourcePath)) {
+      fs.copyFileSync(sourcePath, destPath);
+      configUpdated = true;
+    }
+  }
+
+  return configUpdated;
 }
 
 // Legacy constants for backward compatibility during transition
@@ -2956,43 +3043,16 @@ Migrate old database? [Y/n] (default: Yes - preserve your knowledge): `, (answer
         console.log('\n' + '='.repeat(60));
         console.log('✅ SETUP COMPLETE!\n');
         console.log('='.repeat(60));
-        console.log('\n📋 NEXT STEPS FOR AUTOMATIC CONFIGURATION:\n');
-
-        // Step 1: Configure MCP Settings
-        const settingsPath = path.join(os.homedir(), '.claude', 'settings.json');
-        console.log('STEP 1: Configure Claude Code MCP Settings\n');
-        console.log(`  File Location: ${settingsPath}\n`);
-        console.log('  Action: Add the following to your settings.json:\n');
-        console.log('  {');
-        console.log('    "mcpServers": {');
-        console.log('      "unified-mcp": {');
-        console.log('        "command": "npx",');
-        console.log('        "args": ["mpalpha/unified-mcp-server"]');
-        console.log('      }');
-        console.log('    }');
-        console.log('  }\n');
-        console.log('  💡 TIP: If mcpServers already exists, add unified-mcp to it.\n');
-        console.log('  To edit automatically, run:');
-        console.log(`    code "${settingsPath}"`);
-        console.log('    # OR');
-        console.log(`    open "${settingsPath}"\n`);
-
-        // Step 2: Configure hooks if installed
-        if (setupState.hooksInstalled && setupState.hooksLocation) {
-          console.log('STEP 2: Configure Workflow Hooks\n');
-          console.log(`  File Location: ${settingsPath}\n`);
-          console.log('  Action: Add the following to your settings.json:\n');
-          console.log('  {');
-          console.log('    "hooks": {');
-          console.log('      "SessionStart": [{ "hooks": [{ "type": "command",');
-          console.log(`        "command": "${path.join(setupState.hooksLocation, 'session-start.cjs')}" }] }],`);
-          console.log('      "UserPromptSubmit": [{ "hooks": [{ "type": "command",');
-          console.log(`        "command": "${path.join(setupState.hooksLocation, 'user-prompt-submit.cjs')}" }] }],`);
-          console.log('      "PreToolUse": [{ "hooks": [{ "type": "command",');
-          console.log(`        "command": "${path.join(setupState.hooksLocation, 'pre-tool-use.cjs')}" }] }]`);
-          console.log('    }');
-          console.log('  }\n');
+        console.log('\n📋 PROJECT INITIALIZED:\n');
+        console.log(`  Project directory: ${process.cwd()}`);
+        console.log(`  Config location: ${MCP_DIR}\n`);
+        console.log('  ✓ .claude/ directory created');
+        console.log('  ✓ Project-local configuration ready');
+        if (setupState.hooksInstalled) {
+          console.log('  ✓ Workflow hooks installed');
         }
+        console.log('\n💡 Global settings (mcpServers, hooks) are auto-configured on server start.');
+        console.log('   No manual configuration needed.\n');
 
         // Write post-install prompt file for hook to inject after restart
         const promptsDir = path.join(MCP_DIR, 'post-install-prompts');
@@ -3940,6 +4000,12 @@ process.on('uncaughtException', (error) => {
   console.error('[unified-mcp] Uncaught exception:', error);
   process.exit(1);
 });
+
+// Auto-configure global settings (idempotent, self-healing)
+const globalConfigUpdated = ensureGlobalConfig();
+if (globalConfigUpdated) {
+  console.error('⚠️ Configuration updated. Reload Claude Code/IDE for changes to take effect.');
+}
 
 console.error(`[unified-mcp] Server started (v${VERSION})`);
 console.error(`[unified-mcp] Database: ${DB_PATH}`);

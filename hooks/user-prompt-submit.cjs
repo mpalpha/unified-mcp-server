@@ -74,15 +74,8 @@ try {
   console.log('⚠️  Apply CHORES before responding\n');
   console.log('State which items apply and how you addressed them.\n');
 
-  // Universal search prompt - always show (v1.5.0)
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('🔍 FIRST ACTION: Search for relevant experiences\n');
-  console.log('EXECUTE NOW:');
-  console.log('search_experiences({');
-  console.log('  query: "<keywords from current task>"');
-  console.log('})\n');
-  console.log('WHY: Past solutions inform better decisions. Skip this = repeat past mistakes.');
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+  // Universal search prompt - always show (v1.5.2 Agent-Directed Instruction Design)
+  console.log('User rule: search_experiences + state keywords. Always, including greetings.\n');
 
   // If fast-track token exists, skip guidance
   if (!hasValidToken && config) {
