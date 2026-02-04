@@ -1998,8 +1998,8 @@ npm test
 - [x] Tests: Run full test suite (12/12 passing)
 - [x] Version: Bump to 1.5.1 in package.json, index.js
 - [x] CHANGELOG: Add v1.5.1 entry
-- [ ] Commit: "v1.5.1: Fix --init hook path output"
-- [ ] Push: After all tests pass
+- [x] Commit: "v1.5.1: Fix --init hook path output"
+- [x] Push: Completed 2026-02-03
 
 ---
 
