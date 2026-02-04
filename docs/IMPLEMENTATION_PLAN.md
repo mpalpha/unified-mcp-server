@@ -2615,7 +2615,8 @@ npm test
 **Finalize:**
 - [x] Version bump to 1.5.2 (package.json + index.js)
 - [x] Commit: "v1.5.2: Settings auto-configuration + instruction design"
-- [ ] Push to remote
+- [x] Push to remote
+- [x] Tag: v1.5.2
 
 ---
 
