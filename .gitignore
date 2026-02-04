@@ -6,3 +6,4 @@ node_modules/
 !test/fixtures/test-migration-source.db
 test/fixtures/test-migration-target.db
 .unified-mcp/
+.claude/
