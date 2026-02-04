@@ -4184,6 +4184,14 @@ npm test
 [[ -d src/ ]] && [[ -f src/README.md ]] && echo "✅ src/ documented" || echo "⚠️  Check if src/ needs documentation"
 ```
 
+### 10. README Test Count Matches Actual
+```bash
+# Badge/text must match actual test count
+echo "README claims:" && grep -oE "tests-[0-9]+" README.md
+echo "Actual core:" && npm test 2>&1 | grep -c "✓ PASS"
+# If mismatch, update README.md badge and text
+```
+
 ### Quick One-Liner
 ```bash
 # Run all critical checks at once
@@ -4206,6 +4214,7 @@ echo "=== CHECKS COMPLETE ==="
 4. `src/` directory dead code not documented
 5. Acceptance criteria showing `[ ]` instead of `[x]`
 6. Multiple docs with outdated `~/.unified-mcp` paths
+7. README test count (200) didn't match actual (241)
 
 **Root Cause:** No comprehensive pre-push checklist existed. The "Version Release Checklist" only covered version numbers.
 
