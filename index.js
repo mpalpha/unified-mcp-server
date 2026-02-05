@@ -22,7 +22,7 @@ const os = require('os');
 const readline = require('readline');
 const crypto = require('crypto');
 
-const VERSION = '1.5.3';
+const VERSION = '1.6.0';
 
 // v1.4.0: Project-local storage in .claude/ directory
 // All data is stored per-project, no global storage
@@ -3492,7 +3492,7 @@ rl.on('line', (line) => {
           tools: [
             {
               name: 'record_experience',
-              description: 'Record a working knowledge pattern (effective or ineffective approach)',
+              description: 'Record a working knowledge pattern (effective or ineffective approach). Also use for "remember X" requests - stores user-directed memories for later recall.',
               inputSchema: {
                 type: 'object',
                 properties: {
@@ -3512,7 +3512,7 @@ rl.on('line', (line) => {
             },
             {
               name: 'search_experiences',
-              description: 'Search for relevant working knowledge using natural language queries with FTS5 + BM25 ranking',
+              description: 'Search for relevant working knowledge using natural language queries with FTS5 + BM25 ranking. Also use for "what did I tell you?" or "recall X" - retrieves stored memories and past experiences.',
               inputSchema: {
                 type: 'object',
                 properties: {

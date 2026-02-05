@@ -5,7 +5,7 @@ Complete reference for all 25 tools in the unified MCP server.
 ## Knowledge Management Tools (6)
 
 ### record_experience
-Record a working pattern (effective or ineffective).
+Record a working pattern (effective or ineffective). Also use for "remember X" requests - stores user-directed memories for later recall.
 
 **Parameters:**
 - `type` (required): "effective" | "ineffective"
@@ -21,7 +21,7 @@ Record a working pattern (effective or ineffective).
 **Returns:** `{ recorded: true, experience_id: number, scope: string }`
 
 ### search_experiences
-Full-text search with FTS5 and BM25 ranking.
+Full-text search with FTS5 and BM25 ranking. Also use for "what did I tell you?" or "recall X" - retrieves stored memories and past experiences.
 
 **Parameters:**
 - `query` (required): Search query

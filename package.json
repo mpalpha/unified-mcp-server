@@ -1,6 +1,6 @@
 {
   "name": "unified-mcp-server",
-  "version": "1.5.3",
+  "version": "1.6.0",
   "description": "Unified MCP server combining memory-augmented reasoning and protocol enforcement with modern tool ergonomics",
   "author": "Jason Lusk <jason@jasonlusk.com>",
   "license": "MIT",
@@ -18,7 +18,8 @@
   },
   "scripts": {
     "postinstall": "node scripts/check-native-modules.js || echo 'Warning: Native module check failed'",
-    "test": "node test/test-version-sync.js && node test/test-tools.js && node test/test-workflows.js && node test/test-compliance.js && node test/test-config.js && node test/test-integration.js && node test/test-enforcement.js && node test/test-agent-workflows.js && node test/test-hook-execution.js && node test/test-protocol-with-context.js && node test/test-tool-guidance.js && node test/test-project-context.js && node test/test-npx.js",
+    "test": "node test/test-version-sync.js && node test/test-tools.js && node test/test-workflows.js && node test/test-compliance.js && node test/test-config.js && node test/test-integration.js && node test/test-enforcement.js && node test/test-agent-workflows.js && node test/test-hook-execution.js && node test/test-protocol-with-context.js && node test/test-tool-guidance.js && node test/test-project-context.js && node test/test-tool-description-dryrun.js && node test/test-npx.js",
+    "test:tool-description-dryrun": "node test/test-tool-description-dryrun.js",
     "test:version-sync": "node test/test-version-sync.js",
     "test:tools": "node test/test-tools.js",
     "test:workflows": "node test/test-workflows.js",

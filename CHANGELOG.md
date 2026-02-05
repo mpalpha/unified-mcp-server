@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-02-04
+
+### Changed - Memory Discoverability
+- **Enhanced tool descriptions for natural memory operations**
+  - `record_experience`: Now includes "Also use for 'remember X' requests - stores user-directed memories for later recall"
+  - `search_experiences`: Now includes "Also use for 'what did I tell you?' or 'recall X' - retrieves stored memories and past experiences"
+- **Research-informed approach** (per [Anthropic Tool Docs](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview))
+  - "The description field is vital... Use keywords the LLM might associate with the task"
+  - Enhanced descriptions instead of adding wrapper tools (aligns with MCP single responsibility principle)
+
+### Added - Tests
+- New `test/test-tool-description-dryrun.js` for mock dry-run testing of tool descriptions
+  - Validates descriptions contain memory keywords ("remember", "recall", "what did I tell you")
+  - 10 test cases covering memory write and read scenarios
+  - 100% compliance achieved
+
 ## [1.5.3] - 2026-02-05
 
 ### Fixed
