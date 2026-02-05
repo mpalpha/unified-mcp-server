@@ -29,6 +29,10 @@ const {
   initDatabase, getDatabase, logActivity
 } = require('./src/database');
 
+// v1.7.0 Note: Knowledge tools module (src/tools/knowledge.js) updated but not yet wired up.
+// The implementations in this file have subtle differences that need careful reconciliation.
+// Future work: Compare and reconcile, then swap to module imports.
+
 const VERSION = '1.7.0';
 
 // v1.7.0: Database and validation functions imported from modules
