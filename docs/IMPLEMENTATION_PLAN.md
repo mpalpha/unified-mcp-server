@@ -2,7 +2,7 @@
 
 ## Version History
 
-### v1.5.3 - PENDING (Patch Release - Fix update_experience Tags + CHORES + Memory Improvements)
+### v1.5.3 - 2026-02-05 (Patch Release - Fix update_experience Tags + CHORES + Memory Improvements) ✅ COMPLETE
 **Fix Tags + Experience Guidance + REASONING + Informed Reasoning + Memory Maintenance + Transcript Search**
 - **Problem 1**: `update_experience` throws "Too many parameter values" when changes include tags
 - **Root Cause 1**: Line 684 passes `newData.tags` (array) directly to SQL without JSON.stringify()
@@ -2759,9 +2759,9 @@ npm test
 **Finalize:**
 
 - [x] Step 11: Run `npm test` (final verification) - 183/183 passing
-- [ ] Step 12: Commit locally
-- [ ] Step 13: Push to remote
-- [ ] Step 14: Update version entry status (PENDING → date)
+- [x] Step 12: Commit locally (ecf744d)
+- [x] Step 13: Push to remote
+- [x] Step 14: Update version entry status (PENDING → 2026-02-05)
 
 ---
 
