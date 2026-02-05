@@ -2,11 +2,12 @@
  * Knowledge Management Tools (v1.7.0)
  *
  * Tools for recording, searching, and managing working knowledge patterns.
+ * v1.7.0: Synchronized with index.js implementation
  * v1.4.0: All experiences are project-scoped by location in .claude/
  */
 
 const fs = require('fs');
-const { getDatabase, logActivity } = require('../database.js');
+const { getDatabase, ensureProjectContext, logActivity } = require('../database.js');
 const { ValidationError, diceCoefficient } = require('../validation.js');
 
 /**
@@ -77,6 +78,8 @@ function recordExperience(params) {
     );
   }
 
+  // v1.4.0: scope parameter removed - all experiences are project-scoped by location
+
   // Check for duplicates using Dice coefficient
   const duplicate = findDuplicate(params, 0.9);
   if (duplicate) {
@@ -135,58 +138,47 @@ function searchExperiences(params) {
     );
   }
 
-  // Build search query
+  // Split query into terms, quote each individually, join with OR
+  // This enables partial matching with BM25 relevance ranking
+  const terms = params.query.trim().split(/\s+/)
+    .map(term => `"${term.replace(/"/g, '""')}"`)
+    .join(' OR ');
+
   let sql = `
-    SELECT
-      e.id,
-      e.type,
-      e.domain,
-      e.situation,
-      e.approach,
-      e.outcome,
-      e.reasoning,
-      e.confidence,
-      e.tags,
-      e.revision_of,
-      e.created_at,
-      e.updated_at,
-      bm25(experiences_fts) as rank
-    FROM experiences_fts
-    JOIN experiences e ON experiences_fts.rowid = e.id
+    SELECT e.*, bm25(experiences_fts) as rank
+    FROM experiences e
+    JOIN experiences_fts ON e.id = experiences_fts.rowid
     WHERE experiences_fts MATCH ?
   `;
 
-  const queryParams = [params.query];
+  const sqlParams = [terms];
 
-  // Add domain filter
+  // Add filters
   if (params.domain) {
     sql += ' AND e.domain = ?';
-    queryParams.push(params.domain);
+    sqlParams.push(params.domain);
   }
 
-  // Add type filter
   if (params.type) {
     sql += ' AND e.type = ?';
-    queryParams.push(params.type);
+    sqlParams.push(params.type);
   }
 
-  // Add min_confidence filter
-  if (params.min_confidence !== undefined) {
+  if (params.min_confidence) {
     sql += ' AND e.confidence >= ?';
-    queryParams.push(params.min_confidence);
+    sqlParams.push(params.min_confidence);
   }
 
   sql += ' ORDER BY rank';
 
-  // Add limit with offset
-  const limit = params.limit || 20;
+  const limit = Math.min(params.limit || 20, 100);
   const offset = params.offset || 0;
   sql += ` LIMIT ? OFFSET ?`;
-  queryParams.push(limit, offset);
+  sqlParams.push(limit, offset);
 
-  const results = db.prepare(sql).all(...queryParams);
+  const results = db.prepare(sql).all(...sqlParams);
 
-  // Parse tags JSON
+  // Parse tags from JSON
   results.forEach(r => {
     if (r.tags) {
       try {
@@ -194,6 +186,8 @@ function searchExperiences(params) {
       } catch (e) {
         r.tags = [];
       }
+    } else {
+      r.tags = [];
     }
   });
 
@@ -216,11 +210,11 @@ function searchExperiences(params) {
 function getExperience(params) {
   const db = getDatabase();
 
-  if (!params.id) {
+  if (!params.id || typeof params.id !== 'number') {
     throw new ValidationError(
-      'Missing "id" parameter',
-      'Required: id = experience ID (number)\\n\\n' +
-      'Example: id: 123'
+      'Missing or invalid "id" parameter',
+      'Required: id = number (experience ID from search results)\\n\\n' +
+      'Example: id: 42'
     );
   }
 
@@ -230,8 +224,8 @@ function getExperience(params) {
 
   if (!experience) {
     throw new ValidationError(
-      `Experience not found: ${params.id}`,
-      'The specified experience ID does not exist.'
+      `Experience not found: ID ${params.id}`,
+      `No experience exists with ID ${params.id}. Use search_experiences to find experiences.`
     );
   }
 
@@ -244,23 +238,22 @@ function getExperience(params) {
     }
   }
 
-  // Get revision history if this is original
-  const revisions = db.prepare(`
-    SELECT id, created_at FROM experiences WHERE revision_of = ?
+  // Get revision history if applicable
+  if (experience.revision_of) {
+    experience.previous_version = db.prepare(`
+      SELECT id, situation, approach, outcome, created_at
+      FROM experiences WHERE id = ?
+    `).get(experience.revision_of);
+  }
+
+  // Get revisions that supersede this one
+  experience.newer_versions = db.prepare(`
+    SELECT id, situation, approach, outcome, created_at
+    FROM experiences WHERE revision_of = ?
     ORDER BY created_at DESC
   `).all(params.id);
 
-  // Get original if this is a revision
-  let original = null;
-  if (experience.revision_of) {
-    original = db.prepare('SELECT id FROM experiences WHERE id = ?').get(experience.revision_of);
-  }
-
-  return {
-    ...experience,
-    revision_history: revisions,
-    original: original ? original.id : null
-  };
+  return experience;
 }
 
 /**
@@ -270,93 +263,81 @@ function getExperience(params) {
 function updateExperience(params) {
   const db = getDatabase();
 
-  if (!params.id) {
+  if (!params.id || typeof params.id !== 'number') {
     throw new ValidationError(
-      'Missing "id" parameter',
-      'Required: id = experience ID to update'
+      'Missing or invalid "id" parameter',
+      'Required: id = number (experience ID to update)'
     );
   }
 
   if (!params.changes || typeof params.changes !== 'object') {
     throw new ValidationError(
-      'Missing "changes" parameter',
-      'Required: changes = object with fields to update\\n\\n' +
-      'Example: changes: { outcome: "new outcome", confidence: 0.95 }'
+      'Missing or invalid "changes" parameter',
+      'Required: changes = object (fields to update)\\n\\n' +
+      'Example:\\n' +
+      JSON.stringify({
+        id: 42,
+        changes: { outcome: 'Updated outcome', reasoning: 'Refined reasoning' },
+        reason: 'Clarified based on new evidence'
+      }, null, 2)
     );
   }
 
   if (!params.reason) {
     throw new ValidationError(
       'Missing "reason" parameter',
-      'Required: reason = why updating (audit trail)\\n\\n' +
-      'Example: reason: "Fixed typo in approach"'
+      'Required: reason = string (why updating)\\n\\n' +
+      'Always provide a reason for updating experiences to maintain audit trail.'
     );
   }
 
-  // Get existing experience
-  const existing = db.prepare('SELECT * FROM experiences WHERE id = ?').get(params.id);
-  if (!existing) {
+  // Get original experience
+  const original = db.prepare(`SELECT * FROM experiences WHERE id = ?`).get(params.id);
+  if (!original) {
     throw new ValidationError(
-      `Experience not found: ${params.id}`,
-      'Cannot update non-existent experience.'
+      `Experience not found: ID ${params.id}`,
+      `No experience exists with ID ${params.id}.`
     );
   }
 
-  // Build update data
-  const newData = { ...existing };
-  delete newData.id;
-  delete newData.created_at;
-  delete newData.updated_at;
+  // Create new revision (v1.4.0: scope field removed)
+  const fields = ['type', 'domain', 'situation', 'approach', 'outcome', 'reasoning', 'confidence', 'tags'];
+  const newData = { ...original };
 
-  // Apply changes
-  for (const [key, value] of Object.entries(params.changes)) {
-    if (key in newData && key !== 'id' && key !== 'created_at') {
-      newData[key] = value;
+  for (const field of fields) {
+    if (params.changes[field] !== undefined) {
+      newData[field] = params.changes[field];
     }
   }
 
-  // Update in place
-  const updateFields = [];
-  const updateValues = [];
+  const stmt = db.prepare(`
+    INSERT INTO experiences (type, domain, situation, approach, outcome, reasoning, confidence, tags, revision_of)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
 
-  for (const [key, value] of Object.entries(params.changes)) {
-    if (['situation', 'approach', 'outcome', 'reasoning', 'confidence', 'tags'].includes(key)) {
-      updateFields.push(`${key} = ?`);
-      if (key === 'tags') {
-        updateValues.push(value ? JSON.stringify(value) : null);
-      } else {
-        updateValues.push(value);
-      }
-    }
-  }
-
-  if (updateFields.length === 0) {
-    throw new ValidationError(
-      'No valid fields to update',
-      'Valid fields: situation, approach, outcome, reasoning, confidence, tags'
-    );
-  }
-
-  updateFields.push("updated_at = strftime('%s', 'now')");
-  updateValues.push(params.id);
-
-  db.prepare(`
-    UPDATE experiences
-    SET ${updateFields.join(', ')}
-    WHERE id = ?
-  `).run(...updateValues);
+  const result = stmt.run(
+    newData.type,
+    newData.domain,
+    newData.situation,
+    newData.approach,
+    newData.outcome,
+    newData.reasoning,
+    newData.confidence,
+    newData.tags ? JSON.stringify(newData.tags) : null,
+    params.id
+  );
 
   logActivity('experience_updated', null, {
-    experience_id: params.id,
-    reason: params.reason,
-    fields_updated: Object.keys(params.changes)
+    original_id: params.id,
+    new_id: result.lastInsertRowid,
+    reason: params.reason
   });
 
   return {
     updated: true,
-    experience_id: params.id,
-    fields_updated: Object.keys(params.changes),
-    reason: params.reason
+    original_id: params.id,
+    new_id: result.lastInsertRowid,
+    message: `Experience updated (new revision ID: ${result.lastInsertRowid}). Original preserved for history.`
   };
 }
 
@@ -367,10 +348,10 @@ function updateExperience(params) {
 function tagExperience(params) {
   const db = getDatabase();
 
-  if (!params.id) {
+  if (!params.id || typeof params.id !== 'number') {
     throw new ValidationError(
-      'Missing "id" parameter',
-      'Required: id = experience ID'
+      'Missing or invalid "id" parameter',
+      'Required: id = number (experience ID)'
     );
   }
 
@@ -378,41 +359,40 @@ function tagExperience(params) {
     throw new ValidationError(
       'Missing or invalid "tags" parameter',
       'Required: tags = array of strings\\n\\n' +
-      'Example: tags: ["api", "authentication"]'
+      'Example: tags: ["authentication", "jwt", "security"]'
     );
   }
 
-  // Get existing experience
-  const existing = db.prepare('SELECT tags FROM experiences WHERE id = ?').get(params.id);
-  if (!existing) {
+  // Get existing tags
+  const experience = db.prepare(`SELECT tags FROM experiences WHERE id = ?`).get(params.id);
+  if (!experience) {
     throw new ValidationError(
-      `Experience not found: ${params.id}`,
-      'Cannot tag non-existent experience.'
+      `Experience not found: ID ${params.id}`,
+      `No experience exists with ID ${params.id}.`
     );
   }
 
-  // Merge tags
-  let currentTags = [];
-  if (existing.tags) {
+  let existingTags = [];
+  if (experience.tags) {
     try {
-      currentTags = JSON.parse(existing.tags);
+      existingTags = JSON.parse(experience.tags);
     } catch (e) {
-      currentTags = [];
+      existingTags = [];
     }
   }
 
-  const mergedTags = [...new Set([...currentTags, ...params.tags])];
+  // Merge tags (deduplicate)
+  const allTags = [...new Set([...existingTags, ...params.tags])];
 
-  db.prepare(`
-    UPDATE experiences
-    SET tags = ?, updated_at = strftime('%s', 'now')
-    WHERE id = ?
-  `).run(JSON.stringify(mergedTags), params.id);
+  // Update
+  db.prepare(`UPDATE experiences SET tags = ?, updated_at = strftime('%s', 'now') WHERE id = ?`)
+    .run(JSON.stringify(allTags), params.id);
 
   return {
+    updated: true,
     experience_id: params.id,
-    tags: mergedTags,
-    added: params.tags.filter(t => !currentTags.includes(t))
+    tags: allTags,
+    message: `Tags updated for experience ${params.id}`
   };
 }
 
@@ -423,150 +403,160 @@ function tagExperience(params) {
 function exportExperiences(params) {
   const db = getDatabase();
 
-  const format = params.format || 'json';
-  if (!['json', 'markdown'].includes(format)) {
+  if (!params.format || !['json', 'markdown'].includes(params.format)) {
     throw new ValidationError(
-      'Invalid "format" parameter',
-      'Valid formats: json, markdown'
+      'Missing or invalid "format" parameter',
+      'Required: format = "json" | "markdown"\\n\\n' +
+      'Example: format: "json"'
     );
   }
 
   // Build query with filters
   let sql = 'SELECT * FROM experiences WHERE 1=1';
-  const queryParams = [];
+  const sqlParams = [];
 
   if (params.filter) {
     if (params.filter.domain) {
       sql += ' AND domain = ?';
-      queryParams.push(params.filter.domain);
+      sqlParams.push(params.filter.domain);
     }
     if (params.filter.type) {
       sql += ' AND type = ?';
-      queryParams.push(params.filter.type);
+      sqlParams.push(params.filter.type);
     }
-    if (params.filter.tags && params.filter.tags.length > 0) {
-      for (const tag of params.filter.tags) {
-        sql += ' AND tags LIKE ?';
-        queryParams.push(`%"${tag}"%`);
-      }
-    }
+    // v1.4.0: scope filter removed - all experiences are project-scoped by location
   }
 
   sql += ' ORDER BY created_at DESC';
 
-  const experiences = db.prepare(sql).all(...queryParams);
+  const experiences = db.prepare(sql).all(...sqlParams);
 
   // Parse tags
-  experiences.forEach(exp => {
-    if (exp.tags) {
+  experiences.forEach(e => {
+    if (e.tags) {
       try {
-        exp.tags = JSON.parse(exp.tags);
-      } catch (e) {
-        exp.tags = [];
+        e.tags = JSON.parse(e.tags);
+      } catch (err) {
+        e.tags = [];
       }
     }
   });
 
-  if (format === 'markdown') {
-    let markdown = '# Exported Experiences\\n\\n';
+  let output;
+  if (params.format === 'json') {
+    output = JSON.stringify(experiences, null, 2);
+  } else {
+    // Markdown format
+    output = '# Experiences Export\\n\\n';
+    output += `Exported: ${new Date().toISOString()}\\n`;
+    output += `Total: ${experiences.length} experiences\\n\\n`;
+    output += '---\\n\\n';
+
     for (const exp of experiences) {
-      markdown += `## ${exp.domain} - ${exp.type}\\n\\n`;
-      markdown += `**Situation:** ${exp.situation}\\n\\n`;
-      markdown += `**Approach:** ${exp.approach}\\n\\n`;
-      markdown += `**Outcome:** ${exp.outcome}\\n\\n`;
-      markdown += `**Reasoning:** ${exp.reasoning}\\n\\n`;
-      if (exp.confidence) markdown += `**Confidence:** ${exp.confidence}\\n\\n`;
-      if (exp.tags && exp.tags.length > 0) markdown += `**Tags:** ${exp.tags.join(', ')}\\n\\n`;
-      markdown += '---\\n\\n';
+      output += `## Experience ${exp.id}: ${exp.domain}\\n\\n`;
+      output += `**Type:** ${exp.type}\\n`;
+      output += `**Confidence:** ${exp.confidence || 'N/A'}\\n`;
+      // v1.4.0: scope field removed - all experiences are project-scoped by location
+      output += `**Tags:** ${exp.tags && exp.tags.length ? exp.tags.join(', ') : 'None'}\\n\\n`;
+      output += `### Situation\\n${exp.situation}\\n\\n`;
+      output += `### Approach\\n${exp.approach}\\n\\n`;
+      output += `### Outcome\\n${exp.outcome}\\n\\n`;
+      output += `### Reasoning\\n${exp.reasoning}\\n\\n`;
+      output += '---\\n\\n';
     }
-
-    if (params.output_path) {
-      fs.writeFileSync(params.output_path, markdown);
-      return { exported: experiences.length, file: params.output_path };
-    }
-    return { exported: experiences.length, content: markdown };
   }
 
-  // JSON format
-  const output = {
-    exported_at: new Date().toISOString(),
-    count: experiences.length,
-    experiences: experiences
-  };
-
+  // Write to file if path provided
   if (params.output_path) {
-    fs.writeFileSync(params.output_path, JSON.stringify(output, null, 2));
-    return { exported: experiences.length, file: params.output_path };
+    fs.writeFileSync(params.output_path, output);
+    return {
+      exported: true,
+      count: experiences.length,
+      format: params.format,
+      output_path: params.output_path,
+      message: `Exported ${experiences.length} experiences to ${params.output_path}`
+    };
   }
-  return output;
+
+  // Return inline
+  return {
+    exported: true,
+    count: experiences.length,
+    format: params.format,
+    output: output,
+    message: `Exported ${experiences.length} experiences`
+  };
 }
 
 /**
- * Tool 7: import_experiences
- * Import experiences from a JSON file exported from another project
+ * Tool 7: import_experiences (v1.4.0)
+ * Import experiences from a JSON file into the current project
+ * Enables cross-project knowledge sharing via export/import workflow
  */
 function importExperiences(params) {
   const db = getDatabase();
 
-  if (!params.filename) {
+  if (!params.filename || typeof params.filename !== 'string') {
     throw new ValidationError(
-      'Missing "filename" parameter',
-      'Required: filename = path to JSON file'
+      'Missing or invalid "filename" parameter',
+      'Required: filename = string (path to JSON file from export_experiences)\\n\\n' +
+      'Example:\\n' +
+      JSON.stringify({
+        filename: 'exported-experiences.json'
+      }, null, 2)
     );
   }
 
+  // Ensure project context
+  ensureProjectContext();
+
+  // Check file exists
   if (!fs.existsSync(params.filename)) {
     throw new ValidationError(
       `File not found: ${params.filename}`,
-      'Check the path and try again.'
+      'Provide the path to a JSON file created by export_experiences.'
     );
   }
 
+  // Read and parse file
   let data;
   try {
-    data = JSON.parse(fs.readFileSync(params.filename, 'utf8'));
+    const content = fs.readFileSync(params.filename, 'utf8');
+    data = JSON.parse(content);
   } catch (e) {
     throw new ValidationError(
-      'Invalid JSON file',
-      `Could not parse: ${e.message}`
+      `Failed to parse JSON file: ${e.message}`,
+      'The file must be valid JSON from export_experiences with format: json'
     );
   }
 
-  if (!data.experiences || !Array.isArray(data.experiences)) {
+  // Validate structure
+  if (!Array.isArray(data)) {
     throw new ValidationError(
       'Invalid export format',
-      'File must contain an "experiences" array.'
+      'Expected an array of experiences from export_experiences'
     );
   }
 
+  // Import each experience
   let imported = 0;
   let skipped = 0;
+  const errors = [];
 
-  const stmt = db.prepare(`
-    INSERT INTO experiences (type, domain, situation, approach, outcome, reasoning, confidence, tags)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  for (const exp of data.experiences) {
-    // Validate required fields
-    if (!exp.type || !exp.domain || !exp.situation || !exp.approach || !exp.outcome || !exp.reasoning) {
-      skipped++;
-      continue;
-    }
-
-    // Apply filters if specified
-    if (params.filter) {
-      if (params.filter.domain && exp.domain !== params.filter.domain) {
-        skipped++;
-        continue;
-      }
-      if (params.filter.type && exp.type !== params.filter.type) {
-        skipped++;
-        continue;
-      }
-    }
-
+  for (const exp of data) {
     try {
+      // Validate required fields
+      if (!exp.type || !exp.domain || !exp.situation || !exp.approach || !exp.outcome || !exp.reasoning) {
+        skipped++;
+        continue;
+      }
+
+      // Insert without preserving original ID (let SQLite assign new one)
+      const stmt = db.prepare(`
+        INSERT INTO experiences (type, domain, situation, approach, outcome, reasoning, confidence, tags)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+
       stmt.run(
         exp.type,
         exp.domain,
@@ -575,24 +565,29 @@ function importExperiences(params) {
         exp.outcome,
         exp.reasoning,
         exp.confidence || null,
-        exp.tags ? JSON.stringify(exp.tags) : null
+        exp.tags ? (typeof exp.tags === 'string' ? exp.tags : JSON.stringify(exp.tags)) : null
       );
+
       imported++;
     } catch (e) {
+      errors.push(`Experience ${exp.id || '?'}: ${e.message}`);
       skipped++;
     }
   }
 
   logActivity('experiences_imported', null, {
     filename: params.filename,
-    imported: imported,
-    skipped: skipped
+    imported,
+    skipped,
+    total: data.length
   });
 
   return {
-    imported: imported,
-    skipped: skipped,
-    message: `Imported ${imported} experiences, skipped ${skipped}`
+    imported,
+    skipped,
+    total: data.length,
+    errors: errors.length > 0 ? errors.slice(0, 5) : undefined, // Show first 5 errors
+    message: `Imported ${imported} experiences (${skipped} skipped)`
   };
 }
 

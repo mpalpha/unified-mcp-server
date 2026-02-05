@@ -5,10 +5,19 @@
  * Supports preset-based workflows with session management.
  */
 
-const { getDatabase, logActivity, MCP_DIR, TOKEN_DIR } = require('../database.js');
+/**
+ * v1.7.0: Synchronized with index.js implementation
+ */
+
+const { getDatabase, getTokenDir, logActivity } = require('../database.js');
 const fs = require('fs');
 const path = require('path');
 const { ValidationError } = require('../validation.js');
+
+// Get TOKEN_DIR lazily to avoid initialization issues
+function getTokenPath(filename) {
+  return path.join(getTokenDir(), filename);
+}
 
 function checkCompliance(params) {
   // Validate required parameters
@@ -104,7 +113,7 @@ function verifyCompliance(params) {
 
   // Create operation token
   const tokenId = `op-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  const tokenPath = path.join(TOKEN_DIR, `${tokenId}.json`);
+  const tokenPath = path.join(getTokenDir(), `${tokenId}.json`);
 
   const token = {
     token_id: tokenId,
@@ -139,7 +148,7 @@ function authorizeOperation(params) {
     );
   }
 
-  const tokenPath = path.join(TOKEN_DIR, `${params.operation_token}.json`);
+  const tokenPath = path.join(getTokenDir(), `${params.operation_token}.json`);
 
   if (!fs.existsSync(tokenPath)) {
     throw new ValidationError(
@@ -162,7 +171,7 @@ function authorizeOperation(params) {
   let sessionToken = null;
   if (params.create_session_token === true) {
     const sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const sessionTokenPath = path.join(TOKEN_DIR, `${sessionId}.json`);
+    const sessionTokenPath = path.join(getTokenDir(), `${sessionId}.json`);
 
     const sessionTokenData = {
       token_id: sessionId,
@@ -181,7 +190,7 @@ function authorizeOperation(params) {
   return {
     authorized: true,
     session_token: sessionToken,
-    token_path: sessionToken ? path.join(TOKEN_DIR, `${sessionToken}.json`) : null,
+    token_path: sessionToken ? path.join(getTokenDir(), `${sessionToken}.json`) : null,
     message: 'Operation authorized'
   };
 }
@@ -218,11 +227,11 @@ function getWorkflowStatus(params) {
   // List active tokens
   const tokens = [];
   try {
-    const files = fs.readdirSync(TOKEN_DIR);
+    const files = fs.readdirSync(getTokenDir());
     for (const file of files) {
       if (file.endsWith('.json')) {
         try {
-          const tokenData = JSON.parse(fs.readFileSync(path.join(TOKEN_DIR, file), 'utf8'));
+          const tokenData = JSON.parse(fs.readFileSync(path.join(getTokenDir(), file), 'utf8'));
           if (tokenData.expires_at > Date.now()) {
             tokens.push({
               token_id: tokenData.token_id,
@@ -263,11 +272,11 @@ function resetWorkflow(params) {
   if (params.cleanup_only) {
     let cleaned = 0;
     try {
-      const files = fs.readdirSync(TOKEN_DIR);
+      const files = fs.readdirSync(getTokenDir());
       for (const file of files) {
         if (file.endsWith('.json')) {
           try {
-            const tokenPath = path.join(TOKEN_DIR, file);
+            const tokenPath = path.join(getTokenDir(), file);
             const tokenData = JSON.parse(fs.readFileSync(tokenPath, 'utf8'));
             if (tokenData.expires_at < Date.now()) {
               fs.unlinkSync(tokenPath);
@@ -307,11 +316,11 @@ function resetWorkflow(params) {
   // General reset (clean up expired tokens)
   let cleaned = 0;
   try {
-    const files = fs.readdirSync(TOKEN_DIR);
+    const files = fs.readdirSync(getTokenDir());
     for (const file of files) {
       if (file.endsWith('.json')) {
         try {
-          const tokenPath = path.join(TOKEN_DIR, file);
+          const tokenPath = path.join(getTokenDir(), file);
           const tokenData = JSON.parse(fs.readFileSync(tokenPath, 'utf8'));
           if (tokenData.expires_at < Date.now()) {
             fs.unlinkSync(tokenPath);

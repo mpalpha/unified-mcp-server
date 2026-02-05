@@ -1,22 +1,38 @@
 /**
- * @deprecated This file is DEAD CODE - not used in the actual flow.
+ * Automation Tools Module (v1.7.0)
  *
- * The actual implementations live in index.js (installHooks, uninstallHooks, etc.)
- * This file was part of an earlier refactoring attempt that was never completed.
+ * Tools for managing hooks, session state, health checks, and data import:
+ * - install_hooks: Install workflow hooks for automation
+ * - uninstall_hooks: Remove installed hooks
+ * - get_session_state: Get complete session state
+ * - health_check: System health diagnostics
+ * - import_data: Import experiences from legacy servers
+ * - update_project_context: Update project-specific context
+ * - get_project_context: Get current project context
  *
- * DO NOT USE - kept for reference only. Will be removed in a future version.
- *
- * Original description:
- * Automation Tools - Tools for managing git hooks, session state, health checks, and data import.
+ * v1.7.0: Synchronized with index.js implementation
  */
 
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const { getDatabase, logActivity, MCP_DIR, TOKEN_DIR, DB_FILE } = require('../database.js');
+const { getDatabase, getTokenDir, getDbPath, logActivity } = require('../database.js');
 const { ValidationError } = require('../validation.js');
 
+// Import recordExperience for import_data - lazy load to avoid circular dependency
+let recordExperience = null;
+function getRecordExperience() {
+  if (!recordExperience) {
+    recordExperience = require('./knowledge.js').recordExperience;
+  }
+  return recordExperience;
+}
+
+/**
+ * Tool 21: install_hooks
+ * Install workflow hooks for automation
+ */
 function installHooks(params) {
   // Default to installing all hooks if not specified
   const hooks = params.hooks || ['all'];
@@ -29,13 +45,13 @@ function installHooks(params) {
     );
   }
 
-  // Available hooks
+  // Available hooks - MUST use PascalCase for Claude Code to recognize them
   const availableHooks = {
-    'user_prompt_submit': 'user-prompt-submit.cjs',
-    'pre_tool_use': 'pre-tool-use.cjs',
-    'post_tool_use': 'post-tool-use.cjs',
-    'stop': 'stop.cjs',
-    'session_start': 'session-start.cjs'
+    'UserPromptSubmit': 'user-prompt-submit.cjs',
+    'PreToolUse': 'pre-tool-use.cjs',
+    'PostToolUse': 'post-tool-use.cjs',
+    'Stop': 'stop.cjs',
+    'SessionStart': 'session-start.cjs'
   };
 
   // Determine hooks to install
@@ -44,11 +60,13 @@ function installHooks(params) {
     : hooks;
 
   // Detect Claude Code settings path
+  // v1.5.0: Default to global settings (hooks are global infrastructure)
   let settingsPath = params.settings_path;
   if (!settingsPath) {
+    // Default to global settings
     const possiblePaths = [
-      path.join(os.homedir(), '.config', 'claude', 'settings.json'),
       path.join(os.homedir(), '.claude', 'settings.json'),
+      path.join(os.homedir(), '.config', 'claude', 'settings.json'),
       path.join(os.homedir(), 'Library', 'Application Support', 'Claude', 'settings.json')
     ];
 
@@ -58,12 +76,20 @@ function installHooks(params) {
         break;
       }
     }
+
+    // If no global settings found, create in default location
+    if (!settingsPath) {
+      settingsPath = path.join(os.homedir(), '.claude', 'settings.json');
+    }
   }
 
   // Determine hook installation location
-  const hooksDir = params.project_hooks
+  // v1.5.0: Default to global hooks (project_hooks: false by default)
+  // Global hooks prevent agent modification and provide consistent behavior
+  const projectHooks = params.project_hooks === true; // Default false (global)
+  const hooksDir = projectHooks
     ? path.join(process.cwd(), '.claude', 'hooks')
-    : path.join(MCP_DIR, 'hooks');
+    : path.join(os.homedir(), '.claude', 'hooks');
 
   // Create target directory
   if (!fs.existsSync(hooksDir)) {
@@ -71,7 +97,8 @@ function installHooks(params) {
   }
 
   // Copy hook files from source directory
-  const sourceDir = path.join(__dirname, 'hooks');
+  // Note: __dirname points to src/tools/, hooks are in project root /hooks/
+  const sourceDir = path.join(__dirname, '..', '..', 'hooks');
   const installedHooks = [];
   const errors = [];
 
@@ -123,9 +150,18 @@ function installHooks(params) {
       }
 
       for (const hook of installedHooks) {
-        settings.hooks[hook.name] = {
-          command: hook.path
-        };
+        // Claude Code expects nested array structure:
+        // "HookName": [{ "hooks": [{ "type": "command", "command": "..." }] }]
+        settings.hooks[hook.name] = [
+          {
+            hooks: [
+              {
+                type: "command",
+                command: hook.path
+              }
+            ]
+          }
+        ];
       }
 
       // Ensure directory exists
@@ -169,11 +205,13 @@ function uninstallHooks(params) {
   }
 
   // Detect Claude Code settings path
+  // v1.5.0: Default to global settings (hooks are global infrastructure)
   let settingsPath = params.settings_path;
   if (!settingsPath) {
+    // Default to global settings
     const possiblePaths = [
-      path.join(os.homedir(), '.config', 'claude', 'settings.json'),
       path.join(os.homedir(), '.claude', 'settings.json'),
+      path.join(os.homedir(), '.config', 'claude', 'settings.json'),
       path.join(os.homedir(), 'Library', 'Application Support', 'Claude', 'settings.json')
     ];
 
@@ -207,28 +245,42 @@ function uninstallHooks(params) {
   if (settings.hooks) {
     for (const hookName of hooksToRemove) {
       if (settings.hooks[hookName]) {
-        const hookPath = settings.hooks[hookName].command;
+        // Handle nested structure: "HookName": [{ "hooks": [{ "type": "command", "command": "..." }] }]
+        let hookPath = null;
+        const hookEntry = settings.hooks[hookName];
+        if (Array.isArray(hookEntry) && hookEntry[0]?.hooks?.[0]?.command) {
+          hookPath = hookEntry[0].hooks[0].command;
+        } else if (hookEntry?.command) {
+          // Legacy flat structure
+          hookPath = hookEntry.command;
+        }
 
-        // Delete hook file
-        if (fs.existsSync(hookPath)) {
+        // Delete hook file if it exists
+        if (hookPath && fs.existsSync(hookPath)) {
           try {
             fs.unlinkSync(hookPath);
             removedHooks.push({ name: hookName, path: hookPath });
           } catch (e) {
             errors.push({ hook: hookName, error: `Failed to delete file: ${e.message}` });
           }
+        } else if (hookPath) {
+          // File doesn't exist but we still remove from settings
+          removedHooks.push({ name: hookName, path: hookPath, file_missing: true });
         }
 
-        // Remove from settings
+        // Remove from settings regardless of file existence
         delete settings.hooks[hookName];
-      } else {
-        errors.push({ hook: hookName, error: 'Hook not found in settings' });
       }
+      // Don't error if hook not found - makes it idempotent
     }
 
-    // Write updated settings
+    // Write updated settings if any hooks were removed
     if (settingsPath && removedHooks.length > 0) {
       try {
+        // Clean up empty hooks object
+        if (Object.keys(settings.hooks).length === 0) {
+          delete settings.hooks;
+        }
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
       } catch (e) {
         errors.push({ hook: 'settings', error: `Failed to update settings: ${e.message}` });
@@ -259,18 +311,20 @@ function getSessionState(params) {
     );
   }
 
+  const db = getDatabase();
+
   // Get reasoning session
-  const reasoningSession = getDatabase().prepare(`
+  const reasoningSession = db.prepare(`
     SELECT * FROM reasoning_sessions WHERE session_id = ?
   `).get(params.session_id);
 
   // Get reasoning thoughts
-  const thoughts = getDatabase().prepare(`
+  const thoughts = db.prepare(`
     SELECT * FROM reasoning_thoughts WHERE session_id = ? ORDER BY thought_number
   `).all(params.session_id);
 
   // Get workflow session
-  const workflowSession = getDatabase().prepare(`
+  const workflowSession = db.prepare(`
     SELECT * FROM workflow_sessions WHERE session_id = ?
   `).get(params.session_id);
 
@@ -289,12 +343,13 @@ function getSessionState(params) {
  * System health diagnostics
  */
 function healthCheck(params) {
+  const db = getDatabase();
   const issues = [];
   const warnings = [];
 
   // Check database
   try {
-    getDatabase().prepare('SELECT 1').get();
+    db.prepare('SELECT 1').get();
   } catch (e) {
     issues.push('Database connection failed');
   }
@@ -303,28 +358,29 @@ function healthCheck(params) {
   const tables = ['experiences', 'reasoning_sessions', 'reasoning_thoughts', 'workflow_sessions', 'activity_log'];
   for (const table of tables) {
     try {
-      getDatabase().prepare(`SELECT COUNT(*) as count FROM ${table}`).get();
+      db.prepare(`SELECT COUNT(*) as count FROM ${table}`).get();
     } catch (e) {
       issues.push(`Table "${table}" missing or corrupted`);
     }
   }
 
   // Check token directory
-  if (!fs.existsSync(TOKEN_DIR)) {
+  const tokenDir = getTokenDir();
+  if (!fs.existsSync(tokenDir)) {
     warnings.push('Token directory does not exist');
   }
 
   // Check FTS5
   try {
-    getDatabase().prepare('SELECT COUNT(*) FROM experiences_fts').get();
+    db.prepare('SELECT COUNT(*) FROM experiences_fts').get();
   } catch (e) {
     issues.push('FTS5 index corrupted or missing');
   }
 
   // Count records
-  const experienceCount = getDatabase().prepare('SELECT COUNT(*) as count FROM experiences').get().count;
-  const sessionCount = getDatabase().prepare('SELECT COUNT(*) as count FROM reasoning_sessions').get().count;
-  const workflowCount = getDatabase().prepare('SELECT COUNT(*) as count FROM workflow_sessions').get().count;
+  const experienceCount = db.prepare('SELECT COUNT(*) as count FROM experiences').get().count;
+  const sessionCount = db.prepare('SELECT COUNT(*) as count FROM reasoning_sessions').get().count;
+  const workflowCount = db.prepare('SELECT COUNT(*) as count FROM workflow_sessions').get().count;
 
   const healthy = issues.length === 0;
 
@@ -338,8 +394,8 @@ function healthCheck(params) {
       reasoning_sessions: sessionCount,
       workflow_sessions: workflowCount
     },
-    database_path: DB_FILE,
-    token_dir: TOKEN_DIR
+    database_path: getDbPath(),
+    token_dir: tokenDir
   };
 }
 
@@ -380,7 +436,7 @@ function importData(params) {
         }
 
         // Import (will trigger duplicate detection)
-        recordExperience({
+        getRecordExperience()({
           type: exp.type,
           domain: exp.domain,
           situation: exp.situation,
@@ -408,17 +464,167 @@ function importData(params) {
   };
 }
 
-// ============================================================================
-// UTILITY FUNCTIONS
-// ============================================================================
+/**
+ * Tool 26: update_project_context
+ * Update project-specific context (data-only, no code execution)
+ */
+function updateProjectContext(params) {
+  // Get project path
+  const projectPath = params.project_path || process.env.PWD || process.cwd();
+
+  // Validate required fields
+  if (params.enabled === undefined || params.enabled === null) {
+    throw new ValidationError(
+      'Missing required field: enabled',
+      'The enabled field is required (true or false)'
+    );
+  }
+
+  if (typeof params.enabled !== 'boolean') {
+    throw new ValidationError(
+      'Invalid enabled field type',
+      'The enabled field must be a boolean (true or false)'
+    );
+  }
+
+  // Validate data
+  if (params.summary && params.summary.length > 200) {
+    throw new ValidationError(
+      'Summary too long',
+      'Summary must be 200 characters or less'
+    );
+  }
+
+  if (params.highlights) {
+    if (!Array.isArray(params.highlights)) {
+      throw new ValidationError('Highlights must be an array');
+    }
+    if (params.highlights.length > 5) {
+      throw new ValidationError('Maximum 5 highlights allowed');
+    }
+    for (const highlight of params.highlights) {
+      if (highlight.length > 100) {
+        throw new ValidationError('Each highlight must be 100 characters or less');
+      }
+    }
+  }
+
+  if (params.reminders) {
+    if (!Array.isArray(params.reminders)) {
+      throw new ValidationError('Reminders must be an array');
+    }
+    if (params.reminders.length > 3) {
+      throw new ValidationError('Maximum 3 reminders allowed');
+    }
+    for (const reminder of params.reminders) {
+      if (reminder.length > 100) {
+        throw new ValidationError('Each reminder must be 100 characters or less');
+      }
+    }
+  }
+
+  // Validate preImplementation checklist (optional)
+  if (params.preImplementation) {
+    if (!Array.isArray(params.preImplementation)) {
+      throw new ValidationError('preImplementation must be an array');
+    }
+    for (const item of params.preImplementation) {
+      if (typeof item !== 'string') {
+        throw new ValidationError('Each preImplementation item must be a string');
+      }
+      if (item.length > 200) {
+        throw new ValidationError('Each preImplementation item must be 200 characters or less');
+      }
+    }
+  }
+
+  // Validate postImplementation checklist (optional)
+  if (params.postImplementation) {
+    if (!Array.isArray(params.postImplementation)) {
+      throw new ValidationError('postImplementation must be an array');
+    }
+    for (const item of params.postImplementation) {
+      if (typeof item !== 'string') {
+        throw new ValidationError('Each postImplementation item must be a string');
+      }
+      if (item.length > 200) {
+        throw new ValidationError('Each postImplementation item must be 200 characters or less');
+      }
+    }
+  }
+
+  // Create .claude directory in project root
+  const claudeDir = path.join(projectPath, '.claude');
+  if (!fs.existsSync(claudeDir)) {
+    fs.mkdirSync(claudeDir, { recursive: true });
+  }
+
+  // Build context object
+  const context = {
+    enabled: params.enabled,
+    summary: params.summary || null,
+    highlights: params.highlights || [],
+    reminders: params.reminders || [],
+    preImplementation: params.preImplementation || [],
+    postImplementation: params.postImplementation || [],
+    project_path: projectPath,
+    updated_at: new Date().toISOString()
+  };
+
+  // Write to .claude/project-context.json in project root
+  const contextPath = path.join(claudeDir, 'project-context.json');
+  fs.writeFileSync(contextPath, JSON.stringify(context, null, 2));
+
+  return {
+    success: true,
+    project_path: projectPath,
+    context_file: contextPath,
+    enabled: context.enabled,
+    message: context.enabled ? 'Project context enabled' : 'Project context disabled'
+  };
+}
 
 /**
- * Log activity to database
+ * Tool 27: get_project_context
+ * Get current project context configuration
  */
+function getProjectContext(params) {
+  // Get project path
+  const projectPath = params.project_path || process.env.PWD || process.cwd();
+
+  // Load context from .claude/project-context.json in project root
+  const contextPath = path.join(projectPath, '.claude', 'project-context.json');
+
+  if (!fs.existsSync(contextPath)) {
+    return {
+      exists: false,
+      project_path: projectPath,
+      message: 'No project context configured'
+    };
+  }
+
+  const context = JSON.parse(fs.readFileSync(contextPath, 'utf8'));
+
+  return {
+    exists: true,
+    project_path: projectPath,
+    context_file: contextPath,
+    enabled: context.enabled,
+    summary: context.summary,
+    highlights: context.highlights,
+    reminders: context.reminders,
+    preImplementation: context.preImplementation || [],
+    postImplementation: context.postImplementation || [],
+    updated_at: context.updated_at
+  };
+}
+
 module.exports = {
   installHooks,
   uninstallHooks,
   getSessionState,
   healthCheck,
-  importData
+  importData,
+  updateProjectContext,
+  getProjectContext
 };

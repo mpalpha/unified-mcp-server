@@ -1,17 +1,102 @@
 /**
- * Reasoning Tools
- * 
- * Tools for structured problem analysis and decision-making.
- * Implements a multi-phase reasoning workflow with context gathering and confidence tracking.
+ * Reasoning Tools Module (v1.7.0)
+ *
+ * Tools for structured reasoning workflow:
+ * - analyze_problem: Extract intent, concepts, priorities
+ * - gather_context: Synthesize context from multiple sources
+ * - reason_through: Evaluate approaches with confidence tracking
+ * - finalize_decision: Record conclusions and close sessions
+ *
+ * v1.7.0: Synchronized with index.js implementation
+ * v1.6.1: gather_context sources parameter now optional
  */
 
 const { getDatabase, logActivity } = require('../database.js');
 const { ValidationError } = require('../validation.js');
 
-// Import knowledge tools for auto-recording experiences
-const { recordExperience } = require('./knowledge.js');
+// Import recordExperience for auto-capture in finalize_decision
+// This is a circular dependency handled by module caching
+let recordExperience = null;
+function getRecordExperience() {
+  if (!recordExperience) {
+    recordExperience = require('./knowledge.js').recordExperience;
+  }
+  return recordExperience;
+}
 
+/**
+ * Helper: Detect goal from problem text
+ */
+function detectGoal(problem) {
+  const p = problem.toLowerCase();
+  if (p.includes('how') || p.includes('implement') || p.includes('build')) return 'implementation';
+  if (p.includes('why') || p.includes('explain')) return 'understanding';
+  if (p.includes('fix') || p.includes('debug') || p.includes('error')) return 'debugging';
+  if (p.includes('choose') || p.includes('select') || p.includes('which')) return 'decision';
+  return 'general';
+}
+
+/**
+ * Helper: Detect priority from problem text
+ */
+function detectPriority(problem) {
+  const p = problem.toLowerCase();
+  if (p.includes('urgent') || p.includes('asap') || p.includes('critical')) return 'high';
+  if (p.includes('when you can') || p.includes('eventually')) return 'low';
+  return 'medium';
+}
+
+/**
+ * Helper: Detect format preference from problem text
+ */
+function detectFormat(problem) {
+  const p = problem.toLowerCase();
+  if (p.includes('step by step') || p.includes('guide') || p.includes('tutorial')) return 'tutorial';
+  if (p.includes('example') || p.includes('show me')) return 'example';
+  if (p.includes('list') || p.includes('options')) return 'list';
+  return 'explanation';
+}
+
+/**
+ * Helper: Detect context from problem text
+ */
+function detectContext(problem) {
+  const p = problem.toLowerCase();
+  const contexts = [];
+  if (p.includes('react') || p.includes('vue') || p.includes('angular')) contexts.push('frontend');
+  if (p.includes('node') || p.includes('express') || p.includes('api')) contexts.push('backend');
+  if (p.includes('database') || p.includes('sql') || p.includes('mongodb')) contexts.push('database');
+  if (p.includes('test') || p.includes('testing')) contexts.push('testing');
+  return contexts.join(', ') || 'general';
+}
+
+/**
+ * Helper: Suggest local files based on problem
+ */
+function suggestLocalFiles(problem) {
+  const suggestions = [];
+  const p = problem.toLowerCase();
+
+  if (p.includes('auth') || p.includes('login') || p.includes('user')) {
+    suggestions.push('src/auth/', 'src/components/Auth', 'README.md');
+  }
+  if (p.includes('config') || p.includes('setup')) {
+    suggestions.push('package.json', 'tsconfig.json', '.env.example');
+  }
+  if (p.includes('test')) {
+    suggestions.push('test/', '__tests__/', '*.test.*');
+  }
+
+  return suggestions.length > 0 ? suggestions : ['README.md', 'docs/', 'src/'];
+}
+
+/**
+ * Tool 7: analyze_problem
+ * Extract intent, concepts, and priorities from a user request
+ */
 function analyzeProblem(params) {
+  const db = getDatabase();
+
   if (!params.problem || typeof params.problem !== 'string') {
     throw new ValidationError(
       'Missing or invalid "problem" parameter',
@@ -62,7 +147,7 @@ function analyzeProblem(params) {
   }
 
   // Create reasoning session
-  getDatabase().prepare(`
+  db.prepare(`
     INSERT INTO reasoning_sessions (session_id, problem, user_intent, phase)
     VALUES (?, ?, ?, ?)
   `).run(sessionId, params.problem, JSON.stringify(userIntent), 'analyze');
@@ -78,62 +163,13 @@ function analyzeProblem(params) {
   };
 }
 
-function detectGoal(problem) {
-  const p = problem.toLowerCase();
-  if (p.includes('how') || p.includes('implement') || p.includes('build')) return 'implementation';
-  if (p.includes('why') || p.includes('explain')) return 'understanding';
-  if (p.includes('fix') || p.includes('debug') || p.includes('error')) return 'debugging';
-  if (p.includes('choose') || p.includes('select') || p.includes('which')) return 'decision';
-  return 'general';
-}
-
-function detectPriority(problem) {
-  const p = problem.toLowerCase();
-  if (p.includes('urgent') || p.includes('asap') || p.includes('critical')) return 'high';
-  if (p.includes('when you can') || p.includes('eventually')) return 'low';
-  return 'medium';
-}
-
-function detectFormat(problem) {
-  const p = problem.toLowerCase();
-  if (p.includes('step by step') || p.includes('guide') || p.includes('tutorial')) return 'tutorial';
-  if (p.includes('example') || p.includes('show me')) return 'example';
-  if (p.includes('list') || p.includes('options')) return 'list';
-  return 'explanation';
-}
-
-function detectContext(problem) {
-  const p = problem.toLowerCase();
-  const contexts = [];
-  if (p.includes('react') || p.includes('vue') || p.includes('angular')) contexts.push('frontend');
-  if (p.includes('node') || p.includes('express') || p.includes('api')) contexts.push('backend');
-  if (p.includes('database') || p.includes('sql') || p.includes('mongodb')) contexts.push('database');
-  if (p.includes('test') || p.includes('testing')) contexts.push('testing');
-  return contexts.join(', ') || 'general';
-}
-
-function suggestLocalFiles(problem) {
-  const suggestions = [];
-  const p = problem.toLowerCase();
-
-  if (p.includes('auth') || p.includes('login') || p.includes('user')) {
-    suggestions.push('src/auth/', 'src/components/Auth', 'README.md');
-  }
-  if (p.includes('config') || p.includes('setup')) {
-    suggestions.push('package.json', 'tsconfig.json', '.env.example');
-  }
-  if (p.includes('test')) {
-    suggestions.push('test/', '__tests__/', '*.test.*');
-  }
-
-  return suggestions.length > 0 ? suggestions : ['README.md', 'docs/', 'src/'];
-}
-
 /**
  * Tool 8: gather_context
  * Collect and synthesize context from multiple sources
  */
 function gatherContext(params) {
+  const db = getDatabase();
+
   if (!params.session_id) {
     throw new ValidationError(
       'Missing "session_id" parameter',
@@ -152,16 +188,11 @@ function gatherContext(params) {
     );
   }
 
-  if (!params.sources || typeof params.sources !== 'object') {
-    throw new ValidationError(
-      'Missing or invalid "sources" parameter',
-      'Required: sources = object with experiences, local_docs, mcp_data, web_results\\n\\n' +
-      'At least one source should have data.'
-    );
-  }
+  // Default sources to empty object for incremental context gathering
+  const sources = (params.sources && typeof params.sources === 'object') ? params.sources : {};
 
   // Get session
-  const session = getDatabase().prepare(`
+  const session = db.prepare(`
     SELECT * FROM reasoning_sessions WHERE session_id = ?
   `).get(params.session_id);
 
@@ -172,11 +203,11 @@ function gatherContext(params) {
     );
   }
 
-  // Count sources
-  const experiences = params.sources.experiences || [];
-  const localDocs = params.sources.local_docs || [];
-  const mcpData = params.sources.mcp_data || {};
-  const webResults = params.sources.web_results || [];
+  // Count sources (using local variable with defaults)
+  const experiences = sources.experiences || [];
+  const localDocs = sources.local_docs || [];
+  const mcpData = sources.mcp_data || {};
+  const webResults = sources.web_results || [];
 
   const totalItems = experiences.length + localDocs.length +
                      Object.keys(mcpData).length + webResults.length;
@@ -184,10 +215,17 @@ function gatherContext(params) {
   if (totalItems === 0) {
     return {
       session_id: params.session_id,
-      synthesized_context: 'No context sources provided. Consider searching experiences or reading relevant files.',
+      status: 'awaiting_sources',
+      synthesized_context: 'No context sources provided.',
+      guidance: 'Sources are optional but PREFERRED. Call search_experiences, Read docs, or fetch web results first, then call gather_context again with sources.',
+      expected_format: {
+        experiences: '(array) Results from search_experiences',
+        local_docs: '(array) Results from Read tool',
+        mcp_data: '(object) Results from other MCP tools',
+        web_results: '(array) Results from WebSearch'
+      },
       token_count: 50,
-      priority_breakdown: { critical: 0, high: 0, medium: 0, low: 0 },
-      warning: 'Empty context - reasoning will be based on general knowledge only'
+      priority_breakdown: { critical: 0, high: 0, medium: 0, low: 0 }
     };
   }
 
@@ -241,7 +279,7 @@ function gatherContext(params) {
   }
 
   // Update session
-  getDatabase().prepare(`
+  db.prepare(`
     UPDATE reasoning_sessions
     SET phase = ?, updated_at = strftime('%s', 'now')
     WHERE session_id = ?
@@ -266,6 +304,8 @@ function gatherContext(params) {
  * Evaluate an approach or thought with confidence tracking
  */
 function reasonThrough(params) {
+  const db = getDatabase();
+
   if (!params.session_id) {
     throw new ValidationError(
       'Missing "session_id" parameter',
@@ -296,7 +336,7 @@ function reasonThrough(params) {
   }
 
   // Get session
-  const session = getDatabase().prepare(`
+  const session = db.prepare(`
     SELECT * FROM reasoning_sessions WHERE session_id = ?
   `).get(params.session_id);
 
@@ -314,7 +354,7 @@ function reasonThrough(params) {
   const scopeCreep = overlap < 2;
 
   // Insert thought
-  const result = getDatabase().prepare(`
+  const result = db.prepare(`
     INSERT INTO reasoning_thoughts (session_id, thought_number, thought, confidence, is_revision, revises_thought)
     VALUES (?, ?, ?, ?, ?, ?)
   `).run(
@@ -327,7 +367,7 @@ function reasonThrough(params) {
   );
 
   // Update session phase
-  getDatabase().prepare(`
+  db.prepare(`
     UPDATE reasoning_sessions
     SET phase = ?, updated_at = strftime('%s', 'now')
     WHERE session_id = ?
@@ -356,6 +396,8 @@ function reasonThrough(params) {
  * Record final decision/conclusion and close reasoning session
  */
 function finalizeDecision(params) {
+  const db = getDatabase();
+
   if (!params.session_id) {
     throw new ValidationError(
       'Missing "session_id" parameter',
@@ -378,7 +420,7 @@ function finalizeDecision(params) {
   }
 
   // Get session
-  const session = getDatabase().prepare(`
+  const session = db.prepare(`
     SELECT * FROM reasoning_sessions WHERE session_id = ?
   `).get(params.session_id);
 
@@ -390,7 +432,7 @@ function finalizeDecision(params) {
   }
 
   // Get all thoughts
-  const thoughts = getDatabase().prepare(`
+  const thoughts = db.prepare(`
     SELECT * FROM reasoning_thoughts
     WHERE session_id = ?
     ORDER BY thought_number
@@ -403,7 +445,7 @@ function finalizeDecision(params) {
     const userIntent = JSON.parse(session.user_intent || '{}');
 
     try {
-      const expResult = recordExperience({
+      const expResult = getRecordExperience()({
         type: 'effective',
         domain: userIntent.goal === 'debugging' ? 'Debugging' : 'Decision',
         situation: session.problem,
@@ -411,8 +453,8 @@ function finalizeDecision(params) {
         outcome: params.conclusion,
         reasoning: params.rationale || 'Systematic reasoning process',
         confidence: thoughts.length > 0 ?
-          (thoughts.reduce((sum, t) => sum + (t.confidence || 0.5), 0) / thoughts.length) : 0.7,
-        scope: 'auto'
+          (thoughts.reduce((sum, t) => sum + (t.confidence || 0.5), 0) / thoughts.length) : 0.7
+        // v1.4.0: scope parameter removed
       });
 
       if (expResult.recorded) {
@@ -425,7 +467,7 @@ function finalizeDecision(params) {
   }
 
   // Finalize session
-  getDatabase().prepare(`
+  db.prepare(`
     UPDATE reasoning_sessions
     SET phase = ?, conclusion = ?, finalized_at = strftime('%s', 'now'),
         updated_at = strftime('%s', 'now'), experience_id = ?
@@ -453,17 +495,12 @@ function finalizeDecision(params) {
   };
 }
 
-// ============================================================================
-// WORKFLOW ENFORCEMENT TOOLS (5 tools)
-// ============================================================================
-
-/**
- * Tool 11: check_compliance
- * Check if current state satisfies workflow requirements (dry-run, doesn't enforce)
- */
-
-
 module.exports = {
+  detectGoal,
+  detectPriority,
+  detectFormat,
+  detectContext,
+  suggestLocalFiles,
   analyzeProblem,
   gatherContext,
   reasonThrough,

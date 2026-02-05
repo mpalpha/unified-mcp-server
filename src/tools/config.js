@@ -1,9 +1,16 @@
 /**
- * Configuration Management Tools
+ * Configuration Management Tools (v1.7.0)
  *
- * Tools for managing server configuration, presets, and validation.
- * Supports workflow presets and configuration export/import.
+ * Tools for managing server configuration, presets, and validation:
+ * - list_presets: List available configuration presets
+ * - apply_preset: Apply a preset to current session
+ * - validate_config: Validate a configuration structure
+ * - get_config: Get current active configuration
+ * - export_config: Export configuration to file
  *
+ * Also exports BUILT_IN_PRESETS for CLI usage.
+ *
+ * v1.7.0: Synchronized with index.js implementation
  * v1.4.0: All presets stored in project-local .claude/presets/
  */
 
@@ -377,17 +384,8 @@ function exportConfig(params) {
   };
 }
 
-// ============================================================================
-// AUTOMATION TOOLS (5 tools)
-// ============================================================================
-
-/**
- * Tool 21: install_hooks
- * Install workflow hooks for automation
- */
-
-
 module.exports = {
+  BUILT_IN_PRESETS,
   listPresets,
   applyPreset,
   validateConfig,
