@@ -22,7 +22,7 @@ const os = require('os');
 const readline = require('readline');
 const crypto = require('crypto');
 
-const VERSION = '1.6.0';
+const VERSION = '1.6.1';
 
 // v1.4.0: Project-local storage in .claude/ directory
 // All data is stored per-project, no global storage
@@ -1095,13 +1095,8 @@ function gatherContext(params) {
     );
   }
 
-  if (!params.sources || typeof params.sources !== 'object') {
-    throw new ValidationError(
-      'Missing or invalid "sources" parameter',
-      'Required: sources = object with experiences, local_docs, mcp_data, web_results\\n\\n' +
-      'At least one source should have data.'
-    );
-  }
+  // Default sources to empty object for incremental context gathering
+  const sources = (params.sources && typeof params.sources === 'object') ? params.sources : {};
 
   // Get session
   const session = db.prepare(`
@@ -1115,11 +1110,11 @@ function gatherContext(params) {
     );
   }
 
-  // Count sources
-  const experiences = params.sources.experiences || [];
-  const localDocs = params.sources.local_docs || [];
-  const mcpData = params.sources.mcp_data || {};
-  const webResults = params.sources.web_results || [];
+  // Count sources (using local variable with defaults)
+  const experiences = sources.experiences || [];
+  const localDocs = sources.local_docs || [];
+  const mcpData = sources.mcp_data || {};
+  const webResults = sources.web_results || [];
 
   const totalItems = experiences.length + localDocs.length +
                      Object.keys(mcpData).length + webResults.length;
@@ -1127,10 +1122,17 @@ function gatherContext(params) {
   if (totalItems === 0) {
     return {
       session_id: params.session_id,
-      synthesized_context: 'No context sources provided. Consider searching experiences or reading relevant files.',
+      status: 'awaiting_sources',
+      synthesized_context: 'No context sources provided.',
+      guidance: 'Sources are optional but PREFERRED. Call search_experiences, Read docs, or fetch web results first, then call gather_context again with sources.',
+      expected_format: {
+        experiences: '(array) Results from search_experiences',
+        local_docs: '(array) Results from Read tool',
+        mcp_data: '(object) Results from other MCP tools',
+        web_results: '(array) Results from WebSearch'
+      },
       token_count: 50,
-      priority_breakdown: { critical: 0, high: 0, medium: 0, low: 0 },
-      warning: 'Empty context - reasoning will be based on general knowledge only'
+      priority_breakdown: { critical: 0, high: 0, medium: 0, low: 0 }
     };
   }
 

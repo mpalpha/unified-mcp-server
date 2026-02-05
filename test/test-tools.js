@@ -509,7 +509,27 @@ async function runTests() {
     assertTrue(response && response.error, 'Should return error');
   });
 
-  await test('gather_context - empty sources warning', async () => {
+  await test('gather_context - optional sources (v1.6.1 fix)', async () => {
+    // Create session first
+    const analyzeResult = await call('analyze_problem', { problem: 'Test optional sources' });
+    const sessionId = JSON.parse(parseJSONRPC(analyzeResult.stdout).find(r => r.id === 2).result.content[0].text).session_id;
+
+    // Call gather_context WITHOUT sources parameter (should work, not error)
+    const result = await call('gather_context', {
+      session_id: sessionId
+      // No sources parameter - this is the v1.6.1 fix
+    });
+
+    const responses = parseJSONRPC(result.stdout);
+    const response = responses.find(r => r.id === 2);
+    assertTrue(!response.error, 'Should NOT return error when sources omitted');
+
+    const data = JSON.parse(response.result.content[0].text);
+    assertTrue(data.status === 'awaiting_sources', 'Should have awaiting_sources status');
+    assertTrue(data.guidance.includes('optional but PREFERRED'), 'Should indicate sources are optional but preferred');
+  });
+
+  await test('gather_context - empty sources guidance', async () => {
     const analyzeResult = await call('analyze_problem', {
       problem: 'Test'
     });
@@ -525,7 +545,9 @@ async function runTests() {
     const response = responses.find(r => r.id === 2);
     const data = JSON.parse(response.result.content[0].text);
 
-    assertTrue(data.warning, 'Should have warning about empty context');
+    assertTrue(data.status === 'awaiting_sources', 'Should have awaiting_sources status');
+    assertTrue(data.guidance, 'Should have guidance on what to gather');
+    assertTrue(data.expected_format, 'Should have expected_format documentation');
   });
 
   await test('gather_context - prioritizes effective experiences', async () => {

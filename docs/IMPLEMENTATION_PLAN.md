@@ -2,7 +2,19 @@
 
 ## Version History
 
-### v1.6.0 - PLANNED (Minor Release - Memory Discoverability)
+### v1.6.1 - 2026-02-04 (Patch Release - Fix gather_context Usability)
+**Make sources parameter optional for incremental context gathering**
+- **Problem**: `gather_context` requires `sources` parameter but agents call it before gathering sources
+  - Error: `MCP error -32602: Missing or invalid 'sources' parameter`
+  - Root cause: Line 1098 validates `sources` as required object
+  - Semantic mismatch: "gather_context" implies gathering, but requires pre-gathered data
+- **Solution**: Make `sources` optional with empty defaults
+  - `sources` defaults to `{}` if not provided
+  - Empty sources returns guidance on what to gather
+  - Agents can call incrementally as they collect data from search_experiences, Read, etc.
+- **Details**: See [Fix gather_context Usability (v1.6.1)](#fix-gather_context-usability-v161) section
+
+### v1.6.0 - 2026-02-04 (Minor Release - Memory Discoverability) ✅ COMPLETE
 **Enhanced Tool Descriptions for Natural Memory Operations**
 - **Problem**: Tool names obscure the memory use case on both write and read paths
   - `record_experience` suggests "record technical patterns" not "remember what user told me"
@@ -2508,6 +2520,61 @@ npm test
 - [x] CHANGELOG: Add v1.5.1 entry
 - [x] Commit: "v1.5.1: Fix --init hook path output"
 - [x] Push: Completed 2026-02-03
+
+---
+
+## Fix gather_context Usability (v1.6.1)
+
+### Problem Statement
+
+**Agent Feedback:**
+> "MCP error -32602: Missing or invalid 'sources' parameter"
+
+**Root Cause:**
+The `gather_context` tool (line 1098) requires `sources` to be a non-empty object, but agents naturally call it before gathering sources. The tool name implies it gathers context, but actually requires pre-gathered data.
+
+```javascript
+// Current validation (line 1098)
+if (!params.sources || typeof params.sources !== 'object') {
+  throw new ValidationError('Missing or invalid "sources" parameter', ...);
+}
+```
+
+### Solution
+
+**Make `sources` optional with helpful defaults:**
+
+```javascript
+// New validation
+const sources = params.sources || {};  // Default to empty object
+
+// If no sources provided, return guidance
+if (Object.keys(sources).length === 0) {
+  return {
+    session_id: params.session_id,
+    status: 'awaiting_sources',
+    guidance: 'Call search_experiences, Read docs, or fetch web results first, then call gather_context again with sources.',
+    expected_format: {
+      experiences: '(array) Results from search_experiences',
+      local_docs: '(array) Results from Read tool',
+      mcp_data: '(object) Results from other MCP tools',
+      web_results: '(array) Results from WebSearch'
+    }
+  };
+}
+```
+
+### Cascading Updates Checklist
+
+- [x] Documentation: CHANGELOG.md updated
+- [x] Documentation: IMPLEMENTATION_PLAN.md updated (this section)
+- [x] Implementation: Update gatherContext() in index.js (sources now optional)
+- [x] Tests: Added 'gather_context - optional sources (v1.6.1 fix)' test
+- [x] Tests: Updated 'gather_context - empty sources guidance' test
+- [x] Tests: All 57/57 tests passing
+- [x] Version: Bump to 1.6.1 in package.json, index.js
+- [ ] Commit: "v1.6.1: Fix gather_context usability"
+- [ ] Push: After tests pass
 
 ---
 

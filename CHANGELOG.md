@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-02-04
+
+### Fixed - gather_context Usability
+- **Problem**: `gather_context` requires `sources` parameter but agents call it before gathering sources
+  - Error: `MCP error -32602: Missing or invalid 'sources' parameter`
+  - Root cause: Line 1098 validates `sources` as required, but tool name implies it gathers sources
+- **Solution**: Make `sources` optional with empty defaults
+  - Agents can now call `gather_context` incrementally as they collect data
+  - Empty sources returns helpful guidance instead of error
+  - Better error messaging when sources provided but malformed
+
 ## [1.6.0] - 2026-02-04
 
 ### Changed - Memory Discoverability
