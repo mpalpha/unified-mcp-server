@@ -13,7 +13,7 @@ const { colors, callMCP, parseJSONRPC, test, assertTrue, assertFalse, assertEqua
 let testDir;
 
 async function runTests() {
-  console.log(colors.bold + '\nTOOL TESTS (55 tests)' + colors.reset);
+  console.log(colors.bold + '\nTOOL TESTS (56 tests)' + colors.reset);
   console.log(colors.cyan + '======================================================================' + colors.reset);
 
   // v1.4.0: Create project-scoped test directory
@@ -24,7 +24,7 @@ async function runTests() {
   // Helper to call MCP with project context
   const call = (tool, args) => callMCP(tool, args, { cwd: testDir });
 
-  console.log(colors.bold + 'Knowledge Management Tools (19 tests)' + colors.reset);
+  console.log(colors.bold + 'Knowledge Management Tools (20 tests)' + colors.reset);
   console.log(colors.cyan + '======================================================================' + colors.reset);
 
   await test('record_experience - successful recording', async () => {
@@ -265,6 +265,53 @@ async function runTests() {
     const responses = parseJSONRPC(result.stdout);
     const response = responses.find(r => r.id === 2);
     assertTrue(response && response.error, 'Should return error');
+  });
+
+  // v1.5.3: Test update_experience with tags (Problem 1 bug fix)
+  await test('update_experience - with tags in changes', async () => {
+    // Record first
+    const uniqueId = `test-tags-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const recordResult = await call('record_experience', {
+      type: 'effective',
+      domain: 'Process',
+      situation: `Testing tags update ${uniqueId}`,
+      approach: 'Initial approach',
+      outcome: 'Good results',
+      reasoning: 'Testing tag serialization',
+      tags: ['initial', 'test']
+    });
+
+    const recordResponses = parseJSONRPC(recordResult.stdout);
+    const recordResponse = recordResponses.find(r => r.id === 2);
+    const recordData = JSON.parse(recordResponse.result.content[0].text);
+    const expId = recordData.experience_id || recordData.duplicate_id;
+
+    // Now update with new tags
+    const result = await call('update_experience', {
+      id: expId,
+      changes: {
+        outcome: 'Updated results',
+        tags: ['updated', 'v1.5.3', 'bug-fix']
+      },
+      reason: 'Testing tag serialization fix'
+    });
+
+    const responses = parseJSONRPC(result.stdout);
+    const response = responses.find(r => r.id === 2);
+    assertTrue(response && response.result, 'Should return result');
+
+    const data = JSON.parse(response.result.content[0].text);
+    assertTrue(data.updated, 'Should be updated');
+    assertTrue(data.new_id > expId, 'Should create new revision');
+
+    // Verify tags were stored correctly by getting the experience
+    const getResult = await call('get_experience', { id: data.new_id });
+    const getResponses = parseJSONRPC(getResult.stdout);
+    const getResponse = getResponses.find(r => r.id === 2);
+    const expData = JSON.parse(getResponse.result.content[0].text);
+    assertTrue(Array.isArray(expData.tags), 'Tags should be array');
+    assertContains(expData.tags, 'updated', 'Tags should contain updated');
+    assertContains(expData.tags, 'v1.5.3', 'Tags should contain v1.5.3');
   });
 
   // Tool 5: tag_experience

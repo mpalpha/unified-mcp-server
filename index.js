@@ -22,7 +22,7 @@ const os = require('os');
 const readline = require('readline');
 const crypto = require('crypto');
 
-const VERSION = '1.5.2';
+const VERSION = '1.5.3';
 
 // v1.4.0: Project-local storage in .claude/ directory
 // All data is stored per-project, no global storage
@@ -148,6 +148,7 @@ function ensureGlobalConfig() {
     'UserPromptSubmit': 'user-prompt-submit.cjs',
     'PreToolUse': 'pre-tool-use.cjs',
     'PostToolUse': 'post-tool-use.cjs',
+    'PreCompact': 'pre-compact.cjs',
     'Stop': 'stop.cjs'
   };
 
@@ -243,6 +244,8 @@ function initDatabase() {
       revision_of INTEGER,
       created_at INTEGER DEFAULT (strftime('%s', 'now')),
       updated_at INTEGER DEFAULT (strftime('%s', 'now')),
+      archived_at INTEGER DEFAULT NULL,
+      archive_reason TEXT DEFAULT NULL,
       FOREIGN KEY (revision_of) REFERENCES experiences(id)
     );
 
@@ -681,7 +684,7 @@ function updateExperience(params) {
     newData.outcome,
     newData.reasoning,
     newData.confidence,
-    newData.tags,
+    newData.tags ? JSON.stringify(newData.tags) : null,
     params.id
   );
 

@@ -2,7 +2,7 @@
 
 > Protocol-enforced learning system combining memory-augmented reasoning with workflow automation for AI assistants
 
-[![Tests](https://img.shields.io/badge/tests-182%2F182%20passing-brightgreen)](test/)
+[![Tests](https://img.shields.io/badge/tests-183%2F183%20passing-brightgreen)](test/)
 [![Node](https://img.shields.io/badge/node-%3E%3D16.0.0-brightgreen)](package.json)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
@@ -231,7 +231,7 @@ Our enforcement approach addresses:
 
 ```bash
 npm test
-# Expected: 182/182 tests passing
+# Expected: 183/183 tests passing
 ```
 
 ### Test Suites

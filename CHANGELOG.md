@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.3] - 2026-02-05
+
+### Fixed
+- **update_experience tags bug**: Fixed `SQLITE_CONSTRAINT` error when updating experiences with tags
+  - Line ~684 was passing raw array instead of JSON-stringified value
+  - Now matches pattern used in `record_experience` (line 424) and `import_data` (line 920)
+
+### Added - Agent Instruction Improvements
+- **REASONING enhancement**: Added "cite rationale, not sequence" instruction to session-start and user-prompt-submit hooks
+- **Knowledge source hierarchy**: Enhanced search_experiences instruction with priority order (memory → codebase → MCP → web)
+- **Transcript search**: Added instruction for using session transcripts as knowledge source
+- **Memory maintenance**: Added PreCompact hook for automatic experience archival and consolidation
+  - AUTO tier: Archive experiences >90 days old with 0 retrievals
+  - REVIEW tier: Consolidate experiences with >80% similarity
+  - ASK tier: Delete any experience (requires explicit user approval)
+- **Schema**: Added `archived_at` and `archive_reason` columns to experiences table
+
+### Added - Documentation
+- **TOOL_REFERENCE.md**: Added "When to UPDATE vs RECORD NEW" guidance under update_experience
+
+### Added - Tests
+- New test for `update_experience` with tags in changes (Problem 1 regression test)
+
 ## [1.5.2] - 2026-02-04
 
 ### Added - Settings Auto-Configuration

@@ -49,6 +49,31 @@ Create a revision of an experience.
 
 **Returns:** `{ updated: true, new_id: number, original_id: number }`
 
+#### When to UPDATE vs RECORD NEW
+
+**UPDATE existing experience when:**
+- Same situation, refined approach (learned better technique)
+- Correcting an error in original recording
+- Validating/invalidating with new evidence (confidence change)
+- Outcome different than originally expected
+
+**RECORD NEW experience when:**
+- Different situation (even if similar domain)
+- Fundamentally different approach to same problem
+- Building on previous learning (reference via tags, don't overwrite)
+- Different project/context
+
+**Rule of thumb:** Could someone find both useful? → Record new.
+Is the old one now wrong/incomplete? → Update.
+
+#### Experiences as Memory
+
+Experiences are the agent's memory. Record when user implies information should persist beyond the current conversation.
+
+**When recalling:** Cite the cause directly, not the source.
+- "Experience #2 said X" / "The database shows" ← Avoid
+- "Because X" (the agent remembers, not "the database told me") ← Preferred
+
 ### tag_experience
 Add tags to an experience.
 

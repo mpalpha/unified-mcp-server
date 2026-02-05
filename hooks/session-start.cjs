@@ -52,7 +52,8 @@ console.log('□ REASONING');
 console.log('  • Explain WHY, not just WHAT - match depth to complexity');
 console.log('  • Cite evidence from tool output or user\'s request');
 console.log('  • Connect decisions to discovered constraints/rules');
-console.log('  • If uncertain, state confidence level and what would increase it\n');
+console.log('  • If uncertain, state confidence level and what would increase it');
+console.log('  User rule: When explaining decisions: cite rationale ("Because [evidence/reasoning]"), not sequence. Always.\n');
 
 console.log('□ ETHICS');
 console.log('  • Consider security implications relevant to this change');

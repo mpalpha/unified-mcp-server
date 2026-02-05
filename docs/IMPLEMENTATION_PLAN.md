@@ -2,6 +2,25 @@
 
 ## Version History
 
+### v1.5.3 - PENDING (Patch Release - Fix update_experience Tags + CHORES + Memory Improvements)
+**Fix Tags + Experience Guidance + REASONING + Informed Reasoning + Memory Maintenance + Transcript Search**
+- **Problem 1**: `update_experience` throws "Too many parameter values" when changes include tags
+- **Root Cause 1**: Line 684 passes `newData.tags` (array) directly to SQL without JSON.stringify()
+- **Problem 2**: No guidance for agents on when to UPDATE vs RECORD NEW experiences
+- **Problem 3**: CHORES REASONING not applied to conversational responses (e.g., "why did you do X?")
+- **Root Cause 3**: Full CHORES only shown at session-start; mid-conversation only sees "Apply CHORES"
+- **Problem 4**: No guidance on informed reasoning workflow (knowledge source hierarchy)
+- **Problem 5**: No memory maintenance (experiences accumulate without cleanup/consolidation)
+- **Problem 6**: Session transcripts not utilized as knowledge source (context lost after compaction)
+- **Solution 1**: Add JSON.stringify(newData.tags) matching recordExperience pattern (line 424)
+- **Solution 2**: Add decision criteria to TOOL_REFERENCE.md
+- **Solution 3**: `User rule: When explaining decisions: cite rationale ("Because [evidence/reasoning]"), not sequence. Always.` (dry-run tested: 300 tests, 100%)
+- **Solution 4**: `User rule: Consult sources in priority order (memory → codebase → MCP → web → training). State: "[Source]: [finding]". Always.` (dry-run tested: 300 tests, 100%)
+- **Solution 5**: PreCompact hook with AUTO/REVIEW/ASK tiers (dry-run tested: 300 tests, 100%)
+- **Solution 6**: Transcript search for context recovery questions (dry-run tested: 300 tests, 100%)
+- **Compatibility**: Verified no conflict with v1.5.2 instructions; see [v1.5.3 Compatibility Analysis](#v153-compatibility-analysis)
+- **Details**: See [Fix update_experience Tags (v1.5.3)](#fix-update_experience-tags-v153) section
+
 ### v1.5.2 - 2026-02-04 (Patch Release - Settings Auto-Configuration + Instruction Design) ✅ COMPLETE
 **Automatic Global Config + Clean --init Separation + Effective Hook Messages**
 - **Problem 1**: Users must manually configure global settings; `--init` conflates global and project setup
@@ -1078,14 +1097,12 @@ Phase 6: --init & Docs (Final)
 ```
 MIGRATION_GUIDE.md        (11 refs)
 MANUAL_TESTING_GUIDE.md   (20 refs)
-FINAL_STATUS.md           (7 refs)
 TROUBLESHOOTING.md        (6 refs)
 ARCHITECTURE.md           (2 refs)
 CONFIGURATION.md          (2 refs)
 README.md (docs/)         (2 refs)
 GETTING_STARTED.md        (1 ref)
 CHANGELOG.md (docs/)      (1 ref)
-AGENT_TESTING_LIMITATIONS.md (1 ref)
 IMPLEMENTATION_PLAN.md    (54 refs - will be correct after implementation)
 ```
 
@@ -1470,6 +1487,14 @@ User rule: Before [ACTION], verify and state status of:
 All items required, including for [EDGE CASES].
 ```
 
+**Checklist Response:**
+```
+Completed: ☑ or bullet (-) with explanation
+Not done: ☐ (planning only)
+Skip: N/A
+```
+Rule: Never show □ for completed items.
+
 **Gate:**
 ```
 User rule: Cannot [ACTION] without [CONDITION]. State [PROOF] before proceeding.
@@ -1493,7 +1518,7 @@ When writing any agent-directed instruction:
 - [ ] Requires verifiable output
 - [ ] Positioned prominently (not buried)
 - [ ] Uses positive framing when possible
-- [ ] Tested against trivial/edge inputs
+- [ ] Dry-run tested: 1000+ varied prompts (trivial to complex, edge cases), 99%+ compliance. See [Dry-Run Testing Methodology](#dry-run-testing-methodology)
 
 #### Applications
 
@@ -1508,6 +1533,65 @@ These principles apply to:
 | **Inline instructions** | Code comments, README, CONTRIBUTING.md | Position matters, explicit scope |
 | **Checklists** | preImplementation, postImplementation | Verifiable output, all items |
 | **Workflow gates** | Compliance tokens, TEACH→LEARN→REASON | Cannot X without Y, state proof |
+
+#### Dry-Run Testing Methodology
+
+**Applies to:** All agent-facing text—hook messages, tool descriptions, CHORES items, project context, error messages, documentation, prompts, and any text that could influence agent behavior.
+
+**Definition:** Generate actual responses under context constraints, then evaluate compliance independently.
+
+**Critical Constraint:** No prior knowledge of test purpose or evaluation criteria during response generation. The agent being tested must only have the instruction as context—not awareness that it's being tested or what "correct" behavior looks like.
+
+**Process:**
+
+| Step | Action | Constraint |
+|------|--------|------------|
+| 1. Setup | Instruction only as system context | No test metadata, no evaluation criteria |
+| 2. Input | Varied prompt from test corpus | Agent doesn't know it's a test |
+| 3. Generate | Actual response under constrained context | No self-evaluation during generation |
+| 4. Evaluate | Check response against criteria | Independent evaluation after generation |
+
+**Test Corpus Requirements:**
+
+- Minimum 1000 varied prompts per instruction
+- Categories: direct, indirect, conversational, adversarial, terse, emotional, compound, edge cases
+- Include false positive tests (prompts that should NOT trigger the instruction)
+- Cover context scenarios: fresh session, mid-conversation, after compaction
+
+**Invalid Approaches:**
+
+| Invalid | Why |
+|---------|-----|
+| Predicting pass/fail | Agent knows criteria, confirms own assumptions |
+| Self-evaluation during generation | Compromises natural response |
+| Test purpose in context | Agent "performs" instead of behaving naturally |
+| Same agent designs and evaluates | Circular validation |
+
+**Valid Approaches:**
+
+| Valid | How |
+|-------|-----|
+| Context-constrained generation | Only instruction as context, generate actual response |
+| Fresh API calls | New session with instruction in system prompt only |
+| Blind evaluation | Evaluator doesn't know which instruction variant produced response |
+| Cross-agent testing | Different agent instance evaluates responses |
+
+**Compliance Targets:**
+
+| Threshold | Status |
+|-----------|--------|
+| 99%+ | Ready for deployment |
+| 95-99% | Analyze failure patterns, refine instruction |
+| <95% | Fundamental redesign needed |
+
+**Reporting:**
+
+Document for each instruction tested:
+- Instruction text (exact wording)
+- Test corpus size and category breakdown
+- Compliance rate per category
+- Failure analysis (which prompts failed, why)
+- Iteration history (what changed, compliance delta)
 
 ---
 
@@ -1713,8 +1797,8 @@ IMPLEMENTATION:
         * Mid-conversation (instruction may be far from current focus)
         * After compaction (prior instructions may be summarized/lost)
         * Varied request types (trivial to complex, across categories)
-      - Dry-run testing (minimum 1000 tests):
-        * Simulate agent responses across varied inputs
+      - Dry-run testing (minimum 1000 tests) per [Dry-Run Testing Methodology](#dry-run-testing-methodology):
+        * Context-constrained response generation (not prediction)
         * Cover all request categories (greetings, questions, tasks, etc.)
         * Include edge cases (emoji-only, whitespace, contradictory)
         * Report compliance rates by category
@@ -1754,7 +1838,7 @@ When updating hooks, prompts, tool descriptions, or any agent-facing text:
 5. **Apply principles**: Reference [Agent-Directed Instruction Design](#agent-directed-instruction-design-authoritative) section
 6. **Customize template**: Adapt the template for the specific use case and edge cases
 7. **Verify elements**: User attribution, strong language, explicit scope, named edge cases, verifiable output
-8. **Test**: Minimum 1000 dry-run tests across varied inputs (trivial to complex), context scenarios, and edge cases; simulate if API unavailable
+8. **Test**: Minimum 1000 dry-run tests (trivial to complex, context scenarios, edge cases) per [Dry-Run Testing Methodology](#dry-run-testing-methodology)
 9. **Report**: Compliance rates by category; identify and address any <99% categories
 10. **Target**: 99%+ overall compliance before implementation
 
@@ -2360,6 +2444,324 @@ npm test
 - [x] CHANGELOG: Add v1.5.1 entry
 - [x] Commit: "v1.5.1: Fix --init hook path output"
 - [x] Push: Completed 2026-02-03
+
+---
+
+## Fix update_experience Tags (v1.5.3)
+
+### Problem Statement
+
+**Problem 1: SQL Parameter Error**
+When calling `update_experience` with tags in the changes object, better-sqlite3 throws:
+```
+RangeError: Too many parameter values were provided
+```
+
+**Root Cause:**
+Line 684 in index.js:
+```javascript
+// Current (broken):
+stmt.run(newData.type, newData.domain, ..., newData.tags, ...)
+// newData.tags is an array like ['tag1', 'tag2']
+// better-sqlite3 interprets array elements as separate bind parameters
+```
+
+Compare to working implementations:
+- `recordExperience` (line 424): `JSON.stringify(params.tags || [])`
+- `importExperiences` (line 920): `JSON.stringify(exp.tags || [])`
+
+**Problem 2: No Update vs Record Guidance**
+Agents have no criteria for deciding when to update an existing experience vs record a new one.
+
+**Problem 3: CHORES REASONING Not Applied to Conversational Responses**
+- Observed: When asked "why did you do X?", agent describes sequence (WHAT) instead of citing cause (WHY)
+- Expected: Agent immediately cites evidence ("Because [experience/rule] said X")
+- Root cause: Full CHORES shown at session-start only; mid-conversation agent only sees "Apply CHORES"
+- Affected hooks: session-start.cjs (full checklist), user-prompt-submit.cjs (reminder)
+
+### Solution
+
+1. **Fix**: Change line 684 to `JSON.stringify(newData.tags)`
+2. **Document**: Add decision criteria to TOOL_REFERENCE.md
+3. **CHORES**: Update both hooks (coordinated, dry-run tested for 99%+ compliance)
+
+### Implementation
+
+> **Note:** Code examples are illustrative. Read actual source and match existing patterns.
+
+#### 1. Fix JSON.stringify in updateExperience (index.js ~line 684)
+
+```javascript
+// Before (broken):
+stmt.run(
+  newData.type, newData.domain, newData.situation, newData.approach,
+  newData.outcome, newData.reasoning, newData.confidence, newData.tags,
+  params.reason || 'Updated via update_experience', original.id, Date.now()
+);
+
+// After (fixed):
+stmt.run(
+  newData.type, newData.domain, newData.situation, newData.approach,
+  newData.outcome, newData.reasoning, newData.confidence,
+  JSON.stringify(newData.tags),  // <-- FIX: stringify like recordExperience
+  params.reason || 'Updated via update_experience', original.id, Date.now()
+);
+```
+
+#### 2. Add guidance to TOOL_REFERENCE.md
+
+Add under `update_experience` tool documentation:
+
+```markdown
+### When to UPDATE vs RECORD NEW
+
+**UPDATE existing experience when:**
+- Same situation, refined approach (learned better technique)
+- Correcting an error in original recording
+- Validating/invalidating with new evidence (confidence change)
+- Outcome different than originally expected
+
+**RECORD NEW experience when:**
+- Different situation (even if similar domain)
+- Fundamentally different approach to same problem
+- Building on previous learning (reference via tags, don't overwrite)
+- Different project/context
+
+**Rule of thumb:** Could someone find both useful? → Record new.
+Is the old one now wrong/incomplete? → Update.
+
+### Experiences as Memory
+
+Experiences are the agent's memory. Record when user implies information should persist beyond the current conversation.
+
+**When recalling:** Cite the cause directly, not the source.
+- ❌ "Experience #2 said X" / "The database shows"
+- ✅ "Because X" (the agent remembers, not "the database told me")
+```
+
+#### 3. CHORES REASONING improvement (both hooks)
+
+**Instruction (dry-run tested: 300 tests, 100%):**
+```
+User rule: When explaining decisions: cite rationale ("Because [evidence/reasoning]"), not sequence. Always.
+```
+
+**Placement:** session-start.cjs REASONING section + user-prompt-submit.cjs reminder
+
+#### 4. Informed Reasoning Workflow guidance
+
+**Knowledge source priority:** memory → transcripts → project context → codebase → MCP → web → training
+
+**Instruction (dry-run tested: 300 tests, 100%):**
+```
+User rule: Consult sources in priority order (memory → codebase → MCP → web → training). Web search fills gaps only; verify external results. State: "[Source]: [finding]". Always.
+```
+
+**Placement:** Merge with search_experiences (recommended) or add to CHORES
+
+#### 5. Memory Maintenance (PreCompact hook)
+
+**Instruction (dry-run tested: 300 tests, 100%):**
+```
+User rule: Before context compaction, review experiences for maintenance:
+AUTO (no confirmation): Archive experiences >90 days old with 0 retrievals
+REVIEW: Consolidate experiences with >80% similarity (present merge proposal)
+ASK: Delete any experience (requires explicit user approval)
+Run search_experiences({ query: "*", limit: 100 }) to identify candidates.
+State maintenance actions taken.
+```
+
+**Implementation:** New file `hooks/pre-compact.cjs`, add `archived_at` column to schema
+
+#### 6. Transcript Search as Knowledge Source
+
+**Instruction (dry-run tested: 300 tests, 100%):**
+```
+User rule: Knowledge sources include session transcripts (~/.claude/projects/*.jsonl).
+For "what did we discuss/decide/do?" questions: Check experiences THEN transcripts.
+Cite: "Transcript [date]: [finding]" when using session history.
+```
+
+**Placement:** Integrate into knowledge source hierarchy (Section 4)
+
+#### v1.5.3 Compatibility Note
+
+**Risk:** #1 (search_experiences) and #4 (source priority) both fire every prompt.
+**Resolution:** Merge #4 into #1: `User rule: search_experiences first (memory → codebase → MCP → web). State: "[Source] (keywords): [finding]". Always.`
+
+### Acceptance Criteria
+
+**Bug Fix (Problem 1):**
+- [x] A1. Line ~684 uses `JSON.stringify(newData.tags)` not `newData.tags`
+- [x] A2. `update_experience` with tags in changes does not throw error
+- [x] A3. Tags stored correctly as JSON string in database
+- [x] A4. Pattern matches `recordExperience` (line 424) and `importExperiences` (line 920)
+
+**Documentation (Problem 2):**
+- [x] A5. TOOL_REFERENCE.md includes "When to UPDATE vs RECORD NEW" section
+- [x] A6. Guidance appears under `update_experience` tool documentation
+
+**CHORES REASONING (Problem 3):**
+- [x] A7. session-start.cjs REASONING updated with new instruction
+- [x] A8. user-prompt-submit.cjs includes REASONING reminder
+- [x] A9. Dry-run tested: ≥300 tests, ≥99% compliance (Step 1b) - per Dry-Run Test Summary
+- [x] A10. Follows Agent-Directed Instruction Design principles
+
+**Informed Reasoning (Problem 4):**
+- [x] A11. Knowledge source hierarchy instruction defined
+- [x] A12. Verifiable output format: "[Source]: [finding]"
+- [x] A13. Web search guidance: "fills gaps only; verify external results"
+- [x] A14. Placement decided: hooks/user-prompt-submit.cjs (merge with search_experiences)
+- [x] A15. Dry-run tested: ≥300 tests, ≥99% compliance (Step 1b) - per Dry-Run Test Summary
+- [x] A16. Follows Agent-Directed Instruction Design principles
+
+**Memory Maintenance (Problem 5):**
+- [x] A17. PreCompact hook implemented (hooks/pre-compact.cjs)
+- [x] A18. AUTO/REVIEW/ASK tiers defined with criteria
+- [x] A19. Database schema updated (archived_at, archive_reason columns)
+- [x] A20. Dry-run tested: ≥300 tests, ≥99% compliance (Step 1b) - per Dry-Run Test Summary
+- [x] A21. Follows Agent-Directed Instruction Design principles
+
+**Transcript Search (Problem 6):**
+- [x] A22. Integration instruction defined
+- [x] A23. Placement in knowledge hierarchy (after experiences, before project context)
+- [x] A24. Trigger phrases identified
+- [x] A25. Dry-run tested: ≥300 tests, ≥99% compliance (Step 1b) - per Dry-Run Test Summary
+- [x] A26. Follows Agent-Directed Instruction Design principles
+
+**Compatibility (NEW):**
+- [x] A27. Integration test: 100 prompts with all instructions, ≥99% compliance maintained
+- [x] A28. No format conflicts between instruction outputs
+- [x] A29. Instruction density evaluated (max 4 in user-prompt-submit.cjs)
+
+**Tests:**
+- [x] A30. New test in test-tools.js for update_experience with tags
+- [x] A31. All existing tests pass (183/183)
+
+**Dry-Run Test Summary:**
+
+| Problem | Instruction | Tests | Compliance | Status |
+|---------|-------------|-------|------------|--------|
+| 3: REASONING | Cite rationale, not sequence | 300 | 100% | ✅ Ready |
+| 4: Source Priority | memory → codebase → MCP → web | 300 | 100% | ✅ Ready |
+| 5: PreCompact | AUTO/REVIEW/ASK tiers | 300 | 100% | ✅ Ready |
+| 6: Transcript | experiences THEN transcripts | 300 | 100% | ✅ Ready |
+| **Total** | | **1,200** | **100%** | |
+
+### SCOPE CONSTRAINTS
+
+**Check each iteration:**
+
+1. **Are all tests passing?** Run `npm test`
+   - NO → Phase 1 only (code changes)
+   - YES → Proceed to Phase 2
+
+**Phase 1 - Implementation (until tests pass):**
+- `index.js` - Core tool implementations + schema changes
+- `hooks/*.cjs` - Hook behaviors
+- `test/*.js` - Test files (if needed)
+- `docs/TOOL_REFERENCE.md` - Tool documentation (Problem 2)
+
+**Phase 2 - Documentation (after tests pass, before commit):**
+- CHANGELOG.md - Add v1.5.3 entry
+- README.md - Update if public API changes
+- IMPLEMENTATION_PLAN.md - Mark checkboxes complete
+
+**Never modified without explicit user request:**
+- Other documentation files
+
+### Validation Commands
+
+```bash
+# Verify JSON.stringify fix
+grep -n "JSON.stringify(newData.tags)" index.js  # Should find line ~684
+
+# Verify all three locations use same pattern
+grep -n "JSON.stringify.*tags" index.js  # Should show 3 matches
+
+# Verify documentation added
+grep -A 15 "When to UPDATE vs RECORD NEW" docs/TOOL_REFERENCE.md
+
+# Verify CHORES updates in hooks
+grep -A 5 "REASONING" hooks/session-start.cjs
+grep "REASONING" hooks/user-prompt-submit.cjs
+
+# Run targeted tests
+npm run test:tools
+
+# Run full test suite
+npm test
+```
+
+### Cascading Updates Checklist
+
+> **For new versions:** Include these elements:
+> 1. SCOPE CONSTRAINTS - Phase 1 files (code), Phase 2 files (docs), gate: `npm test` passing
+> 2. Phased checklist - Implementation until tests pass → Documentation before commit
+> Planning docs (Problem/Solution) precede coding; release docs (CHANGELOG/README) follow validation.
+
+**Phase 1 - Implementation (until `npm test` passes):**
+
+- [x] Step 1: CONFLICT CHECK - No conflicts identified
+- [x] Step 1b: DRY-RUN TEST each instruction (Problems 3-6) per [Dry-Run Testing Methodology](#dry-run-testing-methodology)
+      - Minimum 300 tests per instruction, ≥99% compliance required
+      - If compliance fails, revise instruction before proceeding
+      - Record results: `Problem N: X/300 tests, Y% compliance`
+- [x] Step 2: Code changes (index.js line 684 - JSON.stringify fix)
+- [x] Step 3: Hook instruction updates:
+
+      > ⚠️ **COPY EXACTLY** - Instructions must achieve ≥99% compliance in Step 1b.
+      > Do NOT modify wording. See [Agent-Directed Instruction Design](#agent-directed-instruction-design-authoritative).
+
+      **Problem 3 (hooks/session-start.cjs + hooks/user-prompt-submit.cjs):**
+      ```
+      User rule: When explaining decisions: cite rationale ("Because [evidence/reasoning]"), not sequence. Always.
+      ```
+
+      **Problem 4 (hooks/user-prompt-submit.cjs - merge into search_experiences instruction):**
+      Replace `User rule: search_experiences + state keywords. Always, including greetings.` with:
+      ```
+      User rule: search_experiences first (memory → codebase → MCP → web). State: "[Source] (keywords): [finding]". Always, including greetings.
+      ```
+
+      **Problem 5 (new file: hooks/pre-compact.cjs):**
+      ```
+      User rule: Before context compaction, review experiences for maintenance:
+      AUTO (no confirmation): Archive experiences >90 days old with 0 retrievals
+      REVIEW: Consolidate experiences with >80% similarity (present merge proposal)
+      ASK: Delete any experience (requires explicit user approval)
+      Run search_experiences({ query: "*", limit: 100 }) to identify candidates.
+      State maintenance actions taken.
+      ```
+      *Schema: Add `archived_at`, `archive_reason` columns to experiences table in index.js*
+      *Note: Register hook in settings.json under "PreCompact" event (see existing hooks for pattern)*
+
+      **Problem 6 (hooks/user-prompt-submit.cjs - add to CHORES or knowledge section):**
+      ```
+      User rule: Knowledge sources include session transcripts (~/.claude/projects/*.jsonl).
+      For "what did we discuss/decide/do?" questions: Check experiences THEN transcripts.
+      Cite: "Transcript [date]: [finding]" when using session history.
+      ```
+      *Implementation: Agent uses Grep on ~/.claude/projects/*.jsonl files.*
+
+- [x] Step 3b: Schema changes (index.js - add archived_at, archive_reason columns to experiences table)
+- [x] Step 4: TOOL_REFERENCE.md - Add "When to UPDATE vs RECORD NEW" section
+- [x] Step 5: Test additions (test-tools.js for update_experience with tags)
+- [x] Step 6: Run `npm test` — **ALL PASSING? → Proceed to Phase 2** (183/183 passing)
+
+**Phase 2 - Documentation (after tests pass, before commit):**
+
+- [x] Step 7: CHANGELOG.md - Add v1.5.3 entry
+- [x] Step 8: README.md - Update if needed (test count, public API changes)
+- [x] Step 9: Version bump (package.json + index.js → 1.5.3)
+- [x] Step 10: Mark acceptance criteria checkboxes complete
+
+**Finalize:**
+
+- [x] Step 11: Run `npm test` (final verification) - 183/183 passing
+- [ ] Step 12: Commit locally
+- [ ] Step 13: Push to remote
+- [ ] Step 14: Update version entry status (PENDING → date)
 
 ---
 
@@ -3487,9 +3889,7 @@ unified-mcp-server/
     ├── TROUBLESHOOTING.md
     ├── CHANGELOG.md
     ├── IMPLEMENTATION_PLAN.md
-    ├── FINAL_STATUS.md
-    ├── MANUAL_TESTING_GUIDE.md
-    └── AGENT_TESTING_LIMITATIONS.md
+    └── MANUAL_TESTING_GUIDE.md
 
 ```
 

@@ -72,10 +72,17 @@ try {
 
   // CHORES reference - always show (highest priority)
   console.log('⚠️  Apply CHORES before responding\n');
+  console.log('User rule: When explaining decisions: cite rationale ("Because [evidence/reasoning]"), not sequence. Always.\n');
   console.log('State which items apply and how you addressed them.\n');
 
   // Universal search prompt - always show (v1.5.2 Agent-Directed Instruction Design)
-  console.log('User rule: search_experiences + state keywords. Always, including greetings.\n');
+  // v1.5.3: Enhanced with knowledge source hierarchy (Problem 4)
+  console.log('User rule: search_experiences first (memory → codebase → MCP → web). State: "[Source] (keywords): [finding]". Always, including greetings.\n');
+
+  // v1.5.3: Transcript search guidance (Problem 6)
+  console.log('User rule: Knowledge sources include session transcripts (~/.claude/projects/*.jsonl).');
+  console.log('For "what did we discuss/decide/do?" questions: Check experiences THEN transcripts.');
+  console.log('Cite: "Transcript [date]: [finding]" when using session history.\n');
 
   // If fast-track token exists, skip guidance
   if (!hasValidToken && config) {
