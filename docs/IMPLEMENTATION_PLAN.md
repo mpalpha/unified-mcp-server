@@ -560,9 +560,9 @@ HOOKS: Stay bundled with package (paths updated to read from .claude/)
 | Git conflicts (binary DB) | 🟡 Medium | ⚠️ Document: recommend `.gitignore` |
 | Concurrent access | 🟡 Medium | ✅ SQLite WAL mode handles this |
 | Export tool scope parameter | 🟡 Medium | ✅ Remove - always exports current project |
-| Pagination for large DBs | 🟢 Low | ⚠️ Document as future enhancement |
-| Nested project handling | 🟢 Low | ⚠️ Document: uses immediate cwd only |
-| No global learning | 🟢 Low | ⚠️ Document: use export/import for sharing |
+| Pagination for large DBs | 🟢 Low | ✅ Accepted: use offset/limit in search_experiences |
+| Nested project handling | 🟢 Low | ✅ Accepted: uses immediate cwd only |
+| No global learning | 🟢 Low | ✅ Accepted: use export/import for sharing |
 | Hook path updates | 🟡 Medium | ✅ ~10 lines across 4 hooks: read from `.claude/` not `~/.unified-mcp/` |
 | Hook verbiage | 🟢 Low | ✅ No changes - default prompts/reminders stay same |
 | Hook customization | 🟢 Low | ✅ Via `project-context.json` (additive to defaults) |
@@ -620,12 +620,12 @@ All 31 issues were reviewed and the following solutions were approved:
 8. **migrate-experiences.js**: Update or deprecate (has own detectScope, schema)
 9. **Presets directory**: Built-in presets stay in package, custom presets go to `.claude/presets/`
 
-**🟢 Low Priority Issues (Documented):**
-1. **Pagination**: Document as future enhancement for large databases
-2. **Nested projects**: Document behavior (uses immediate cwd only, no parent traversal)
-3. **No global learning**: Document trade-off (use export/import for cross-project sharing)
-4. **Hook verbiage**: No changes needed - default prompts/reminders stay same
-5. **Hook customization**: Via `project-context.json` (additive to bundled defaults)
+**🟢 Low Priority Issues (Resolved):**
+1. **Pagination**: ✅ Use offset/limit parameters in search_experiences
+2. **Nested projects**: ✅ Uses immediate cwd only (intentional design)
+3. **No global learning**: ✅ Use export/import for cross-project sharing (intentional design)
+4. **Hook verbiage**: ✅ No changes needed - default prompts/reminders stay same
+5. **Hook customization**: ✅ Via `project-context.json` (additive to bundled defaults)
 
 **Test Infrastructure:**
 - Add `test/test-utils.js` with `createTestProject()` and `cleanupTestProject()`
@@ -924,10 +924,10 @@ The server code changes internally, but:
 - **Mental Model**: One location to understand and manage
 - **Git-friendly**: `.claude/` can be gitignored
 
-**Limitations (Accepted Trade-offs):**
-- **No global learning**: Each project is isolated (workaround: export/import)
-- **No cross-project search**: Can only search current project
-- **Requires project context**: Must run from valid project directory
+**Design Decisions (Intentional):**
+- **Project isolation**: Each project has its own experiences (use export/import for sharing)
+- **Project-scoped search**: Searches current project only (prevents context pollution)
+- **Project context required**: Must run from valid project directory (ensures data locality)
 
 **Cross-Project Sharing Workaround:**
 ```bash
