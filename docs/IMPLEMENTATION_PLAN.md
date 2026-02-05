@@ -20,6 +20,21 @@
 - **Testing**: All 140+ tests must pass after each module extraction
 - **Details**: See [Codebase Modularization (v1.7.0)](#codebase-modularization-v170) section
 
+### v1.7.1 - 2026-02-05 (Patch Release - Fix apply_preset Config Persistence)
+**MCP tool apply_preset doesn't persist to config.json, breaking hook enforcement**
+- **Problem**: `apply_preset` MCP tool only updates DB session, not `.claude/config.json`
+  - Hooks read from `.claude/config.json` to determine gate requirements (user-prompt-submit.cjs:88)
+  - Without config.json, hooks only show "User rule:" hints, NOT gate enforcement ("DO NOT call Read, Glob...")
+  - Root cause: CLI `--preset` writes config.json (cli.js:121-122), but MCP tool doesn't
+- **Solution**: Update `apply_preset` in `src/tools/config.js` to also write `.claude/config.json`
+  - Add `fs.writeFileSync()` to persist preset config to disk
+  - Align MCP tool behavior with CLI `--preset` flag behavior
+- **Cascading Updates**:
+  - `src/tools/config.js` - Add config.json write in applyPreset()
+  - `test/test-config.js` - Add test verifying config.json persistence
+  - `CHANGELOG.md` - Document fix
+- **Testing**: `npm run test:config` + full suite before push
+
 ### v1.6.1 - 2026-02-04 (Patch Release - Fix gather_context Usability)
 **Make sources parameter optional for incremental context gathering**
 - **Problem**: `gather_context` requires `sources` parameter but agents call it before gathering sources

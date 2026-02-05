@@ -7,21 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.1] - 2026-02-05
+
+### Fixed - apply_preset Config Persistence
+- **Problem**: `apply_preset` MCP tool doesn't persist to `.claude/config.json`
+  - Hooks read from config.json to show gate enforcement ("DO NOT call Read, Glob...")
+  - Without config.json, agents skip workflow steps
+- **Solution**: Update `apply_preset` to write config.json (align with CLI `--preset` behavior)
+
 ## [1.7.0] - 2026-02-04
 
-### Changed - Codebase Modularization (Phase 1)
-- **Problem**: `index.js` was 4017 lines - difficult to maintain, navigate, and test
-- **Solution**: Extract core functionality to `src/` modules (Phase 1 complete)
+### Changed - Complete Codebase Modularization
+- **Problem**: `index.js` was 3676 lines - difficult to maintain, navigate, and test
+- **Solution**: Extract all tool implementations to `src/` modules
   - `src/validation.js` - ValidationError class, validators, diceCoefficient (~105 lines)
   - `src/database.js` - Database initialization, schema, path helpers, logActivity (~340 lines)
-- **Result**: `index.js` reduced from 4017 to 3672 lines (9% reduction, 345 lines extracted)
-- **No breaking changes**: All 28 tools work identically, all 140+ tests pass
+  - `src/cli.js` - CLI commands (--help, --version, --init, --preset, --health) (~560 lines)
+  - `src/tools/knowledge.js` - 7 knowledge management tools (~500 lines)
+  - `src/tools/reasoning.js` - 4 reasoning tools (~450 lines)
+  - `src/tools/workflow.js` - 5 workflow enforcement tools (~340 lines)
+  - `src/tools/config.js` - 5 configuration tools + BUILT_IN_PRESETS (~380 lines)
+  - `src/tools/automation.js` - 7 automation tools (~630 lines)
+- **Result**: `index.js` reduced from 3676 to 716 lines (80.5% reduction)
+- **No breaking changes**: All 28 tools work identically, all 184 tests pass
 
 ### Technical Details
 - Modules use CommonJS (`module.exports`) for Node.js compatibility
-- Database module includes singleton pattern for db connection
-- All path functions, ensureProjectContext, ensureGlobalConfig moved to modules
-- Future phases will extract tool implementations (knowledge, reasoning, workflow, config, automation)
+- Database module uses singleton pattern with `getDatabase()` function
+- Lazy loading pattern for circular dependencies (e.g., `getRecordExperience()`)
+- Path resolution uses `__dirname` for proper module-relative paths
 
 ## [1.6.1] - 2026-02-04
 

@@ -64,7 +64,7 @@ const {
   resetWorkflow
 } = require('./src/tools/workflow');
 
-const VERSION = '1.7.0';
+const VERSION = '1.7.1';
 
 // v1.7.0: Database and validation functions imported from modules
 // Legacy constants for backward compatibility

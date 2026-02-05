@@ -223,13 +223,19 @@ function applyPreset(params) {
     logActivity('preset_applied', params.session_id, { preset: params.preset_name });
   }
 
+  // v1.7.1: Always persist preset to .claude/config.json for hook enforcement
+  // This aligns MCP tool behavior with CLI --preset flag (cli.js:121-122)
+  const configPath = path.join(getProjectDir(), 'config.json');
+  fs.writeFileSync(configPath, JSON.stringify(preset, null, 2));
+
   return {
     applied: true,
     preset_name: params.preset_name,
     session_id: params.session_id || null,
     gates: preset.gates,
     enforcement: preset.enforcement,
-    message: `Preset "${params.preset_name}" applied successfully`
+    config_path: configPath,
+    message: `Preset "${params.preset_name}" applied successfully and saved to ${configPath}`
   };
 }
 

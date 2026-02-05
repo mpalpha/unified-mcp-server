@@ -12,7 +12,7 @@ const { colors, callMCP, parseJSONRPC, test, assertTrue, assertEquals, getStats,
 let testDir;
 
 async function runTests() {
-  console.log(colors.bold + '\nCONFIGURATION TESTS (15 tests)' + colors.reset);
+  console.log(colors.bold + '\nCONFIGURATION TESTS (16 tests)' + colors.reset);
   console.log(colors.cyan + '======================================================================' + colors.reset);
 
   // v1.4.0: Create project-scoped test directory
@@ -101,6 +101,25 @@ async function runTests() {
 
     const data = JSON.parse(parseJSONRPC(result.stdout).find(r => r.id === 2).result.content[0].text);
     assertEquals(data.enforcement, 'lenient', 'Minimal should have lenient enforcement');
+  });
+
+  // v1.7.1: Test config.json persistence
+  await test('apply_preset - persists to config.json', async () => {
+    const result = await call('apply_preset', {
+      preset_name: 'three-gate'
+    });
+
+    const data = JSON.parse(parseJSONRPC(result.stdout).find(r => r.id === 2).result.content[0].text);
+    assertTrue(data.config_path, 'Should return config_path');
+
+    // Verify file was created
+    const configPath = path.join(testDir, '.claude', 'config.json');
+    assertTrue(fs.existsSync(configPath), 'config.json should exist');
+
+    // Verify content
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    assertTrue(config.gates, 'Config should have gates');
+    assertTrue(config.gates.learn, 'Config should have learn gate');
   });
 
   // ===== validate_config tests =====
