@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-02-04
+
+### Changed - Codebase Modularization (Phase 1)
+- **Problem**: `index.js` was 4017 lines - difficult to maintain, navigate, and test
+- **Solution**: Extract core functionality to `src/` modules (Phase 1 complete)
+  - `src/validation.js` - ValidationError class, validators, diceCoefficient (~105 lines)
+  - `src/database.js` - Database initialization, schema, path helpers, logActivity (~340 lines)
+- **Result**: `index.js` reduced from 4017 to 3672 lines (9% reduction, 345 lines extracted)
+- **No breaking changes**: All 28 tools work identically, all 140+ tests pass
+
+### Technical Details
+- Modules use CommonJS (`module.exports`) for Node.js compatibility
+- Database module includes singleton pattern for db connection
+- All path functions, ensureProjectContext, ensureGlobalConfig moved to modules
+- Future phases will extract tool implementations (knowledge, reasoning, workflow, config, automation)
+
 ## [1.6.1] - 2026-02-04
 
 ### Fixed - gather_context Usability

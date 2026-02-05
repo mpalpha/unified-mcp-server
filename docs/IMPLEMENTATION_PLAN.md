@@ -2,6 +2,24 @@
 
 ## Version History
 
+### v1.7.0 - 2026-02-04 (Minor Release - Codebase Modularization)
+**Extract tool implementations from index.js to src/ modules**
+- **Problem**: `index.js` is 4017 lines - difficult to maintain, navigate, and test
+- **Solution**: Complete the modularization started in earlier refactoring attempt
+  - Wire up existing `src/` modules (currently marked "DEAD CODE")
+  - Update modules to match current index.js implementations
+  - Reduce index.js to ~800 lines (routing + initialization only)
+- **Modules**:
+  - `src/database.js` - Database initialization, queries, schema
+  - `src/validation.js` - ValidationError class, validators
+  - `src/tools/knowledge.js` - 7 knowledge tools (record, search, get, update, tag, export, import)
+  - `src/tools/reasoning.js` - 4 reasoning tools (analyze, gather, reason, finalize)
+  - `src/tools/workflow.js` - 5 workflow tools (check, verify, authorize, status, reset)
+  - `src/tools/config.js` - 5 config tools (presets, validate, get, export, project context)
+  - `src/tools/automation.js` - 4 automation tools (install, uninstall, session, health)
+- **Testing**: All 140+ tests must pass after each module extraction
+- **Details**: See [Codebase Modularization (v1.7.0)](#codebase-modularization-v170) section
+
 ### v1.6.1 - 2026-02-04 (Patch Release - Fix gather_context Usability)
 **Make sources parameter optional for incremental context gathering**
 - **Problem**: `gather_context` requires `sources` parameter but agents call it before gathering sources
@@ -2573,8 +2591,8 @@ if (Object.keys(sources).length === 0) {
 - [x] Tests: Updated 'gather_context - empty sources guidance' test
 - [x] Tests: All 57/57 tests passing
 - [x] Version: Bump to 1.6.1 in package.json, index.js
-- [ ] Commit: "v1.6.1: Fix gather_context usability"
-- [ ] Push: After tests pass
+- [x] Commit: "v1.6.1: Fix gather_context usability"
+- [ ] Push: After review
 
 ---
 

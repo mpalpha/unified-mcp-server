@@ -1,28 +1,53 @@
-# ⚠️ DEAD CODE - DO NOT USE
+# src/ Directory - Active Modules (v1.7.0)
 
-This entire `src/` directory contains **orphaned code** that is NOT used in the application.
+This directory contains active, imported modules used by `index.js`.
 
-The actual implementations live in `index.js` (main file).
+## Module Structure
 
-## Why does this exist?
+### Core Modules
 
-This was part of an earlier refactoring attempt to modularize the codebase that was never completed. The code here may be outdated and does not match the actual behavior of the server.
+| File | Purpose | Lines |
+|------|---------|-------|
+| `validation.js` | ValidationError class, validators, diceCoefficient | ~105 |
+| `database.js` | Database init, schema, path helpers, logActivity | ~340 |
 
-## Files
+### Tool Modules (Future)
 
-- `database.js` - Unused database module
-- `validation.js` - Unused validation module
-- `tools/` - Unused tool implementations (automation, config, knowledge, reasoning, workflow)
+The following modules exist but are NOT yet wired up (planned for future extraction):
 
-## What to do
+| File | Purpose | Status |
+|------|---------|--------|
+| `tools/knowledge.js` | 7 knowledge management tools | Not wired |
+| `tools/reasoning.js` | 4 reasoning tools | Not wired |
+| `tools/workflow.js` | 5 workflow enforcement tools | Not wired |
+| `tools/config.js` | 5 configuration tools | Not wired |
+| `tools/automation.js` | 4 automation tools | Not wired |
 
-- **DO NOT import** from this directory
-- **DO NOT modify** these files expecting changes to take effect
-- These files may be removed in a future version
+## What's Imported
 
-## Actual code location
+`index.js` imports the following from modules:
 
-All working code is in:
-- `index.js` - Main server with all tool implementations
-- `hooks/` - Claude Code hook files
-- `bootstrap.js` - NPX entry point
+```javascript
+// From ./src/validation.js
+const { ValidationError, diceCoefficient, getBigrams } = require('./src/validation');
+
+// From ./src/database.js
+const {
+  getProjectDir, getDbPath, getTokenDir, getConfigPath,
+  ensureProjectContext, ensureGlobalConfig,
+  initDatabase, getDatabase, logActivity
+} = require('./src/database');
+```
+
+## Progress
+
+- v1.7.0: Extracted validation and database modules (~345 lines)
+- index.js reduced from 4017 → 3672 lines (9% reduction)
+- All 140+ tests pass
+
+## Next Steps
+
+1. Extract knowledge tools to `tools/knowledge.js`
+2. Extract reasoning tools to `tools/reasoning.js`
+3. Continue with remaining tool modules
+4. Target: index.js < 800 lines (~80% reduction)

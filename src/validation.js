@@ -1,15 +1,19 @@
 /**
  * Validation Module - Custom errors and validation helpers
+ *
+ * v1.7.0: Synchronized with index.js
  */
 
 /**
  * Custom error for validation failures
+ * Matches JSON-RPC error code for Invalid params
  */
 class ValidationError extends Error {
-  constructor(message, hint) {
+  constructor(message, details) {
     super(message);
     this.name = 'ValidationError';
-    this.hint = hint;
+    this.code = -32602; // Invalid params (JSON-RPC)
+    this.details = details || message;
   }
 }
 
@@ -22,6 +26,11 @@ const VALID_DOMAINS = ['Tools', 'Protocol', 'Communication', 'Process', 'Debuggi
  * Valid workflow phases
  */
 const VALID_PHASES = ['teach', 'learn', 'reason'];
+
+/**
+ * Valid experience types
+ */
+const VALID_TYPES = ['effective', 'ineffective'];
 
 /**
  * Validate domain parameter
@@ -39,7 +48,7 @@ function validateDomain(domain) {
  * Validate type parameter
  */
 function validateType(type) {
-  if (!type || !['effective', 'ineffective'].includes(type)) {
+  if (!type || !VALID_TYPES.includes(type)) {
     throw new ValidationError(
       'Missing or invalid "type" parameter',
       'Required: type = "effective" | "ineffective"\n\nExample: type: "effective"'
@@ -60,29 +69,36 @@ function validatePhase(phase) {
 }
 
 /**
- * Calculate text similarity (simple approach)
+ * Calculate Dice coefficient similarity between two strings
  */
-function calculateSimilarity(text1, text2) {
-  const normalize = (text) => text.toLowerCase().replace(/\s+/g, ' ').trim();
-  const t1 = normalize(text1);
-  const t2 = normalize(text2);
+function diceCoefficient(str1, str2) {
+  const bigrams1 = getBigrams(str1);
+  const bigrams2 = getBigrams(str2);
 
-  if (t1 === t2) return 1.0;
+  const intersection = bigrams1.filter(b => bigrams2.includes(b)).length;
+  return (2.0 * intersection) / (bigrams1.length + bigrams2.length);
+}
 
-  const words1 = new Set(t1.split(' '));
-  const words2 = new Set(t2.split(' '));
-  const intersection = new Set([...words1].filter(x => words2.has(x)));
-  const union = new Set([...words1, ...words2]);
-
-  return intersection.size / union.size;
+/**
+ * Get bigrams from a string for similarity calculation
+ */
+function getBigrams(str) {
+  const normalized = str.toLowerCase().replace(/\s+/g, ' ').trim();
+  const bigrams = [];
+  for (let i = 0; i < normalized.length - 1; i++) {
+    bigrams.push(normalized.substring(i, i + 2));
+  }
+  return bigrams;
 }
 
 module.exports = {
   ValidationError,
   VALID_DOMAINS,
   VALID_PHASES,
+  VALID_TYPES,
   validateDomain,
   validateType,
   validatePhase,
-  calculateSimilarity
+  diceCoefficient,
+  getBigrams
 };
