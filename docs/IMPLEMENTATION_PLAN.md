@@ -1600,29 +1600,45 @@ These principles apply to:
 
 **Mock Dry-Run Test Pattern (v1.6.0):**
 
-For tool descriptions, hook messages, or any agent instruction, create a test file that:
-1. Defines test cases with: prompt, expectedBehavior, wouldDo, reasoning
-2. Records what the agent WOULD do given only the instruction and prompt (fresh context)
-3. Validates the instruction contains required keywords for discoverability
-4. Runs as part of automated test suite (no API calls required)
+For tool descriptions, hook messages, or any agent instruction, create a test file that VALIDATES (not just documents):
+
+1. **Extract actual instructions** from source code
+2. **Validate required keywords** exist in instructions
+3. **Simulate selection** by matching user intent patterns against instruction keywords
+4. **Compare computed selection** to expected selection
 
 Example: `test/test-tool-description-dryrun.js`
 ```javascript
+// Test cases: prompt + expected behavior
 const TEST_CASES = [
-  {
-    prompt: 'Remember that the API key is stored in .env',
-    expectedTool: 'record_experience',
-    wouldSelect: 'record_experience',  // What agent WOULD select with fresh context
-    reasoning: 'User says "remember" - matches description keyword'
-  }
+  { prompt: 'Remember that X is Y', expected: 'record_experience' },
+  { prompt: 'What did I tell you about X?', expected: 'search_experiences' },
 ];
+
+// Simulate fresh-context selection
+function simulateSelection(prompt, descriptions) {
+  // 1. Identify user intent from prompt patterns
+  const hasWriteIntent = /^remember\b/.test(prompt.toLowerCase());
+  const hasReadIntent = /what did i tell you/.test(prompt.toLowerCase());
+
+  // 2. Check if descriptions have matching keywords
+  const recordHasKeyword = descriptions.record_experience.includes('remember');
+  const searchHasKeyword = descriptions.search_experiences.includes('recall');
+
+  // 3. Selection requires BOTH intent match AND keyword presence
+  if (hasWriteIntent && recordHasKeyword) return 'record_experience';
+  if (hasReadIntent && searchHasKeyword) return 'search_experiences';
+  return 'none';  // FAILS if keywords missing
+}
 ```
 
+**Key: Tests FAIL if instructions missing keywords** - not just document expected behavior.
+
 This approach:
-- Doesn't require API access or external infrastructure
-- Can be run in CI/CD pipelines
-- Documents expected behavior with reasoning
-- Validates instruction design without circular self-evaluation
+- Validates instruction design, not just documents it
+- Fails when descriptions missing required keywords
+- Runs as part of automated test suite (no API calls)
+- See methodology: `~/Desktop/mock-dryrun-test-methodology.md`
 
 **Compliance Targets:**
 
