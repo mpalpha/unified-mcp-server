@@ -2,6 +2,27 @@
 
 ## Version History
 
+### v1.6.0 - PLANNED (Minor Release - Memory Discoverability)
+**Enhanced Tool Descriptions for Natural Memory Operations**
+- **Problem**: Tool names obscure the memory use case on both write and read paths
+  - `record_experience` suggests "record technical patterns" not "remember what user told me"
+  - `search_experiences` suggests "search technical patterns" not "recall what I was told"
+  - Users asking "what did I tell you to remember?" find agents calling wrong tools or none
+- **Research**: [Anthropic Tool Docs](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview): "The description field is vital... Use keywords the LLM might associate with the task"
+- **Research**: [MCP SEP-986](https://github.com/modelcontextprotocol/modelcontextprotocol/issues/986): Single responsibility per tool; aliases for deprecation, not discoverability
+- **Solution**: Enhanced tool descriptions (NOT new wrapper tools)
+  - `record_experience` description adds: "Also use for 'remember X' requests - stores user-directed memories for later recall"
+  - `search_experiences` description adds: "Also use for 'what did I tell you?' or 'recall X' - retrieves stored memories and past experiences"
+- **Rationale**:
+  - Aligns with MCP single responsibility principle (no duplicate tools)
+  - Uses mechanism Claude relies on most (descriptions > names per Anthropic docs)
+  - Zero new tools (stays at 28)
+  - Minimal code change (~2 lines)
+- **Requires**: Dry-run testing per [Dry-Run Testing Methodology](#dry-run-testing-methodology)
+  - Test corpus: "remember X", "what did I tell you?", "recall X", conversational memory requests
+  - Target: 99%+ compliance before implementation
+- **Details**: See [Memory Discoverability (v1.6.0)](#memory-discoverability-v160) section below
+
 ### v1.5.3 - 2026-02-05 (Patch Release - Fix update_experience Tags + CHORES + Memory Improvements) ✅ COMPLETE
 **Fix Tags + Experience Guidance + REASONING + Informed Reasoning + Memory Maintenance + Transcript Search**
 - **Problem 1**: `update_experience` throws "Too many parameter values" when changes include tags
@@ -2444,6 +2465,95 @@ npm test
 - [x] CHANGELOG: Add v1.5.1 entry
 - [x] Commit: "v1.5.1: Fix --init hook path output"
 - [x] Push: Completed 2026-02-03
+
+---
+
+## Memory Discoverability (v1.6.0)
+
+### Problem Statement
+
+**User Feedback (from agent testing):**
+> "When someone asks 'what did I tell you to remember?' - I need to use search_experiences, but that name suggests 'search technical patterns' not 'recall things you were told to remember.' A consistent naming scheme would help: remember → save to memory, recall → search memory. Or aliases that map to the existing tools..."
+
+**Root Cause:**
+Tool names (`record_experience`, `search_experiences`) are optimized for technical pattern storage, not conversational memory use cases. Users expect natural language like "remember this" and "what did I tell you?" to work.
+
+### Research Findings
+
+| Source | Finding | Implication |
+|--------|---------|-------------|
+| [Anthropic Tool Docs](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview) | "The description field is vital... Use keywords the LLM might associate with the task" | Descriptions > names for tool selection |
+| [MCP SEP-986](https://github.com/modelcontextprotocol/modelcontextprotocol/issues/986) | Single responsibility per tool; aliases for deprecation only | Don't add wrapper tools |
+| [MCP Best Practices](https://modelcontextprotocol.info/docs/best-practices/) | "Each tool should have one clear, well-defined purpose" | Thin wrappers violate this |
+
+**Conclusion:** Enhance descriptions with memory keywords, not add duplicate tools.
+
+### Solution
+
+**Current descriptions (index.js):**
+```javascript
+// record_experience (line ~3495)
+description: 'Record a working knowledge pattern (effective or ineffective approach)'
+
+// search_experiences (line ~3515)
+description: 'Search for relevant working knowledge using natural language queries with FTS5 + BM25 ranking'
+```
+
+**Enhanced descriptions:**
+```javascript
+// record_experience
+description: 'Record a working knowledge pattern (effective or ineffective approach). Also use for "remember X" requests - stores user-directed memories for later recall.'
+
+// search_experiences
+description: 'Search for relevant working knowledge using natural language queries with FTS5 + BM25 ranking. Also use for "what did I tell you?" or "recall X" - retrieves stored memories and past experiences.'
+```
+
+### Dry-Run Test Corpus
+
+Per [Dry-Run Testing Methodology](#dry-run-testing-methodology), test with 1000+ prompts including:
+
+**Memory-specific prompts (must select correct tool):**
+- "Remember that the API key is stored in .env"
+- "What did I tell you about the database schema?"
+- "Recall what I said about error handling"
+- "Can you remember this for later: [content]"
+- "What did I ask you to remember?"
+
+**Non-memory prompts (must NOT incorrectly trigger memory path):**
+- "Search for authentication patterns"
+- "Record this approach: [technical pattern]"
+- "Find experiences related to caching"
+
+**Target:** 99%+ compliance on memory prompts selecting correct tool.
+
+### Acceptance Criteria
+
+- [ ] `record_experience` description includes "remember" keywords
+- [ ] `search_experiences` description includes "recall", "what did I tell you" keywords
+- [ ] Dry-run tested: 1000+ prompts, 99%+ compliance
+- [ ] No new tools added (stays at 28)
+- [ ] Existing functionality unchanged
+
+### Implementation Checklist
+
+```
+PRE-IMPLEMENTATION:
+- [ ] Step 1: Dry-run test current descriptions (baseline)
+- [ ] Step 2: Draft enhanced descriptions following Agent-Directed Instruction Design
+- [ ] Step 3: Dry-run test enhanced descriptions (1000+ prompts)
+- [ ] Step 4: Verify 99%+ compliance; revise if needed
+
+IMPLEMENTATION:
+- [ ] Step 5: Update index.js line ~3495 (record_experience description)
+- [ ] Step 6: Update index.js line ~3515 (search_experiences description)
+- [ ] Step 7: Update TOOL_REFERENCE.md with enhanced descriptions
+- [ ] Step 8: Run full test suite
+
+FINALIZE:
+- [ ] Step 9: Version bump (1.5.3 → 1.6.0)
+- [ ] Step 10: Update CHANGELOG.md
+- [ ] Step 11: Commit and push
+```
 
 ---
 
