@@ -2,7 +2,8 @@
 
 ## Version History
 
-### v1.8.3 - TBD (Patch Release - Auto-Sync Project Hook Registrations)
+### v1.8.3 - 2026-02-06 (Patch Release - Auto-Sync Project Hook Registrations)
+**Status**: ✅ COMPLETE
 **Auto-sync project hook registrations on version change**
 
 - **Problem**: VSCode reads hooks from `.claude/settings.local.json` (project-level), but `--install` only writes to `~/.claude/settings.json` (global). Hooks never fire in VSCode because project-level settings aren't configured.
