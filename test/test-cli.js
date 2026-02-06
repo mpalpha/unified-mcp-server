@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * CLI Tests (v1.8.1)
+ * CLI Tests (v1.8.2)
  * Tests for CLI features: --install, hook subcommands, TTY detection, post-install prompt
- * v1.8.1: Added tests for post-install prompt file creation
+ * v1.8.2: Added tests for post-install prompt file creation
  */
 
 const { execSync, spawnSync } = require('child_process');
@@ -40,7 +40,7 @@ function execInTestDir(cmd) {
 }
 
 console.log('\x1b[1m');
-console.log('CLI TESTS (v1.8.1)\x1b[0m');
+console.log('CLI TESTS (v1.8.2)\x1b[0m');
 console.log('\x1b[36m======================================================================\x1b[0m');
 console.log(`\nTest directory: ${tempDir}\n`);
 
@@ -146,8 +146,8 @@ test('--install preserves existing config values (idempotent merge)', () => {
   fs.rmSync(testDir, { recursive: true, force: true });
 });
 
-// v1.8.1: Post-install prompt tests
-test('--install creates post-install prompt file (v1.8.1)', () => {
+// v1.8.2: Post-install prompt tests
+test('--install creates post-install prompt file (v1.8.2)', () => {
   const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'install-test-'));
   const output = execSync(`cd "${testDir}" && node "${bootstrapPath}" --install 2>&1`, {
     encoding: 'utf8',
@@ -180,7 +180,7 @@ test('--install creates post-install prompt file (v1.8.1)', () => {
   fs.rmSync(testDir, { recursive: true, force: true });
 });
 
-test('--init fallback creates post-install prompt file (v1.8.1)', () => {
+test('--init fallback creates post-install prompt file (v1.8.2)', () => {
   const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'install-test-'));
   // Use echo "" to trigger non-TTY fallback
   const output = execSync(`cd "${testDir}" && echo "" | node "${bootstrapPath}" --init 2>&1`, {

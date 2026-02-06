@@ -1,6 +1,7 @@
 /**
  * Database Module - SQLite with FTS5 full-text search
  *
+ * v1.8.2: Migration runner for schema versioning (Flyway-style)
  * v1.7.2: Hybrid database loading - native better-sqlite3 or WASM fallback
  * v1.7.0: Synchronized with index.js schema
  * v1.4.0: Project-scoped storage in .claude/ directory
@@ -183,6 +184,94 @@ function ensureGlobalConfig() {
 }
 
 /**
+ * Get the migrations directory path
+ */
+function getMigrationsDir() {
+  return path.join(__dirname, '..', 'migrations');
+}
+
+/**
+ * Run database migrations (Flyway-style numbered SQL files)
+ * Migrations are idempotent - safe to re-run
+ * @param {Database} database - Database instance
+ * @returns {Object} - Migration results {applied: [], skipped: [], errors: []}
+ */
+function runMigrations(database) {
+  const migrationsDir = getMigrationsDir();
+  const results = { applied: [], skipped: [], errors: [] };
+
+  // Ensure migrations directory exists
+  if (!fs.existsSync(migrationsDir)) {
+    return results;
+  }
+
+  // Get list of SQL migration files, sorted by number
+  const files = fs.readdirSync(migrationsDir)
+    .filter(f => f.match(/^\d{3}_.*\.sql$/))
+    .sort();
+
+  if (files.length === 0) {
+    return results;
+  }
+
+  // Get currently applied migrations
+  const appliedRow = database.prepare('SELECT MAX(version) as v FROM schema_info').get();
+  const currentVersion = appliedRow?.v || 0;
+
+  for (const file of files) {
+    // Extract migration number from filename (e.g., 001_add_tracking.sql -> 1)
+    const match = file.match(/^(\d{3})_/);
+    if (!match) continue;
+
+    const migrationNumber = parseInt(match[1], 10);
+
+    // Skip if already applied
+    if (migrationNumber <= currentVersion) {
+      results.skipped.push({ file, version: migrationNumber, reason: 'already applied' });
+      continue;
+    }
+
+    // Read and execute migration
+    const migrationPath = path.join(migrationsDir, file);
+    const sql = fs.readFileSync(migrationPath, 'utf8');
+
+    try {
+      // Split into individual statements and execute each
+      // This handles ALTER TABLE which can't be in transactions in SQLite
+      // Remove comment lines first, then split on semicolons
+      const cleanedSql = sql
+        .split('\n')
+        .filter(line => !line.trim().startsWith('--'))
+        .join('\n');
+
+      const statements = cleanedSql
+        .split(';')
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
+
+      for (const stmt of statements) {
+        try {
+          database.exec(stmt);
+        } catch (e) {
+          // Ignore "duplicate column" errors for idempotent ALTER TABLE
+          if (!e.message.includes('duplicate column')) {
+            throw e;
+          }
+        }
+      }
+
+      // Record migration as applied
+      database.prepare('INSERT OR REPLACE INTO schema_info (version) VALUES (?)').run(migrationNumber);
+      results.applied.push({ file, version: migrationNumber });
+    } catch (e) {
+      results.errors.push({ file, version: migrationNumber, error: e.message });
+    }
+  }
+
+  return results;
+}
+
+/**
  * Initialize database connection and schema
  */
 function initDatabase() {
@@ -193,7 +282,7 @@ function initDatabase() {
   db = new Database(dbPath);
   db.pragma('journal_mode = DELETE');
 
-  // Schema version tracking
+  // Schema version tracking (used by migration runner)
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_info (
       version INTEGER PRIMARY KEY,
@@ -203,7 +292,7 @@ function initDatabase() {
 
   const versionRow = db.prepare('SELECT MAX(version) as v FROM schema_info').get();
   if (!versionRow || !versionRow.v) {
-    db.prepare('INSERT INTO schema_info (version) VALUES (?)').run(1);
+    db.prepare('INSERT INTO schema_info (version) VALUES (?)').run(0);
   }
 
   // v1.5.3: experiences table with archived_at and archive_reason
@@ -318,6 +407,16 @@ function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_log_type ON activity_log(event_type);
   `);
 
+  // Run migrations (Flyway-style numbered SQL files)
+  const migrationResults = runMigrations(db);
+  if (migrationResults.applied.length > 0) {
+    console.error(`[unified-mcp] Applied ${migrationResults.applied.length} migration(s):`,
+      migrationResults.applied.map(m => m.file).join(', '));
+  }
+  if (migrationResults.errors.length > 0) {
+    console.error('[unified-mcp] Migration errors:', migrationResults.errors);
+  }
+
   return db;
 }
 
@@ -431,9 +530,11 @@ module.exports = {
   getDbPath,
   getTokenDir,
   getConfigPath,
+  getMigrationsDir,
   ensureProjectContext,
   ensureGlobalConfig,
   initDatabase,
+  runMigrations,
   getDatabase,
   tryGetDatabase,
   isDatabaseAvailable,

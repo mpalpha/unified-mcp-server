@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.2] - 2026-02-06
+
+### Added - Experience Storage Evolution & Structured Errors
+
+Completes the originally planned v1.8.0 features that were documented but not implemented.
+
+#### Migration Runner (Flyway-style)
+- **Schema versioning**: `schema_info` table tracks applied migrations
+- **Migration runner**: Automatically applies SQL files from `migrations/` directory
+- **Idempotent migrations**: Safe to re-run; handles `duplicate column` errors gracefully
+- **Foundation for TTL/curation**: `001_add_access_tracking.sql` adds `last_accessed_at` and `access_count` columns
+
+#### Access Tracking
+- `search_experiences` now updates `last_accessed_at` and increments `access_count` for retrieved experiences
+- `get_experience` also tracks access when fetching individual experiences
+- Enables future curation logic (TTL, relevance decay, access frequency-based ranking)
+
+#### Structured Error Responses
+- New `src/errors.js` with comprehensive error classes:
+  - `StructuredError` - Base class with JSON-RPC compliance
+  - `ValidationError` - Invalid parameters (code: -32602)
+  - `NotFoundError` - Missing resources
+  - `DatabaseError` - Storage failures (code: -32603)
+  - `ConfigurationError` - Invalid settings
+  - `WorkflowError` - Protocol violations
+  - `FileSystemError` - I/O failures
+- All errors include: `message`, `code`, `recoverable`, `suggestion`
+- Error codes for programmatic handling (e.g., `INVALID_DOMAIN`, `EXPERIENCE_NOT_FOUND`)
+- Updated `src/validation.js` to use structured errors with backward compatibility
+
+### Changed
+- `src/database.js` - Added migration runner, `getMigrationsDir()`, `runMigrations()`
+- `src/tools/knowledge.js` - Access tracking for `searchExperiences()` and `getExperience()`
+- `src/validation.js` - Integrated with `src/errors.js`, maintains legacy API
+- `index.js` - Updated error handling to pass structured error data to JSON-RPC response
+
+### Migration Notes
+- Database schema automatically migrated on first run
+- Existing databases will have `last_accessed_at` and `access_count` columns added
+- All existing tests pass with new error structure
+
 ## [1.8.1] - 2026-02-06
 
 ### Fixed - Post-Install Prompt for Non-Interactive Install

@@ -64,7 +64,7 @@ const {
   resetWorkflow
 } = require('./src/tools/workflow');
 
-const VERSION = '1.8.1';
+const VERSION = '1.8.2';
 
 // v1.7.0: Database and validation functions imported from modules
 // v1.7.2: Lazy initialization for graceful degradation - paths computed on demand
@@ -686,7 +686,14 @@ rl.on('line', (line) => {
           });
         } catch (error) {
           if (error instanceof ValidationError) {
-            sendError(id, error.code, error.message, error.details);
+            // v1.8.2: Use jsonRpcCode for JSON-RPC protocol, code for structured error code
+            const jsonRpcCode = error.jsonRpcCode || -32602;
+            sendError(id, jsonRpcCode, error.message, {
+              code: error.code,
+              recoverable: error.recoverable,
+              suggestion: error.suggestion,
+              details: error.details
+            });
           } else {
             console.error('[unified-mcp] Error:', error);
             sendError(id, -32603, 'Internal error: ' + error.message);

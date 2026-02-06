@@ -1,7 +1,8 @@
 /**
- * Knowledge Management Tools (v1.7.0)
+ * Knowledge Management Tools (v1.8.2)
  *
  * Tools for recording, searching, and managing working knowledge patterns.
+ * v1.8.2: Access tracking for search results (last_accessed_at, access_count)
  * v1.7.0: Synchronized with index.js implementation
  * v1.4.0: All experiences are project-scoped by location in .claude/
  */
@@ -191,6 +192,33 @@ function searchExperiences(params) {
     }
   });
 
+  // v1.8.2: Track access for retrieved experiences
+  // Update last_accessed_at and increment access_count
+  if (results.length > 0) {
+    const ids = results.map(r => r.id);
+    try {
+      // Check if access tracking columns exist (migration may not have run yet)
+      const hasAccessTracking = db.prepare(
+        "SELECT 1 FROM pragma_table_info('experiences') WHERE name='access_count'"
+      ).get();
+
+      if (hasAccessTracking) {
+        const updateStmt = db.prepare(`
+          UPDATE experiences
+          SET last_accessed_at = strftime('%s', 'now'),
+              access_count = COALESCE(access_count, 0) + 1
+          WHERE id = ?
+        `);
+        for (const id of ids) {
+          updateStmt.run(id);
+        }
+      }
+    } catch (e) {
+      // Silently ignore if columns don't exist yet
+      // Migration will add them on next DB init
+    }
+  }
+
   return {
     results: results,
     count: results.length,
@@ -227,6 +255,24 @@ function getExperience(params) {
       `Experience not found: ID ${params.id}`,
       `No experience exists with ID ${params.id}. Use search_experiences to find experiences.`
     );
+  }
+
+  // v1.8.2: Track access for retrieved experience
+  try {
+    const hasAccessTracking = db.prepare(
+      "SELECT 1 FROM pragma_table_info('experiences') WHERE name='access_count'"
+    ).get();
+
+    if (hasAccessTracking) {
+      db.prepare(`
+        UPDATE experiences
+        SET last_accessed_at = strftime('%s', 'now'),
+            access_count = COALESCE(access_count, 0) + 1
+        WHERE id = ?
+      `).run(params.id);
+    }
+  } catch (e) {
+    // Silently ignore if columns don't exist yet
   }
 
   // Parse tags

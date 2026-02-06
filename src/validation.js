@@ -1,18 +1,32 @@
 /**
  * Validation Module - Custom errors and validation helpers
  *
+ * v1.8.2: Integrated with structured errors from src/errors.js
  * v1.7.0: Synchronized with index.js
  */
 
+const {
+  ValidationError: StructuredValidationError,
+  ErrorCodes,
+  invalidDomainError,
+  invalidTypeError,
+  invalidPhaseError,
+  missingRequiredError
+} = require('./errors');
+
 /**
- * Custom error for validation failures
- * Matches JSON-RPC error code for Invalid params
+ * Legacy ValidationError class for backward compatibility
+ * Extends StructuredValidationError to maintain existing API
  */
-class ValidationError extends Error {
+class ValidationError extends StructuredValidationError {
   constructor(message, details) {
-    super(message);
-    this.name = 'ValidationError';
-    this.code = -32602; // Invalid params (JSON-RPC)
+    // Convert legacy format to structured format
+    super({
+      message,
+      code: ErrorCodes.VALIDATION_ERROR,
+      suggestion: details || message
+    });
+    // Preserve legacy details field
     this.details = details || message;
   }
 }
@@ -34,37 +48,41 @@ const VALID_TYPES = ['effective', 'ineffective'];
 
 /**
  * Validate domain parameter
+ * @throws {ValidationError} if invalid
  */
 function validateDomain(domain) {
   if (!domain || !VALID_DOMAINS.includes(domain)) {
-    throw new ValidationError(
-      'Missing or invalid "domain" parameter',
-      `Required: domain = ${VALID_DOMAINS.join(' | ')}\n\nExample: domain: "Tools"`
-    );
+    throw invalidDomainError(domain);
   }
 }
 
 /**
  * Validate type parameter
+ * @throws {ValidationError} if invalid
  */
 function validateType(type) {
   if (!type || !VALID_TYPES.includes(type)) {
-    throw new ValidationError(
-      'Missing or invalid "type" parameter',
-      'Required: type = "effective" | "ineffective"\n\nExample: type: "effective"'
-    );
+    throw invalidTypeError(type);
   }
 }
 
 /**
  * Validate workflow phase
+ * @throws {ValidationError} if invalid
  */
 function validatePhase(phase) {
   if (!phase || !VALID_PHASES.includes(phase)) {
-    throw new ValidationError(
-      'Missing or invalid "current_phase" parameter',
-      `Required: current_phase = ${VALID_PHASES.join(' | ')}\n\nExample: current_phase: "teach"`
-    );
+    throw invalidPhaseError(phase);
+  }
+}
+
+/**
+ * Validate required parameter exists
+ * @throws {ValidationError} if missing
+ */
+function validateRequired(value, paramName, example) {
+  if (value === undefined || value === null || value === '') {
+    throw missingRequiredError(paramName, example);
   }
 }
 
@@ -99,6 +117,7 @@ module.exports = {
   validateDomain,
   validateType,
   validatePhase,
+  validateRequired,
   diceCoefficient,
   getBigrams
 };
