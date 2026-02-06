@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
- * CLI Tests (v1.8.2)
+ * CLI Tests (v1.8.3)
  * Tests for CLI features: --install, hook subcommands, TTY detection, post-install prompt
+ * v1.8.3: Added tests for version detection and upgrade prompts
  * v1.8.2: Added tests for post-install prompt file creation
  */
 
@@ -40,7 +41,7 @@ function execInTestDir(cmd) {
 }
 
 console.log('\x1b[1m');
-console.log('CLI TESTS (v1.8.2)\x1b[0m');
+console.log('CLI TESTS (v1.8.3)\x1b[0m');
 console.log('\x1b[36m======================================================================\x1b[0m');
 console.log(`\nTest directory: ${tempDir}\n`);
 
@@ -285,6 +286,158 @@ test('--init in non-TTY falls back to --install', () => {
   }
   if (!output.includes('Non-Interactive Install')) {
     throw new Error('Did not fall back to install mode');
+  }
+});
+
+// ============================================================================
+// v1.8.3: Version detection and upgrade prompt tests
+// ============================================================================
+
+console.log('\n\x1b[1mversion detection tests (v1.8.3)\x1b[0m');
+console.log('\x1b[36m----------------------------------------------------------------------\x1b[0m');
+
+test('--install sets installedVersion in config.json (v1.8.3)', () => {
+  const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'install-test-'));
+  execSync(`cd "${testDir}" && node "${bootstrapPath}" --install 2>&1`, {
+    encoding: 'utf8',
+    shell: '/bin/bash'
+  });
+
+  const configPath = path.join(testDir, '.claude', 'config.json');
+  if (!fs.existsSync(configPath)) {
+    throw new Error('config.json not created');
+  }
+  const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  if (!config.installedVersion) {
+    throw new Error('installedVersion not set in config.json');
+  }
+  // Cleanup
+  fs.rmSync(testDir, { recursive: true, force: true });
+});
+
+test('checkVersionAndPrompt detects version mismatch (v1.8.3)', () => {
+  const { checkVersionAndPrompt } = require('../src/cli');
+  const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'version-test-'));
+  const claudeDir = path.join(testDir, '.claude');
+  fs.mkdirSync(claudeDir, { recursive: true });
+
+  // Create config with old version
+  const configPath = path.join(claudeDir, 'config.json');
+  fs.writeFileSync(configPath, JSON.stringify({ installedVersion: '1.0.0' }, null, 2));
+
+  // Change to test dir to set process.cwd()
+  const originalCwd = process.cwd();
+  process.chdir(testDir);
+
+  try {
+    const result = checkVersionAndPrompt(claudeDir, '1.8.3');
+    if (!result.upgraded) {
+      throw new Error('Should detect upgrade');
+    }
+    if (result.oldVersion !== '1.0.0') {
+      throw new Error(`Old version should be 1.0.0, got ${result.oldVersion}`);
+    }
+    if (result.newVersion !== '1.8.3') {
+      throw new Error(`New version should be 1.8.3, got ${result.newVersion}`);
+    }
+    if (!result.promptCreated) {
+      throw new Error('Upgrade prompt should be created');
+    }
+  } finally {
+    process.chdir(originalCwd);
+    fs.rmSync(testDir, { recursive: true, force: true });
+  }
+});
+
+test('checkVersionAndPrompt creates upgrade prompt file (v1.8.3)', () => {
+  const { checkVersionAndPrompt } = require('../src/cli');
+  const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'version-test-'));
+  const claudeDir = path.join(testDir, '.claude');
+  fs.mkdirSync(claudeDir, { recursive: true });
+
+  // Create config with old version
+  const configPath = path.join(claudeDir, 'config.json');
+  fs.writeFileSync(configPath, JSON.stringify({ installedVersion: '1.0.0' }, null, 2));
+
+  // Change to test dir to set process.cwd()
+  const originalCwd = process.cwd();
+  process.chdir(testDir);
+
+  try {
+    const result = checkVersionAndPrompt(claudeDir, '1.8.3');
+
+    // Check that prompt file was created (use promptPath from result)
+    if (!result.promptCreated || !result.promptPath) {
+      throw new Error('Upgrade prompt file not created');
+    }
+    if (!fs.existsSync(result.promptPath)) {
+      throw new Error(`Prompt file not found at: ${result.promptPath}`);
+    }
+
+    // Check prompt content contains upgrade indicator
+    const content = fs.readFileSync(result.promptPath, 'utf8');
+    if (!content.includes('UPGRADE DETECTED')) {
+      throw new Error('Prompt should contain UPGRADE DETECTED');
+    }
+  } finally {
+    process.chdir(originalCwd);
+    fs.rmSync(testDir, { recursive: true, force: true });
+  }
+});
+
+test('checkVersionAndPrompt updates installedVersion after upgrade (v1.8.3)', () => {
+  const { checkVersionAndPrompt } = require('../src/cli');
+  const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'version-test-'));
+  const claudeDir = path.join(testDir, '.claude');
+  fs.mkdirSync(claudeDir, { recursive: true });
+
+  // Create config with old version
+  const configPath = path.join(claudeDir, 'config.json');
+  fs.writeFileSync(configPath, JSON.stringify({ installedVersion: '1.0.0' }, null, 2));
+
+  // Change to test dir to set process.cwd()
+  const originalCwd = process.cwd();
+  process.chdir(testDir);
+
+  try {
+    checkVersionAndPrompt(claudeDir, '1.8.3');
+
+    // Check that installedVersion was updated
+    const updatedConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    if (updatedConfig.installedVersion !== '1.8.3') {
+      throw new Error(`installedVersion should be updated to 1.8.3, got ${updatedConfig.installedVersion}`);
+    }
+  } finally {
+    process.chdir(originalCwd);
+    fs.rmSync(testDir, { recursive: true, force: true });
+  }
+});
+
+test('checkVersionAndPrompt no upgrade when versions match (v1.8.3)', () => {
+  const { checkVersionAndPrompt } = require('../src/cli');
+  const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'version-test-'));
+  const claudeDir = path.join(testDir, '.claude');
+  fs.mkdirSync(claudeDir, { recursive: true });
+
+  // Create config with current version
+  const configPath = path.join(claudeDir, 'config.json');
+  fs.writeFileSync(configPath, JSON.stringify({ installedVersion: '1.8.3' }, null, 2));
+
+  // Change to test dir to set process.cwd()
+  const originalCwd = process.cwd();
+  process.chdir(testDir);
+
+  try {
+    const result = checkVersionAndPrompt(claudeDir, '1.8.3');
+    if (result.upgraded) {
+      throw new Error('Should not detect upgrade when versions match');
+    }
+    if (result.promptCreated) {
+      throw new Error('Should not create prompt when versions match');
+    }
+  } finally {
+    process.chdir(originalCwd);
+    fs.rmSync(testDir, { recursive: true, force: true });
   }
 });
 

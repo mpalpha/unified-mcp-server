@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.3] - 2026-02-06
+
+### Added - Auto-Sync Project Hook Registrations
+
+Automatically detects version upgrades and guides users through project-level hook configuration.
+
+#### Problem
+- VSCode reads hooks from `.claude/settings.local.json` (project-level)
+- `--install` only writes to `~/.claude/settings.json` (global)
+- Hooks never fire in VSCode because project-level settings aren't configured
+
+#### Solution: Version-Aware Startup
+- MCP server compares `installedVersion` in `.claude/config.json` to running `VERSION`
+- On version mismatch (upgrade detected):
+  - Creates upgrade prompt in `.claude/post-install-prompts/`
+  - Updates `installedVersion` in config
+- Session-start hook presents upgrade prompt to user
+- Agent guides user through project-level hook configuration with approval
+
+#### Install Reminder
+`--install` now includes auto-configuration guidance in NEXT STEPS:
+```
+3. Start Auto-Configuration
+   After restart, the agent will walk you through project-level
+   hook configuration. Or ask: "configure project hooks"
+```
+
+### Changed
+- `index.js` - Version comparison on MCP server startup
+- `src/cli.js` - Sets `installedVersion` on install, updated NEXT STEPS output
+- `hooks/session-start.cjs` - Handles upgrade prompts for project hook configuration
+
 ## [1.8.2] - 2026-02-06
 
 ### Added - Experience Storage Evolution & Structured Errors

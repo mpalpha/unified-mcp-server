@@ -866,8 +866,132 @@ PRINCIPLES:
 }
 
 /**
+ * Get upgrade prompt content for version mismatch detection
+ * v1.8.3: Uses same format as post-install prompt but with upgrade context
+ */
+function getUpgradePromptContent(oldVersion, newVersion, projectHash) {
+  return `🔄 UPGRADE DETECTED: ${oldVersion || 'unknown'} → ${newVersion}
+
+The unified-mcp-server has been upgraded. Project-level hook configuration
+may be needed.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚠️  Some environments read hooks from project-level settings (.claude/settings.local.json).
+    Global hooks were updated, but project-level hooks may need configuration.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CONFIGURE PROJECT-LEVEL HOOKS
+
+To enable workflow hooks in this project, update:
+
+  .claude/settings.local.json
+
+The hooks provide:
+  • Session start - CHORES behavioral compliance framework
+  • Pre-tool use - Workflow enforcement
+  • Post-tool use - Response validation
+  • User prompt submit - Input processing
+  • Pre-compact - Context preservation
+  • Stop - Completion promise detection
+
+STEPS:
+
+1. Do you want me to configure project-level hooks?
+   (This only affects this project, not your global settings)
+
+2. If YES: I will create/update .claude/settings.local.json with hook registrations
+
+3. If NO: Hooks will only work via global ~/.claude/settings.json
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+To configure manually later, ask: "configure project hooks"
+
+After completion: rm .claude/post-install-prompts/${projectHash}.md
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+}
+
+/**
+ * Check for version mismatch and create upgrade prompt if needed
+ * v1.8.3: Auto-sync project hook registrations on version change
+ * Uses the same post-install prompt mechanism (same file location)
+ * @returns {Object} - { upgraded: boolean, oldVersion, newVersion, promptCreated }
+ */
+function checkVersionAndPrompt(mcpDir, currentVersion) {
+  const configPath = path.join(mcpDir, 'config.json');
+
+  try {
+    // Read existing config
+    let config = {};
+    if (fs.existsSync(configPath)) {
+      try {
+        config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      } catch (e) {
+        // Config corrupted, treat as no previous version
+        config = {};
+      }
+    }
+
+    const installedVersion = config.installedVersion || null;
+
+    // No previous version recorded - this is first install or upgrade from pre-1.8.3
+    // Only trigger upgrade prompt if there WAS a previous version that differs
+    if (!installedVersion) {
+      // First install or upgrade from pre-1.8.3
+      // Just record the version, don't prompt
+      config.installedVersion = currentVersion;
+      fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+      return { upgraded: false, oldVersion: null, newVersion: currentVersion, promptCreated: false, firstInstall: true };
+    }
+
+    // Check if versions differ
+    if (installedVersion === currentVersion) {
+      // No upgrade needed
+      return { upgraded: false, oldVersion: installedVersion, newVersion: currentVersion, promptCreated: false };
+    }
+
+    // Version mismatch - upgrade detected!
+    // Create upgrade prompt using the same post-install prompt mechanism
+    const promptsDir = path.join(mcpDir, 'post-install-prompts');
+    const projectHash = crypto.createHash('md5').update(process.cwd()).digest('hex');
+    const promptFilePath = path.join(promptsDir, `${projectHash}.md`);
+
+    const promptContent = getUpgradePromptContent(installedVersion, currentVersion, projectHash);
+    let promptCreated = false;
+    try {
+      if (!fs.existsSync(promptsDir)) {
+        fs.mkdirSync(promptsDir, { recursive: true });
+      }
+      fs.writeFileSync(promptFilePath, promptContent, 'utf8');
+      promptCreated = true;
+    } catch (e) {
+      // Don't fail on prompt creation error
+    }
+
+    // Update installed version in config
+    config.installedVersion = currentVersion;
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+
+    return {
+      upgraded: true,
+      oldVersion: installedVersion,
+      newVersion: currentVersion,
+      promptCreated,
+      promptPath: promptFilePath
+    };
+  } catch (err) {
+    // Don't fail startup on version check errors
+    return { upgraded: false, error: err.message };
+  }
+}
+
+/**
  * Run non-interactive install (--install flag)
  * v1.8.0: Works in CI, Claude Code, and other non-TTY environments
+ * v1.8.3: Sets installedVersion for version tracking
  */
 function runNonInteractiveInstall(options, { dryRun, repair, presetName }) {
   const {
@@ -875,7 +999,8 @@ function runNonInteractiveInstall(options, { dryRun, repair, presetName }) {
     TOKEN_DIR,
     DB_PATH,
     BUILT_IN_PRESETS,
-    installHooks
+    installHooks,
+    VERSION
   } = options;
 
   console.log(`
@@ -961,6 +1086,8 @@ function runNonInteractiveInstall(options, { dryRun, repair, presetName }) {
 
       // Idempotent merge: preset values as defaults, preserve existing user values
       const mergedConfig = deepMerge(presetConfig, existingConfig);
+      // v1.8.3: Set installedVersion for version tracking
+      mergedConfig.installedVersion = VERSION;
       fs.writeFileSync(configPath, JSON.stringify(mergedConfig, null, 2));
       console.log(`  ✓ Applied ${presetName} preset to: ${configPath}`);
     } catch (e) {
@@ -1012,7 +1139,7 @@ function runNonInteractiveInstall(options, { dryRun, repair, presetName }) {
   } else {
     console.log('✅ INSTALLATION COMPLETE\n');
 
-    // v1.8.1: Show customization instructions (matches --init output)
+    // v1.8.3: Updated NEXT STEPS with auto-configuration guidance
     console.log('NEXT STEPS:\n');
     console.log('  1. Restart Claude Code to load the MCP server');
     console.log('     • VSCode: Run "Developer: Reload Window" (Cmd/Ctrl+Shift+P)');
@@ -1025,7 +1152,11 @@ function runNonInteractiveInstall(options, { dryRun, repair, presetName }) {
     }
     console.log('     Delete the file after completing customization.\n');
 
-    console.log('  3. Verify Installation');
+    console.log('  3. Start Auto-Configuration');
+    console.log('     After restart, the agent will walk you through project-level');
+    console.log('     hook configuration. Or ask: "configure project hooks"\n');
+
+    console.log('  4. Verify Installation');
     console.log('     Run: unified-mcp-server --health\n');
 
     process.exit(0);
@@ -1208,5 +1339,6 @@ module.exports = {
   isTTY,
   runNonInteractiveInstall,
   runHooksSubcommand,
-  deepMerge
+  deepMerge,
+  checkVersionAndPrompt
 };

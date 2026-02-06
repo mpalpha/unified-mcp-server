@@ -64,7 +64,7 @@ const {
   resetWorkflow
 } = require('./src/tools/workflow');
 
-const VERSION = '1.8.2';
+const VERSION = '1.8.3';
 
 // v1.7.0: Database and validation functions imported from modules
 // v1.7.2: Lazy initialization for graceful degradation - paths computed on demand
@@ -116,7 +116,8 @@ const {
 } = require('./src/tools/automation');
 
 // v1.7.0: Import CLI module
-const { runCLI } = require('./src/cli');
+// v1.8.3: Import checkVersionAndPrompt for auto-sync project hooks
+const { runCLI, checkVersionAndPrompt } = require('./src/cli');
 
 // v1.7.0: All tool implementations imported from modules
 
@@ -746,5 +747,23 @@ if (globalConfigUpdated) {
 }
 
 console.error(`[unified-mcp] Server started (v${VERSION})`);
+
+// v1.8.3: Check for version mismatch and create upgrade prompt if needed
+if (MCP_DIR) {
+  try {
+    const versionResult = checkVersionAndPrompt(MCP_DIR, VERSION);
+    if (versionResult.upgraded) {
+      console.error(`[unified-mcp] Upgrade detected: ${versionResult.oldVersion} → ${versionResult.newVersion}`);
+      if (versionResult.promptCreated) {
+        console.error('[unified-mcp] Created upgrade prompt for project hook configuration');
+      }
+    } else if (versionResult.firstInstall) {
+      console.error(`[unified-mcp] Recorded installedVersion: ${VERSION}`);
+    }
+  } catch (e) {
+    // Don't fail startup on version check errors
+    console.error(`[unified-mcp] Version check warning: ${e.message}`);
+  }
+}
 console.error(`[unified-mcp] Database: ${DB_PATH}`);
 console.error(`[unified-mcp] Token directory: ${TOKEN_DIR}`);

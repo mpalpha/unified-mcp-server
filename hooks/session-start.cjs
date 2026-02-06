@@ -85,12 +85,20 @@ const promptFilePath = path.join(promptsDir, `${projectHash}.md`);
 
 if (fs.existsSync(promptFilePath)) {
   try {
-    // Read and inject the post-install prompt
+    // Read and inject the post-install/upgrade prompt
     const promptContent = fs.readFileSync(promptFilePath, 'utf8');
 
+    // v1.8.3: Detect if this is an upgrade prompt or initial install
+    const isUpgrade = promptContent.includes('UPGRADE DETECTED');
+
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-    console.log('🎉 POST-INSTALLATION CONFIGURATION\n');
-    console.log('The following prompt was generated during installation.');
+    if (isUpgrade) {
+      console.log('🔄 UNIFIED MCP SERVER UPGRADE\n');
+      console.log('A version upgrade was detected. Please review the following prompt:\n');
+    } else {
+      console.log('🎉 POST-INSTALLATION CONFIGURATION\n');
+      console.log('The following prompt was generated during installation.\n');
+    }
     console.log('Please review and respond:\n');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     console.log(promptContent);
