@@ -1,9 +1,11 @@
 /**
- * CLI Module (v1.7.0)
+ * CLI Module (v1.8.0)
  *
  * Command-line interface for the unified-mcp-server.
- * Handles --help, --version, --preset, --init, --health, --validate flags.
+ * Handles --help, --version, --preset, --init, --install, --health, --validate flags.
+ * Also handles `hooks` subcommands: install, uninstall, list, status.
  *
+ * v1.8.0: Added --install (non-interactive), hook subcommands, TTY detection
  * v1.7.0: Extracted from index.js for modularization
  */
 
@@ -11,6 +13,13 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
+
+/**
+ * Check if running in an interactive TTY environment
+ */
+function isTTY() {
+  return process.stdin.isTTY && process.stdout.isTTY;
+}
 
 /**
  * Run CLI mode if flags are provided
@@ -26,6 +35,7 @@ function runCLI(options) {
     DB_PATH,
     BUILT_IN_PRESETS,
     installHooks,
+    uninstallHooks,
     healthCheck,
     validateConfig
   } = options;
@@ -40,10 +50,20 @@ USAGE:
   npx unified-mcp-server                      Start MCP server (JSON-RPC over stdio)
   npx unified-mcp-server --help               Show this help message
   npx unified-mcp-server --version            Show version number
-  npx unified-mcp-server --init               Run interactive setup wizard
+  npx unified-mcp-server --install            Non-interactive setup (CI, Claude Code)
+  npx unified-mcp-server --install --preset <name>  Setup with preset
+  npx unified-mcp-server --install --dry-run  Preview setup changes
+  npx unified-mcp-server --install --repair   Fix corrupted installation
+  npx unified-mcp-server --init               Interactive setup wizard (requires TTY)
   npx unified-mcp-server --preset <name>      Apply preset (non-interactive)
   npx unified-mcp-server --health             Run health check
   npx unified-mcp-server --validate           Validate configuration
+
+HOOK MANAGEMENT:
+  npx unified-mcp-server hooks install        Install hooks globally
+  npx unified-mcp-server hooks uninstall      Remove hooks
+  npx unified-mcp-server hooks list           Show installed hooks
+  npx unified-mcp-server hooks status         Health check for hooks
 
 PRESETS:
   three-gate      Standard TEACH → LEARN → REASON workflow (recommended)
@@ -51,7 +71,7 @@ PRESETS:
   strict          Strict enforcement with all validations
   custom          Template for custom workflows
 
-  Example: npx unified-mcp-server --preset three-gate
+  Example: npx unified-mcp-server --install --preset three-gate
 
 INSTALLATION:
   # From gist (recommended)
@@ -99,7 +119,43 @@ DOCUMENTATION:
     return true;
   }
 
-  // --preset flag (non-interactive preset application)
+  // hooks subcommand (hooks install, hooks uninstall, hooks list, hooks status)
+  const hooksIndex = args.findIndex(arg => arg === 'hooks');
+  if (hooksIndex !== -1) {
+    const subcommand = args[hooksIndex + 1];
+    runHooksSubcommand(subcommand, options);
+    return true;
+  }
+
+  // --install flag (non-interactive setup) - must be checked BEFORE --preset
+  // so that --install --preset <name> uses the install handler, not the preset handler
+  if (args.includes('--install')) {
+    const dryRun = args.includes('--dry-run');
+    const repair = args.includes('--repair');
+
+    // Check for preset in --install --preset <name> format
+    const presetIdx = args.findIndex(arg => arg === '--preset');
+    const presetName = presetIdx !== -1 ? args[presetIdx + 1] : 'three-gate';
+
+    runNonInteractiveInstall(options, { dryRun, repair, presetName });
+    return true;
+  }
+
+  // --init flag (interactive setup wizard - requires TTY)
+  if (args.includes('--init')) {
+    if (!isTTY()) {
+      console.warn('⚠️  Warning: --init requires an interactive terminal (TTY).');
+      console.warn('   Falling back to non-interactive --install mode.');
+      console.warn('   For interactive setup, run in a terminal with: unified-mcp-server --init\n');
+      runNonInteractiveInstall(options, { dryRun: false, repair: false, presetName: 'three-gate' });
+    } else {
+      runInitWizard(options);
+    }
+    return true;
+  }
+
+  // --preset flag (standalone preset application, without --install)
+  // v1.8.0: Only triggers when --install is NOT present (--install handles its own --preset)
   const presetIndex = args.findIndex(arg => arg === '--preset');
   if (presetIndex !== -1 && args[presetIndex + 1]) {
     const presetName = args[presetIndex + 1];
@@ -130,12 +186,6 @@ DOCUMENTATION:
       console.error(`Error applying preset: ${error.message}`);
       process.exit(1);
     }
-    return true;
-  }
-
-  // --init flag (interactive setup wizard)
-  if (args.includes('--init')) {
-    runInitWizard(options);
     return true;
   }
 
@@ -800,6 +850,319 @@ PRINCIPLES:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
 }
 
+/**
+ * Run non-interactive install (--install flag)
+ * v1.8.0: Works in CI, Claude Code, and other non-TTY environments
+ */
+function runNonInteractiveInstall(options, { dryRun, repair, presetName }) {
+  const {
+    MCP_DIR,
+    TOKEN_DIR,
+    DB_PATH,
+    BUILT_IN_PRESETS,
+    installHooks
+  } = options;
+
+  console.log(`
+╔═══════════════════════════════════════════════════════════╗
+║   Unified MCP Server - Non-Interactive Install            ║
+╚═══════════════════════════════════════════════════════════╝
+`);
+
+  if (dryRun) {
+    console.log('🔍 DRY RUN MODE - No changes will be made\n');
+  }
+
+  if (repair) {
+    console.log('🔧 REPAIR MODE - Will fix missing/corrupted files\n');
+  }
+
+  console.log(`Preset: ${presetName}`);
+  console.log(`Database: ${DB_PATH}`);
+  console.log(`Token Directory: ${TOKEN_DIR}`);
+  console.log('');
+
+  // Pre-flight validation
+  const issues = [];
+
+  // Check/create directories
+  const dirsToCheck = [
+    { path: MCP_DIR, name: 'Config directory' },
+    { path: TOKEN_DIR, name: 'Token directory' },
+    { path: path.dirname(DB_PATH), name: 'Database directory' }
+  ];
+
+  for (const dir of dirsToCheck) {
+    if (!fs.existsSync(dir.path)) {
+      if (dryRun) {
+        console.log(`  [DRY RUN] Would create: ${dir.path}`);
+      } else {
+        try {
+          fs.mkdirSync(dir.path, { recursive: true });
+          console.log(`  ✓ Created ${dir.name}: ${dir.path}`);
+        } catch (e) {
+          issues.push(`Failed to create ${dir.name}: ${e.message}`);
+        }
+      }
+    } else {
+      console.log(`  ✓ ${dir.name} exists: ${dir.path}`);
+    }
+  }
+
+  // Validate and apply preset
+  const validPresets = ['three-gate', 'minimal', 'strict', 'custom'];
+  if (!validPresets.includes(presetName)) {
+    console.error(`\n❌ Invalid preset: ${presetName}`);
+    console.error(`   Valid presets: ${validPresets.join(', ')}`);
+    process.exit(1);
+  }
+
+  const presetConfig = BUILT_IN_PRESETS[presetName];
+  if (!presetConfig) {
+    console.error(`\n❌ Preset configuration not found: ${presetName}`);
+    process.exit(1);
+  }
+
+  // Apply preset with idempotent merge
+  const configPath = path.join(MCP_DIR, 'config.json');
+  if (dryRun) {
+    console.log(`\n  [DRY RUN] Would apply ${presetName} preset to: ${configPath}`);
+  } else {
+    try {
+      let existingConfig = {};
+      if (fs.existsSync(configPath)) {
+        try {
+          existingConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+          console.log(`\n  ✓ Found existing config, merging with ${presetName} preset`);
+        } catch (e) {
+          if (repair) {
+            console.log(`\n  ⚠️  Existing config corrupted, replacing with ${presetName} preset`);
+          } else {
+            console.log(`\n  ⚠️  Existing config corrupted. Use --repair to fix.`);
+            issues.push('Config file corrupted');
+          }
+        }
+      }
+
+      // Idempotent merge: preset values as defaults, preserve existing user values
+      const mergedConfig = deepMerge(presetConfig, existingConfig);
+      fs.writeFileSync(configPath, JSON.stringify(mergedConfig, null, 2));
+      console.log(`  ✓ Applied ${presetName} preset to: ${configPath}`);
+    } catch (e) {
+      issues.push(`Failed to apply preset: ${e.message}`);
+    }
+  }
+
+  // Install hooks
+  if (dryRun) {
+    console.log(`\n  [DRY RUN] Would install hooks globally`);
+  } else {
+    try {
+      const result = installHooks({ hooks: ['all'], update_settings: false });
+      if (result.installed) {
+        console.log(`\n  ✓ Installed ${result.hooks.length} hooks to: ${result.location}`);
+      }
+    } catch (e) {
+      // Hooks are optional, don't fail install
+      console.log(`\n  ⚠️  Hook installation skipped: ${e.message}`);
+    }
+  }
+
+  // Report results
+  console.log('\n' + '═'.repeat(60));
+  if (issues.length > 0) {
+    console.log('⚠️  Installation completed with issues:\n');
+    issues.forEach(issue => console.log(`  ❌ ${issue}`));
+    console.log('\nRun with --repair to attempt fixes.');
+    process.exit(1);
+  } else if (dryRun) {
+    console.log('✅ DRY RUN COMPLETE - No changes were made\n');
+    console.log('Run without --dry-run to perform actual installation.');
+    process.exit(0);
+  } else {
+    console.log('✅ INSTALLATION COMPLETE\n');
+    console.log('Next steps:');
+    console.log('  1. Restart Claude Code to load the MCP server');
+    console.log('  2. Test with: unified-mcp-server --health');
+    process.exit(0);
+  }
+}
+
+/**
+ * Deep merge two objects, with source values taking precedence
+ * Used for idempotent config merging (preserves user customizations)
+ */
+function deepMerge(target, source) {
+  const result = { ...target };
+  for (const key of Object.keys(source)) {
+    if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+      result[key] = deepMerge(result[key] || {}, source[key]);
+    } else {
+      result[key] = source[key];
+    }
+  }
+  return result;
+}
+
+/**
+ * Run hooks subcommand (hooks install, hooks uninstall, hooks list, hooks status)
+ * v1.8.0: New subcommand interface for hook management
+ */
+function runHooksSubcommand(subcommand, options) {
+  const { installHooks, uninstallHooks } = options;
+
+  const validSubcommands = ['install', 'uninstall', 'list', 'status'];
+  if (!subcommand || !validSubcommands.includes(subcommand)) {
+    console.log(`
+Usage: unified-mcp-server hooks <subcommand>
+
+Subcommands:
+  install     Install workflow enforcement hooks globally
+  uninstall   Remove installed hooks
+  list        Show installed hooks and their locations
+  status      Health check for hook configuration
+
+Examples:
+  unified-mcp-server hooks install
+  unified-mcp-server hooks list
+`);
+    process.exit(subcommand ? 1 : 0);
+    return;
+  }
+
+  switch (subcommand) {
+    case 'install':
+      console.log('Installing workflow hooks...\n');
+      try {
+        const result = installHooks({ hooks: ['all'], update_settings: false });
+        if (result.installed) {
+          console.log(`✅ Installed ${result.hooks.length} hooks:`);
+          result.hooks.forEach(hook => console.log(`  • ${hook}`));
+          console.log(`\nLocation: ${result.location}`);
+          console.log('\nNote: Restart Claude Code to activate hooks.');
+        } else {
+          console.log('⚠️  Hooks already installed or nothing to install.');
+        }
+        process.exit(0);
+      } catch (e) {
+        console.error(`❌ Hook installation failed: ${e.message}`);
+        process.exit(1);
+      }
+      break;
+
+    case 'uninstall':
+      console.log('Removing workflow hooks...\n');
+      try {
+        const result = uninstallHooks({});
+        if (result.removed) {
+          console.log(`✅ Removed ${result.hooks_removed || 'all'} hooks`);
+          console.log('\nNote: Restart Claude Code to apply changes.');
+        } else {
+          console.log('⚠️  No hooks found to remove.');
+        }
+        process.exit(0);
+      } catch (e) {
+        console.error(`❌ Hook removal failed: ${e.message}`);
+        process.exit(1);
+      }
+      break;
+
+    case 'list':
+      console.log('Installed hooks:\n');
+      const globalHooksDir = path.join(os.homedir(), '.claude', 'hooks');
+      const projectHooksDir = path.join(process.cwd(), '.claude', 'hooks');
+
+      let foundHooks = false;
+
+      // Check global hooks
+      if (fs.existsSync(globalHooksDir)) {
+        const globalHooks = fs.readdirSync(globalHooksDir).filter(f => f.endsWith('.cjs') || f.endsWith('.js'));
+        if (globalHooks.length > 0) {
+          console.log(`Global hooks (${globalHooksDir}):`);
+          globalHooks.forEach(hook => console.log(`  • ${hook}`));
+          foundHooks = true;
+        }
+      }
+
+      // Check project-local hooks
+      if (fs.existsSync(projectHooksDir)) {
+        const projectHooks = fs.readdirSync(projectHooksDir).filter(f => f.endsWith('.cjs') || f.endsWith('.js'));
+        if (projectHooks.length > 0) {
+          if (foundHooks) console.log('');
+          console.log(`Project hooks (${projectHooksDir}):`);
+          projectHooks.forEach(hook => console.log(`  • ${hook}`));
+          foundHooks = true;
+        }
+      }
+
+      if (!foundHooks) {
+        console.log('No hooks installed.');
+        console.log('\nInstall hooks with: unified-mcp-server hooks install');
+      }
+      process.exit(0);
+      break;
+
+    case 'status':
+      console.log('Hook status:\n');
+      const gHooksDir = path.join(os.homedir(), '.claude', 'hooks');
+      const pHooksDir = path.join(process.cwd(), '.claude', 'hooks');
+      const settingsPath = path.join(os.homedir(), '.claude', 'settings.json');
+
+      let status = { hooks: [], issues: [] };
+
+      // Check global hooks directory
+      if (fs.existsSync(gHooksDir)) {
+        const hooks = fs.readdirSync(gHooksDir).filter(f => f.endsWith('.cjs') || f.endsWith('.js'));
+        status.hooks.push(...hooks.map(h => ({ name: h, location: 'global' })));
+        console.log(`✓ Global hooks directory exists: ${gHooksDir}`);
+        console.log(`  Found ${hooks.length} hook file(s)`);
+      } else {
+        console.log(`⚠️  Global hooks directory not found: ${gHooksDir}`);
+        status.issues.push('Global hooks directory missing');
+      }
+
+      // Check settings.json for hook configuration
+      if (fs.existsSync(settingsPath)) {
+        try {
+          const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+          if (settings.hooks) {
+            console.log(`\n✓ Hooks configured in settings.json`);
+            const hookTypes = Object.keys(settings.hooks);
+            hookTypes.forEach(type => {
+              const count = Array.isArray(settings.hooks[type]) ? settings.hooks[type].length : 0;
+              console.log(`  • ${type}: ${count} hook(s)`);
+            });
+          } else {
+            console.log(`\n⚠️  No hooks section in settings.json`);
+            status.issues.push('Hooks not configured in settings.json');
+          }
+        } catch (e) {
+          console.log(`\n❌ Failed to parse settings.json: ${e.message}`);
+          status.issues.push('settings.json parse error');
+        }
+      } else {
+        console.log(`\n⚠️  settings.json not found: ${settingsPath}`);
+        status.issues.push('settings.json missing');
+      }
+
+      // Summary
+      console.log('\n' + '─'.repeat(50));
+      if (status.issues.length === 0) {
+        console.log('✅ Hook configuration looks healthy');
+      } else {
+        console.log(`⚠️  ${status.issues.length} issue(s) found:`);
+        status.issues.forEach(issue => console.log(`  • ${issue}`));
+        console.log('\nRun "unified-mcp-server hooks install" to fix.');
+      }
+      process.exit(status.issues.length > 0 ? 1 : 0);
+      break;
+  }
+}
+
 module.exports = {
-  runCLI
+  runCLI,
+  isTTY,
+  runNonInteractiveInstall,
+  runHooksSubcommand,
+  deepMerge
 };

@@ -276,7 +276,11 @@ npx unified-mcp-server --help
 # Show version
 npx unified-mcp-server --version
 
-# Interactive setup wizard
+# Non-interactive setup (works in CI, Claude Code, piped input)
+npx unified-mcp-server --install
+npx unified-mcp-server --install --preset strict
+
+# Interactive setup wizard (requires TTY)
 npx unified-mcp-server --init
 
 # Apply preset (non-interactive)
@@ -290,6 +294,16 @@ npx unified-mcp-server --health
 
 # Validate hooks configuration
 npx unified-mcp-server --validate
+
+# Hook management
+npx unified-mcp-server hooks install    # Install hooks globally
+npx unified-mcp-server hooks uninstall  # Remove hooks
+npx unified-mcp-server hooks list       # Show installed hooks
+npx unified-mcp-server hooks status     # Health check for hooks
+
+# Advanced install options
+npx unified-mcp-server --install --dry-run   # Preview changes
+npx unified-mcp-server --install --repair    # Fix corrupted installation
 ```
 
 ### Available Presets

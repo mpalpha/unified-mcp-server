@@ -64,7 +64,7 @@ const {
   resetWorkflow
 } = require('./src/tools/workflow');
 
-const VERSION = '1.7.2';
+const VERSION = '1.8.0';
 
 // v1.7.0: Database and validation functions imported from modules
 // v1.7.2: Lazy initialization for graceful degradation - paths computed on demand
@@ -126,9 +126,9 @@ const { runCLI } = require('./src/cli');
 
 const args = process.argv.slice(2);
 
-// v1.7.2: Initialize paths before CLI for flags that need them
-// --help and --version don't need paths, but --init, --preset, --health do
-const pathDependentFlags = ['--init', '--preset', '--health'];
+// v1.8.0: Initialize paths before CLI for flags that need them
+// --help and --version don't need paths, but --init, --install, --preset, --health, hooks do
+const pathDependentFlags = ['--init', '--install', '--preset', '--health', 'hooks'];
 if (args.some(arg => pathDependentFlags.includes(arg))) {
   initPaths();
 }
@@ -142,6 +142,7 @@ const cliRan = runCLI({
   DB_PATH,
   BUILT_IN_PRESETS,
   installHooks,
+  uninstallHooks,
   healthCheck,
   validateConfig
 });

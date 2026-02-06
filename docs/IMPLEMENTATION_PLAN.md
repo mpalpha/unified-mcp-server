@@ -2,6 +2,197 @@
 
 ## Version History
 
+### v1.8.0 - 2026-02-06 (Minor Release - Init Hardening + Experience Evolution + Developer Polish)
+**Comprehensive improvements to setup, storage, and developer experience**
+
+This release consolidates four investigated features into a cohesive update:
+- **Feature 1**: Init & Setup Hardening
+- **Feature 3**: Experience Storage Evolution
+- **Feature 6**: Hook Installation Improvements
+- **Feature 8**: Developer Experience Polish
+
+#### Problems Addressed
+
+1. **Interactive Wizard in Non-Interactive Shells** (CRITICAL)
+   - `--init` wizard prompts for preset choice but stdin closes before user can respond
+   - Non-interactive shells (Claude Code, CI/CD, piped input) cannot complete setup
+   - Root cause: `readline` interface expects TTY input
+
+2. **CLI Naming Confusion**
+   - `--init` implies initialization but actually performs installation
+   - Users confused about when to run `--init` vs other setup commands
+
+3. **Init Fragility**
+   - No validation of existing configurations before overwriting
+   - No repair mode for corrupted/partial installations
+   - Config merge overwrites user customizations
+
+4. **Hook Management UX**
+   - `install_hooks`/`uninstall_hooks` MCP tools exist but CLI access unclear
+   - No way to list installed hooks or check status
+   - Hook installation mixed into `--init` wizard
+
+5. **Experience Storage Limitations**
+   - No schema versioning (risky migrations)
+   - No TTL/curation (experiences accumulate forever)
+   - Limited relevance scoring (recency only)
+
+6. **Error Message Quality**
+   - Inconsistent error formats across tools
+   - Missing recovery suggestions
+   - No error codes for programmatic handling
+
+#### Solutions
+
+**1. Non-Interactive Mode for Setup**
+```bash
+# Current (broken in non-interactive shells):
+unified-mcp-server --init  # Prompts for preset, stdin closes
+
+# New (works everywhere):
+unified-mcp-server --install                    # Non-interactive, uses defaults
+unified-mcp-server --install --preset strict    # Non-interactive with preset
+unified-mcp-server --init                       # Interactive wizard (TTY only)
+```
+
+**2. CLI Rename: --init → --install**
+- `--install` - Non-interactive setup (safe for scripts, CI, Claude Code)
+- `--init` - Interactive wizard (requires TTY, guides user through choices)
+- Backward compatibility: `--init` in non-TTY falls back to `--install` behavior with warning
+
+**3. Init Hardening**
+- **Three-tier validation**: Pre-flight checks before any writes
+- **Idempotent config merge**: Preserve user customizations, only add missing fields
+- **Repair mode**: `--install --repair` fixes corrupted installations
+- **Dry-run mode**: `--install --dry-run` previews changes without writing
+
+**4. Hook Subcommands**
+```bash
+unified-mcp-server hooks install    # Install hooks (global by default)
+unified-mcp-server hooks uninstall  # Remove hooks
+unified-mcp-server hooks list       # Show installed hooks
+unified-mcp-server hooks status     # Health check for hooks
+```
+
+**5. Experience Storage Evolution (Foundation)**
+- **Migration runner**: Flyway-style numbered SQL files (`migrations/001_*.sql`)
+- **Schema versioning**: `schema_version` table tracks applied migrations
+- **TTL foundation**: Add `last_accessed_at`, `access_count` columns (curation logic in v1.9.0)
+
+**6. Structured Error Responses**
+```javascript
+// Current:
+throw new Error('Invalid domain');
+
+// New:
+throw new ValidationError({
+  message: 'Invalid domain',
+  code: 'INVALID_DOMAIN',
+  recoverable: true,
+  suggestion: 'Use one of: Tools, Protocol, Communication, Process, Debugging, Decision'
+});
+```
+
+#### Acceptance Criteria
+
+- **AC1**: `unified-mcp-server --install` works in non-interactive shells (Claude Code, CI)
+- **AC2**: `unified-mcp-server --install --preset strict` applies preset without prompts
+- **AC3**: `--init` in non-TTY shows warning and falls back to `--install` behavior
+- **AC4**: `hooks install/uninstall/list/status` subcommands work correctly
+- **AC5**: Config merge preserves user customizations (test with modified config)
+- **AC6**: `--install --repair` fixes missing files without data loss
+- **AC7**: Migration runner applies SQL files in order, tracks versions
+- **AC8**: All error responses follow structured format with codes and suggestions
+- **AC9**: All existing tests pass + new tests for each feature
+- **AC10**: Backward compatibility maintained (old commands still work)
+
+#### Cascading Updates
+
+**Phase 1: Documentation (FIRST)**
+1. Update `CHANGELOG.md` with v1.8.0 entry
+2. Update `README.md` with new CLI commands
+3. Update `docs/IMPLEMENTATION_PLAN.md` (this section)
+
+**Phase 2: Non-Interactive Install (Critical Bug Fix)**
+4. Add TTY detection in CLI (`process.stdin.isTTY`)
+5. Add `--install` flag (non-interactive setup)
+6. Modify `--init` to require TTY or fallback with warning
+7. Add `--preset` flag for non-interactive preset selection
+8. Test in Claude Code environment
+
+**Phase 3: Hook Subcommands**
+9. Add `hooks` command parser in CLI
+10. Implement `hooks install` (extract from `--init`)
+11. Implement `hooks uninstall`
+12. Implement `hooks list`
+13. Implement `hooks status`
+14. Add tests for hook subcommands
+
+**Phase 4: Init Hardening**
+15. Add pre-flight validation (check paths, permissions)
+16. Implement idempotent config merge (deep merge preserving user values)
+17. Add `--repair` mode
+18. Add `--dry-run` mode
+19. Add tests for merge edge cases
+
+**Phase 5: Experience Storage Foundation**
+20. Create `migrations/` directory structure
+21. Implement migration runner in `src/database.js`
+22. Create `001_add_access_tracking.sql` (adds `last_accessed_at`, `access_count`)
+23. Update `search_experiences` to track access
+24. Add migration tests
+
+**Phase 6: Structured Errors**
+25. Create `src/errors.js` with error classes
+26. Update `src/validation.js` to use structured errors
+27. Update tool handlers to catch and format errors
+28. Add error code documentation
+
+**Phase 7: Final Verification**
+29. Run full test suite (`npm test`)
+30. Test in Claude Code (non-interactive)
+31. Test interactive wizard in terminal
+32. Version bump to 1.8.0
+33. Update CHANGELOG.md status
+
+#### Testing Strategy
+
+```bash
+# Non-interactive install (simulates Claude Code)
+echo "" | unified-mcp-server --install --preset strict
+
+# Hook subcommands
+unified-mcp-server hooks list
+unified-mcp-server hooks status
+
+# Config preservation
+# 1. Modify ~/.unified-mcp/config.json manually
+# 2. Run --install
+# 3. Verify modifications preserved
+
+# Migration runner
+npm run test:database  # New test file
+
+# Full suite
+npm test
+```
+
+#### Risk Mitigation
+
+| Risk | Mitigation |
+|------|------------|
+| Breaking existing `--init` users | Backward compatible: `--init` still works, just warns in non-TTY |
+| Config merge data loss | Test extensively, add `--dry-run` for preview |
+| Migration failures | Migrations are idempotent, can re-run safely |
+| Hook subcommand conflicts | No existing `hooks` command to conflict with |
+
+#### Dependencies
+
+- No new npm dependencies required
+- Uses existing `readline`, `fs`, `path` modules
+
+---
+
 ### v1.7.2 - 2026-02-06 (Patch Release - Node.js Native Module Compatibility Fix)
 **Fix better-sqlite3 ABI mismatch when npx runs under different Node.js versions**
 - **Problem**: `better-sqlite3` prebuilt binary compiled for one Node.js ABI fails with `ERR_DLOPEN_FAILED` when npx runs under a different Node.js version (e.g., v20.16.0 vs v22.x)

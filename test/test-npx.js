@@ -112,24 +112,37 @@ test('--version flag works', () => {
   }
 });
 
-// Test 6: --init flag works
-// v1.5.2: Updated for new output format - global config is auto-configured
-test('--init flag works', () => {
-  const output = execSync('echo -e "5\\n\\n" | node bootstrap.js --init', { encoding: 'utf8', shell: '/bin/bash' });
-  if (!output.includes('Interactive Setup')) {
-    throw new Error('Init output missing expected text');
+// Test 6: --init flag falls back to --install in non-TTY
+// v1.8.0: --init now requires TTY and falls back to --install in non-interactive mode
+test('--init flag falls back to --install in non-TTY', () => {
+  // Capture both stdout and stderr (warning goes to stderr)
+  const output = execSync('echo "" | node bootstrap.js --init 2>&1', { encoding: 'utf8', shell: '/bin/bash' });
+  // In non-TTY mode, should show warning and fall back to --install
+  if (!output.includes('Warning: --init requires an interactive terminal')) {
+    throw new Error('Init output missing TTY warning');
   }
-  if (!output.includes('DATABASE LOCATION:')) {
-    throw new Error('Init output missing database info');
+  if (!output.includes('Falling back to non-interactive --install mode')) {
+    throw new Error('Init output missing fallback message');
   }
-  if (!output.includes('SETUP COMPLETE!')) {
-    throw new Error('Init output missing setup complete confirmation');
+  if (!output.includes('Non-Interactive Install')) {
+    throw new Error('Init output missing install mode indicator');
   }
-  if (!output.includes('PROJECT INITIALIZED:')) {
-    throw new Error('Init output missing project initialized section');
+  if (!output.includes('INSTALLATION COMPLETE')) {
+    throw new Error('Init output missing completion message');
   }
-  if (!output.includes('auto-configured on server start')) {
-    throw new Error('Init output missing auto-configuration note');
+});
+
+// Test 6b: --install flag works (non-interactive)
+test('--install flag works', () => {
+  const output = execSync('node bootstrap.js --install --preset three-gate 2>&1', { encoding: 'utf8' });
+  if (!output.includes('Non-Interactive Install')) {
+    throw new Error('Install output missing expected header');
+  }
+  if (!output.includes('Preset: three-gate')) {
+    throw new Error('Install output missing preset info');
+  }
+  if (!output.includes('INSTALLATION COMPLETE')) {
+    throw new Error('Install output missing completion message');
   }
 });
 

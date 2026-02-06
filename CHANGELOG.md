@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-02-06
+
+### Added - Init Hardening, Hook Subcommands, Experience Evolution, Developer Polish
+
+This release consolidates four investigated features into a cohesive update.
+
+#### Non-Interactive Install (Critical Bug Fix)
+- **Problem**: `--init` wizard prompts for preset choice but stdin closes before user can respond in non-interactive shells (Claude Code, CI/CD, piped input)
+- **Root Cause**: `readline` interface expects TTY input
+- **Solution**:
+  - New `--install` flag for non-interactive setup (works everywhere)
+  - `--install --preset <name>` applies preset without prompts
+  - `--init` in non-TTY shows warning and falls back to `--install` behavior
+  - TTY detection via `process.stdin.isTTY`
+
+#### CLI Rename: --init → --install
+- `--install` - Non-interactive setup (safe for scripts, CI, Claude Code)
+- `--init` - Interactive wizard (requires TTY, guides user through choices)
+- Backward compatible: `--init` still works, just warns in non-TTY
+
+#### Hook Subcommands
+- New `hooks` command with subcommands:
+  - `unified-mcp-server hooks install` - Install hooks (global by default)
+  - `unified-mcp-server hooks uninstall` - Remove hooks
+  - `unified-mcp-server hooks list` - Show installed hooks
+  - `unified-mcp-server hooks status` - Health check for hooks
+
+#### Init Hardening
+- **Three-tier validation**: Pre-flight checks before any writes
+- **Idempotent config merge**: Preserve user customizations, only add missing fields
+- **Repair mode**: `--install --repair` fixes corrupted installations
+- **Dry-run mode**: `--install --dry-run` previews changes without writing
+
+#### Experience Storage Evolution (Foundation)
+- **Migration runner**: Flyway-style numbered SQL files (`migrations/001_*.sql`)
+- **Schema versioning**: `schema_version` table tracks applied migrations
+- **TTL foundation**: Add `last_accessed_at`, `access_count` columns (curation logic in v1.9.0)
+
+#### Structured Error Responses
+- New `src/errors.js` with structured error classes
+- All errors include: `message`, `code`, `recoverable`, `suggestion`
+- Consistent error format across all 28 tools
+
+### Changed
+- `src/cli.js` - TTY detection, `--install` flag, hook subcommands
+- `src/database.js` - Migration runner, schema versioning
+- `src/validation.js` - Uses structured errors from `src/errors.js`
+
+### Migration Notes
+- Existing `--init` users: Command still works, just warns in non-TTY environments
+- Database schema automatically migrated on first run
+
 ## [1.7.2] - 2026-02-06
 
 ### Fixed - Node.js Native Module Compatibility
