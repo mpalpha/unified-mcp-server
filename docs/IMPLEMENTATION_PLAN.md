@@ -2,6 +2,92 @@
 
 ## Version History
 
+### v1.8.3 - TBD (Patch Release - Auto-Sync Project Hook Registrations)
+**Auto-sync project hook registrations on version change**
+
+- **Problem**: VSCode reads hooks from `.claude/settings.local.json` (project-level), but `--install` only writes to `~/.claude/settings.json` (global). Hooks never fire in VSCode because project-level settings aren't configured.
+  - Global hooks work fine (installed by `--install`)
+  - Project-level hooks are never set up
+  - VSCode users don't get hook functionality
+
+- **Root Cause**:
+  - `--install` updates global `~/.claude/settings.json` but not project-level `.claude/settings.local.json`
+  - No mechanism to detect version changes and prompt for project configuration
+  - User has no guidance on how to complete project-level setup
+
+- **Solution**: Version-aware startup with auto-prompt
+  1. On MCP server startup, read `installedVersion` from `.claude/config.json`
+  2. Compare to running server `VERSION`
+  3. If different (upgrade detected):
+     - Drop a post-install prompt into `.claude/post-install-prompts/`
+     - Update `installedVersion` in `.claude/config.json`
+  4. On next reload, session-start hook picks up the prompt
+  5. Agent handles project settings update with user approval
+
+- **Install Reminder**: Update `--install` "NEXT STEPS" output to include:
+  ```
+  3. Start Auto-Configuration
+     After restart, the agent will walk you through project-level
+     hook configuration. Or ask: "configure project hooks"
+  ```
+  This ensures users know to expect the agent prompt, or can trigger it manually.
+
+- **Acceptance Criteria**:
+  - **AC1**: MCP server startup compares `installedVersion` to `VERSION`
+  - **AC2**: Version mismatch triggers post-install prompt file creation
+  - **AC3**: `installedVersion` updated in `.claude/config.json` after prompt created
+  - **AC4**: `--install` output includes auto-configuration guidance
+  - **AC5**: Session-start hook detects and presents upgrade prompt
+  - **AC6**: Agent guides user through project-level hook configuration
+
+- **Cascading Updates**:
+  1. Update `CHANGELOG.md` with v1.8.3 entry
+  2. Add `installedVersion` check to MCP server startup (index.js)
+  3. Create version mismatch prompt template
+  4. Update `runNonInteractiveInstall()` to set initial `installedVersion`
+  5. Update "NEXT STEPS" output in CLI
+  6. Update session-start hook to handle upgrade prompts
+  7. Add tests for version detection and prompt creation
+  8. Version bump to 1.8.3
+
+- **Files to Modify**:
+  - `index.js` - Version comparison on startup
+  - `src/cli.js` - Update NEXT STEPS output, set installedVersion
+  - `hooks/session-start.cjs` - Handle upgrade prompts
+  - `CHANGELOG.md` - v1.8.3 entry
+
+- **Testing**:
+  - Simulate version mismatch by manually editing `.claude/config.json`
+  - Verify prompt file created on startup
+  - Verify session-start hook presents prompt
+  - Verify `installedVersion` updated after prompt shown
+
+---
+
+### v1.8.2 - 2026-02-06 (Patch Release - Experience Storage Evolution & Structured Errors)
+**Complete originally planned v1.8.0 features**
+
+- **Problem**: v1.8.0 CHANGELOG documented features that weren't actually implemented
+  - Migration runner documented but not implemented
+  - Structured errors documented but `src/errors.js` didn't exist
+  - Access tracking columns not in database
+
+- **Solution**: Implement the missing Phase 5 and Phase 6 from v1.8.0 plan
+  - Phase 5: Migration runner, schema versioning, access tracking
+  - Phase 6: Structured errors with codes and suggestions
+
+- **Acceptance Criteria**: (All met)
+  - **AC1**: Migration runner applies SQL files from `migrations/` directory
+  - **AC2**: `001_add_access_tracking.sql` adds `last_accessed_at`, `access_count` columns
+  - **AC3**: `search_experiences` and `get_experience` track access
+  - **AC4**: `src/errors.js` provides structured error classes
+  - **AC5**: All errors include `code`, `recoverable`, `suggestion`
+  - **AC6**: All 210+ tests pass
+
+- **Status**: ✅ COMPLETE
+
+---
+
 ### v1.8.1 - 2026-02-06 (Patch Release - Post-Install Prompt for Non-Interactive Install)
 **Fix feature disparity between --init and --install**
 
