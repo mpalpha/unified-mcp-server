@@ -2,6 +2,35 @@
 
 ## Version History
 
+### v1.8.1 - 2026-02-06 (Patch Release - Post-Install Prompt for Non-Interactive Install)
+**Fix feature disparity between --init and --install**
+
+- **Problem**: `--install` (non-interactive) doesn't create the post-install prompt file
+  - `--init` wizard calls `displaySetupCompletion()` which creates `.claude/post-install-prompts/{projectHash}.md`
+  - This file triggers guided project context customization on next session start
+  - `runNonInteractiveInstall()` skips this entirely
+  - Users who run `--install` (or `--init` in non-TTY fallback) miss the customization flow
+- **Root Cause**: v1.8.0 plan focused on fixing stdin/TTY bug but didn't account for full feature parity
+- **Solution**: Add post-install prompt creation to `runNonInteractiveInstall()`
+  - Extract `getPostInstallPromptContent()` call and file write logic
+  - Create prompt file in non-interactive path
+  - Show same "STEP N: Customize Project Context" instructions
+- **Acceptance Criteria**:
+  - **AC1**: `--install` creates `.claude/post-install-prompts/{hash}.md`
+  - **AC2**: `--init` fallback (non-TTY) also creates the prompt file
+  - **AC3**: Session start hook detects and injects the prompt
+  - **AC4**: Instructions match between `--init` and `--install` output
+- **Cascading Updates**:
+  1. Update `CHANGELOG.md` with v1.8.1 entry
+  2. Extract prompt creation logic from `displaySetupCompletion()` into reusable function
+  3. Call prompt creation from `runNonInteractiveInstall()`
+  4. Add completion instructions to non-interactive output
+  5. Add test verifying prompt file creation
+  6. Version bump to 1.8.1
+- **Testing**: Verify prompt file exists after `--install` and contains expected content
+
+---
+
 ### v1.8.0 - 2026-02-06 (Minor Release - Init Hardening + Experience Evolution + Developer Polish)
 **Comprehensive improvements to setup, storage, and developer experience**
 

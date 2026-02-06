@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
- * CLI Tests (v1.8.0)
- * Tests for new CLI features: --install, hook subcommands, TTY detection
+ * CLI Tests (v1.8.1)
+ * Tests for CLI features: --install, hook subcommands, TTY detection, post-install prompt
+ * v1.8.1: Added tests for post-install prompt file creation
  */
 
 const { execSync, spawnSync } = require('child_process');
@@ -39,7 +40,7 @@ function execInTestDir(cmd) {
 }
 
 console.log('\x1b[1m');
-console.log('CLI TESTS (v1.8.0)\x1b[0m');
+console.log('CLI TESTS (v1.8.1)\x1b[0m');
 console.log('\x1b[36m======================================================================\x1b[0m');
 console.log(`\nTest directory: ${tempDir}\n`);
 
@@ -141,6 +142,63 @@ test('--install preserves existing config values (idempotent merge)', () => {
   if (mergedConfig.enforcement_level !== 'user_custom') {
     throw new Error('User enforcement_level was overwritten');
   }
+  // Cleanup
+  fs.rmSync(testDir, { recursive: true, force: true });
+});
+
+// v1.8.1: Post-install prompt tests
+test('--install creates post-install prompt file (v1.8.1)', () => {
+  const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'install-test-'));
+  const output = execSync(`cd "${testDir}" && node "${bootstrapPath}" --install 2>&1`, {
+    encoding: 'utf8',
+    shell: '/bin/bash'
+  });
+
+  // Check output mentions prompt creation
+  if (!output.includes('post-install prompt')) {
+    throw new Error('Output should mention post-install prompt');
+  }
+
+  // Check that prompt file was created
+  const promptsDir = path.join(testDir, '.claude', 'post-install-prompts');
+  if (!fs.existsSync(promptsDir)) {
+    throw new Error('Post-install prompts directory not created');
+  }
+
+  const promptFiles = fs.readdirSync(promptsDir).filter(f => f.endsWith('.md'));
+  if (promptFiles.length === 0) {
+    throw new Error('No post-install prompt file created');
+  }
+
+  // Check prompt content
+  const promptContent = fs.readFileSync(path.join(promptsDir, promptFiles[0]), 'utf8');
+  if (!promptContent.includes('POST-INSTALLATION')) {
+    throw new Error('Prompt file missing expected content');
+  }
+
+  // Cleanup
+  fs.rmSync(testDir, { recursive: true, force: true });
+});
+
+test('--init fallback creates post-install prompt file (v1.8.1)', () => {
+  const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'install-test-'));
+  // Use echo "" to trigger non-TTY fallback
+  const output = execSync(`cd "${testDir}" && echo "" | node "${bootstrapPath}" --init 2>&1`, {
+    encoding: 'utf8',
+    shell: '/bin/bash'
+  });
+
+  // Check that prompt file was created (via fallback to --install)
+  const promptsDir = path.join(testDir, '.claude', 'post-install-prompts');
+  if (!fs.existsSync(promptsDir)) {
+    throw new Error('Post-install prompts directory not created in fallback mode');
+  }
+
+  const promptFiles = fs.readdirSync(promptsDir).filter(f => f.endsWith('.md'));
+  if (promptFiles.length === 0) {
+    throw new Error('No post-install prompt file created in fallback mode');
+  }
+
   // Cleanup
   fs.rmSync(testDir, { recursive: true, force: true });
 });

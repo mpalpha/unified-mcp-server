@@ -541,21 +541,12 @@ function runMigrationPrompt() {
 function displaySetupCompletion(setupState, options) {
   const { MCP_DIR } = options;
 
-  // Write post-install prompt file for hook to inject after restart
-  const promptsDir = path.join(MCP_DIR, 'post-install-prompts');
-  const projectHash = crypto.createHash('md5').update(process.cwd()).digest('hex');
-  const promptFilePath = path.join(promptsDir, `${projectHash}.md`);
-
-  const promptContent = getPostInstallPromptContent(projectHash);
-  try {
-    // Ensure prompts directory exists
-    if (!fs.existsSync(promptsDir)) {
-      fs.mkdirSync(promptsDir, { recursive: true });
-    }
-    fs.writeFileSync(promptFilePath, promptContent, 'utf8');
-  } catch (err) {
-    console.log(`  ⚠️  Warning: Could not write post-install prompt file: ${err.message}\n`);
+  // v1.8.1: Use extracted function for post-install prompt creation
+  const promptResult = createPostInstallPrompt(MCP_DIR);
+  if (!promptResult.success) {
+    console.log(`  ⚠️  Warning: Could not write post-install prompt file: ${promptResult.error}\n`);
   }
+  const projectHash = promptResult.projectHash;
 
   // Display next steps
   console.log('\n' + '='.repeat(60));
@@ -675,6 +666,30 @@ function displaySetupCompletion(setupState, options) {
 
   console.log('='.repeat(60));
   console.log('🚀 Ready to use! Restart Claude Code to begin.');
+}
+
+/**
+ * Create post-install prompt file for project context customization
+ * v1.8.1: Extracted as reusable function for both --init and --install paths
+ * @param {string} mcpDir - The .claude directory path
+ * @returns {{ success: boolean, projectHash: string, promptFilePath: string, error?: string }}
+ */
+function createPostInstallPrompt(mcpDir) {
+  const promptsDir = path.join(mcpDir, 'post-install-prompts');
+  const projectHash = crypto.createHash('md5').update(process.cwd()).digest('hex');
+  const promptFilePath = path.join(promptsDir, `${projectHash}.md`);
+
+  const promptContent = getPostInstallPromptContent(projectHash);
+  try {
+    // Ensure prompts directory exists
+    if (!fs.existsSync(promptsDir)) {
+      fs.mkdirSync(promptsDir, { recursive: true });
+    }
+    fs.writeFileSync(promptFilePath, promptContent, 'utf8');
+    return { success: true, projectHash, promptFilePath };
+  } catch (err) {
+    return { success: false, projectHash, promptFilePath, error: err.message };
+  }
 }
 
 /**
@@ -954,6 +969,7 @@ function runNonInteractiveInstall(options, { dryRun, repair, presetName }) {
   }
 
   // Install hooks
+  let hooksInstalled = false;
   if (dryRun) {
     console.log(`\n  [DRY RUN] Would install hooks globally`);
   } else {
@@ -961,10 +977,24 @@ function runNonInteractiveInstall(options, { dryRun, repair, presetName }) {
       const result = installHooks({ hooks: ['all'], update_settings: false });
       if (result.installed) {
         console.log(`\n  ✓ Installed ${result.hooks.length} hooks to: ${result.location}`);
+        hooksInstalled = true;
       }
     } catch (e) {
       // Hooks are optional, don't fail install
       console.log(`\n  ⚠️  Hook installation skipped: ${e.message}`);
+    }
+  }
+
+  // v1.8.1: Create post-install prompt for project context customization
+  let promptResult = null;
+  if (dryRun) {
+    console.log(`  [DRY RUN] Would create post-install prompt file`);
+  } else {
+    promptResult = createPostInstallPrompt(MCP_DIR);
+    if (promptResult.success) {
+      console.log(`  ✓ Created post-install prompt: ${promptResult.promptFilePath}`);
+    } else {
+      console.log(`  ⚠️  Could not create post-install prompt: ${promptResult.error}`);
     }
   }
 
@@ -981,9 +1011,23 @@ function runNonInteractiveInstall(options, { dryRun, repair, presetName }) {
     process.exit(0);
   } else {
     console.log('✅ INSTALLATION COMPLETE\n');
-    console.log('Next steps:');
+
+    // v1.8.1: Show customization instructions (matches --init output)
+    console.log('NEXT STEPS:\n');
     console.log('  1. Restart Claude Code to load the MCP server');
-    console.log('  2. Test with: unified-mcp-server --health');
+    console.log('     • VSCode: Run "Developer: Reload Window" (Cmd/Ctrl+Shift+P)');
+    console.log('     • Claude Desktop: Restart the application\n');
+
+    console.log('  2. Customize Project Context (Automatic)');
+    console.log('     After restart, the session_start hook will present a customization prompt.');
+    if (promptResult && promptResult.success) {
+      console.log(`     Prompt saved to: .claude/post-install-prompts/${promptResult.projectHash}.md`);
+    }
+    console.log('     Delete the file after completing customization.\n');
+
+    console.log('  3. Verify Installation');
+    console.log('     Run: unified-mcp-server --health\n');
+
     process.exit(0);
   }
 }

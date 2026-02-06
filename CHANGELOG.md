@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.1] - 2026-02-06
+
+### Fixed - Post-Install Prompt for Non-Interactive Install
+- **Problem**: `--install` doesn't create the post-install prompt file for project context customization
+  - `--init` wizard creates `.claude/post-install-prompts/{hash}.md` which triggers guided setup on next session
+  - `--install` (and `--init` fallback in non-TTY) skipped this entirely
+  - Users missed the project context customization flow
+- **Root Cause**: v1.8.0 focused on TTY bug fix but didn't maintain feature parity
+- **Solution**: Add post-install prompt creation to non-interactive install path
+  - Extract `createPostInstallPrompt()` as reusable function
+  - Call from both `displaySetupCompletion()` and `runNonInteractiveInstall()`
+  - Show customization instructions in non-interactive output
+
+### Changed
+- `src/cli.js` - Extract prompt creation into `createPostInstallPrompt()` function
+- `src/cli.js` - `runNonInteractiveInstall()` now creates post-install prompt file
+
 ## [1.8.0] - 2026-02-06
 
 ### Added - Init Hardening, Hook Subcommands, Experience Evolution, Developer Polish
