@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
- * CLI Tests (v1.8.3)
+ * CLI Tests (v1.8.4)
  * Tests for CLI features: --install, hook subcommands, TTY detection, post-install prompt
+ * v1.8.4: Added tests for settings.local.json creation with hooks
  * v1.8.3: Added tests for version detection and upgrade prompts
  * v1.8.2: Added tests for post-install prompt file creation
  */
@@ -41,7 +42,7 @@ function execInTestDir(cmd) {
 }
 
 console.log('\x1b[1m');
-console.log('CLI TESTS (v1.8.3)\x1b[0m');
+console.log('CLI TESTS (v1.8.4)\x1b[0m');
 console.log('\x1b[36m======================================================================\x1b[0m');
 console.log(`\nTest directory: ${tempDir}\n`);
 
@@ -198,6 +199,137 @@ test('--init fallback creates post-install prompt file (v1.8.2)', () => {
   const promptFiles = fs.readdirSync(promptsDir).filter(f => f.endsWith('.md'));
   if (promptFiles.length === 0) {
     throw new Error('No post-install prompt file created in fallback mode');
+  }
+
+  // Cleanup
+  fs.rmSync(testDir, { recursive: true, force: true });
+});
+
+// ============================================================================
+// v1.8.4: settings.local.json tests
+// ============================================================================
+
+console.log('\n\x1b[1msettings.local.json tests (v1.8.4)\x1b[0m');
+console.log('\x1b[36m----------------------------------------------------------------------\x1b[0m');
+
+test('--install creates settings.local.json with hooks (v1.8.4)', () => {
+  const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'install-test-'));
+  // Create fake HOME for global hooks
+  const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'home-'));
+  const homeClaudeDir = path.join(fakeHome, '.claude');
+  const hooksDir = path.join(homeClaudeDir, 'hooks');
+  fs.mkdirSync(hooksDir, { recursive: true });
+
+  // Create fake hook files in HOME
+  const hookFiles = ['session-start.cjs', 'user-prompt-submit.cjs', 'pre-tool-use.cjs', 'post-tool-use.cjs', 'pre-compact.cjs', 'stop.cjs'];
+  for (const hf of hookFiles) {
+    fs.writeFileSync(path.join(hooksDir, hf), '// fake hook');
+  }
+
+  const output = execSync(`cd "${testDir}" && HOME="${fakeHome}" node "${bootstrapPath}" --install 2>&1`, {
+    encoding: 'utf8',
+    shell: '/bin/bash'
+  });
+
+  // Check settings.local.json was created
+  const settingsPath = path.join(testDir, '.claude', 'settings.local.json');
+  if (!fs.existsSync(settingsPath)) {
+    throw new Error('settings.local.json not created');
+  }
+
+  // Check it contains hooks
+  const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+  if (!settings.hooks) {
+    throw new Error('settings.local.json missing hooks');
+  }
+  if (!settings.hooks.SessionStart) {
+    throw new Error('settings.local.json missing SessionStart hook');
+  }
+  if (!settings.hooks.PreToolUse) {
+    throw new Error('settings.local.json missing PreToolUse hook');
+  }
+
+  // Check hooks point to global hooks dir
+  const hookConfig = settings.hooks.SessionStart;
+  if (!Array.isArray(hookConfig) || !hookConfig[0]?.hooks?.[0]?.command) {
+    throw new Error('Hook config has wrong structure');
+  }
+  const hookPath = hookConfig[0].hooks[0].command;
+  if (!hookPath.includes('.claude/hooks/')) {
+    throw new Error(`Hook path should point to global hooks dir, got: ${hookPath}`);
+  }
+
+  // Check output mentions settings.local.json
+  if (!output.includes('settings.local.json')) {
+    throw new Error('Output should mention settings.local.json');
+  }
+
+  // Cleanup
+  fs.rmSync(testDir, { recursive: true, force: true });
+  fs.rmSync(fakeHome, { recursive: true, force: true });
+});
+
+test('--install preserves existing settings.local.json values (v1.8.4)', () => {
+  const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'install-test-'));
+  const claudeDir = path.join(testDir, '.claude');
+  fs.mkdirSync(claudeDir, { recursive: true });
+
+  // Create fake HOME for global hooks
+  const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'home-'));
+  const homeClaudeDir = path.join(fakeHome, '.claude');
+  const hooksDir = path.join(homeClaudeDir, 'hooks');
+  fs.mkdirSync(hooksDir, { recursive: true });
+
+  // Create fake hook files in HOME
+  const hookFiles = ['session-start.cjs', 'user-prompt-submit.cjs', 'pre-tool-use.cjs', 'post-tool-use.cjs', 'pre-compact.cjs', 'stop.cjs'];
+  for (const hf of hookFiles) {
+    fs.writeFileSync(path.join(hooksDir, hf), '// fake hook');
+  }
+
+  // Create existing settings.local.json with custom value
+  const existingSettings = { custom_setting: 'user_value', another: { nested: 'data' } };
+  fs.writeFileSync(path.join(claudeDir, 'settings.local.json'), JSON.stringify(existingSettings, null, 2));
+
+  // Run install
+  execSync(`cd "${testDir}" && HOME="${fakeHome}" node "${bootstrapPath}" --install 2>&1`, {
+    encoding: 'utf8',
+    shell: '/bin/bash'
+  });
+
+  // Check that custom values were preserved
+  const mergedSettings = JSON.parse(fs.readFileSync(path.join(claudeDir, 'settings.local.json'), 'utf8'));
+  if (mergedSettings.custom_setting !== 'user_value') {
+    throw new Error('Custom setting was not preserved');
+  }
+  if (!mergedSettings.another || mergedSettings.another.nested !== 'data') {
+    throw new Error('Nested custom setting was not preserved');
+  }
+  // And hooks were added
+  if (!mergedSettings.hooks) {
+    throw new Error('Hooks were not added to existing settings');
+  }
+
+  // Cleanup
+  fs.rmSync(testDir, { recursive: true, force: true });
+  fs.rmSync(fakeHome, { recursive: true, force: true });
+});
+
+test('--install --dry-run shows settings.local.json in dry-run (v1.8.4)', () => {
+  const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'install-test-'));
+  const output = execSync(`cd "${testDir}" && node "${bootstrapPath}" --install --dry-run 2>&1`, {
+    encoding: 'utf8',
+    shell: '/bin/bash'
+  });
+
+  // Should mention settings.local.json in dry-run
+  if (!output.includes('settings.local.json')) {
+    throw new Error('Dry run should mention settings.local.json');
+  }
+
+  // Should NOT create the file
+  const settingsPath = path.join(testDir, '.claude', 'settings.local.json');
+  if (fs.existsSync(settingsPath)) {
+    throw new Error('Dry run should not create settings.local.json');
   }
 
   // Cleanup

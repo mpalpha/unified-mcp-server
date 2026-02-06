@@ -1099,12 +1099,50 @@ function runNonInteractiveInstall(options, { dryRun, repair, presetName }) {
   let hooksInstalled = false;
   if (dryRun) {
     console.log(`\n  [DRY RUN] Would install hooks globally`);
+    console.log(`  [DRY RUN] Would write hooks to: ${path.join(MCP_DIR, 'settings.local.json')}`);
   } else {
     try {
       const result = installHooks({ hooks: ['all'], update_settings: false });
       if (result.installed) {
         console.log(`\n  ✓ Installed ${result.hooks.length} hooks to: ${result.location}`);
         hooksInstalled = true;
+
+        // v1.8.4: Write hooks to project-level settings.local.json
+        // Some IDE environments read hooks from project-level settings
+        const settingsLocalPath = path.join(MCP_DIR, 'settings.local.json');
+        const globalHooksDir = path.join(os.homedir(), '.claude', 'hooks');
+
+        // Load existing settings.local.json or create empty object
+        let settingsLocal = {};
+        if (fs.existsSync(settingsLocalPath)) {
+          try {
+            settingsLocal = JSON.parse(fs.readFileSync(settingsLocalPath, 'utf8'));
+          } catch (e) {
+            // Corrupted file, start fresh
+            settingsLocal = {};
+          }
+        }
+
+        // Build hooks config pointing to global hook files
+        const hookFiles = {
+          'SessionStart': 'session-start.cjs',
+          'UserPromptSubmit': 'user-prompt-submit.cjs',
+          'PreToolUse': 'pre-tool-use.cjs',
+          'PostToolUse': 'post-tool-use.cjs',
+          'PreCompact': 'pre-compact.cjs',
+          'Stop': 'stop.cjs'
+        };
+
+        const hooksConfig = {};
+        for (const [hookType, fileName] of Object.entries(hookFiles)) {
+          const hookPath = path.join(globalHooksDir, fileName);
+          hooksConfig[hookType] = [{ hooks: [{ type: 'command', command: hookPath }] }];
+        }
+
+        // Merge hooks into settings.local.json (preserving existing values)
+        const newSettings = deepMerge({ hooks: hooksConfig }, settingsLocal);
+        fs.writeFileSync(settingsLocalPath, JSON.stringify(newSettings, null, 2));
+        console.log(`  ✓ Configured hooks in: ${settingsLocalPath}`);
       }
     } catch (e) {
       // Hooks are optional, don't fail install

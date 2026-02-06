@@ -2,7 +2,8 @@
 
 ## Version History
 
-### v1.8.4 - TBD (Patch Release - Write Hooks to Project-Level Settings)
+### v1.8.4 - 2026-02-06 (Patch Release - Write Hooks to Project-Level Settings)
+**Status**: ✅ COMPLETE
 **Write hooks to .claude/settings.local.json during --install**
 
 - **Problem**: `--install` only writes hooks to `~/.claude/settings.json` (global), but some IDE environments read from `.claude/settings.local.json` (project-level). Hooks don't fire without project-level config.

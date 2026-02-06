@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.4] - 2026-02-06
+
+### Fixed - Write Hooks to Project-Level Settings
+
+Project-level hook configuration for environments that read from `.claude/settings.local.json`.
+
+#### Problem
+- `--install` only writes hooks to `~/.claude/settings.json` (global)
+- Some IDE environments read hooks from `.claude/settings.local.json` (project-level)
+- Hooks don't fire without project-level configuration
+
+#### Solution
+- `--install` now writes hooks to `.claude/settings.local.json` in addition to global settings
+- Uses same idempotent merge pattern (`deepMerge()`) as config.json
+- Preserves existing project-level settings values
+- Hook paths point to global `~/.claude/hooks/` files (immutable hooks)
+
+### Changed
+- `src/cli.js` - `runNonInteractiveInstall()` writes `.claude/settings.local.json` with hooks
+
 ## [1.8.3] - 2026-02-06
 
 ### Added - Auto-Sync Project Hook Registrations
