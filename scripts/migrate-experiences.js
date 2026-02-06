@@ -3,6 +3,8 @@
  * Experience Migration Tool
  * Migrates experiences from old memory-augmented-reasoning.db to unified-mcp-server
  *
+ * v1.7.2: Uses database factory for native/WASM compatibility
+ *
  * Usage:
  *   node scripts/migrate-experiences.js --source /path/to/old.db
  *   node scripts/migrate-experiences.js --source /path/to/old.db --dry-run
@@ -10,10 +12,50 @@
  *   node scripts/migrate-experiences.js --source /path/to/old.db --verbose
  */
 
-const Database = require('better-sqlite3');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+
+/**
+ * v1.7.2: Get Database class - try native better-sqlite3 first, fall back to WASM
+ */
+function getDatabaseClass() {
+  // Check environment variable set by bootstrap.js
+  const backend = process.env.UNIFIED_MCP_DB_BACKEND;
+
+  if (backend === 'wasm') {
+    try {
+      const { Database } = require('../src/database-wasm.js');
+      console.log('[migrate] Using WASM SQLite backend');
+      return Database;
+    } catch (e) {
+      console.error('[migrate] WASM fallback not available:', e.message);
+    }
+  }
+
+  // Try native better-sqlite3
+  try {
+    const Database = require('better-sqlite3');
+    return Database;
+  } catch (e) {
+    if (e.code === 'ERR_DLOPEN_FAILED') {
+      // Try WASM fallback
+      try {
+        const { Database } = require('../src/database-wasm.js');
+        console.log('[migrate] Native module failed, using WASM SQLite backend');
+        return Database;
+      } catch (wasmError) {
+        console.error('[migrate] Both native and WASM SQLite failed');
+        console.error('  Native error:', e.message);
+        console.error('  WASM error:', wasmError.message);
+        process.exit(1);
+      }
+    }
+    throw e;
+  }
+}
+
+const Database = getDatabaseClass();
 
 // Parse command line arguments
 const args = process.argv.slice(2);

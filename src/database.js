@@ -1,14 +1,33 @@
 /**
  * Database Module - SQLite with FTS5 full-text search
  *
+ * v1.7.2: Hybrid database loading - native better-sqlite3 or WASM fallback
  * v1.7.0: Synchronized with index.js schema
  * v1.4.0: Project-scoped storage in .claude/ directory
  */
 
-const Database = require('better-sqlite3');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+
+/**
+ * Get the appropriate Database class based on backend
+ * Uses environment variable set by bootstrap.js
+ * @returns {typeof import('better-sqlite3') | typeof import('./database-wasm').Database}
+ */
+function getDatabaseClass() {
+  const backend = process.env.UNIFIED_MCP_DB_BACKEND;
+
+  if (backend === 'wasm') {
+    // Use WASM fallback
+    const { Database } = require('./database-wasm');
+    return Database;
+  }
+
+  // Default to native better-sqlite3
+  // This will throw if not available, which is expected during bootstrap
+  return require('better-sqlite3');
+}
 
 // Singleton database instance
 let db = null;
@@ -170,6 +189,7 @@ function initDatabase() {
   ensureProjectContext();
 
   const dbPath = getDbPath();
+  const Database = getDatabaseClass();
   db = new Database(dbPath);
   db.pragma('journal_mode = DELETE');
 
@@ -301,14 +321,93 @@ function initDatabase() {
   return db;
 }
 
+// Track database initialization error for graceful degradation
+let dbInitError = null;
+
 /**
  * Get database connection (singleton)
+ * Throws ValidationError if initialization failed (tools return meaningful errors)
  */
 function getDatabase() {
+  if (dbInitError) {
+    const { ValidationError } = require('./validation');
+    throw new ValidationError(
+      'Database unavailable',
+      `Database initialization failed: ${dbInitError.message}\n\n` +
+      'Possible causes:\n' +
+      '1. Not in a valid project directory (no .git, package.json, or .claude/)\n' +
+      '2. Database file is corrupted or inaccessible\n' +
+      '3. SQLite module failed to load\n\n' +
+      'Run health_check tool for diagnostics, or try:\n' +
+      '  npx mpalpha/unified-mcp-server --init'
+    );
+  }
   if (!db) {
-    initDatabase();
+    try {
+      initDatabase();
+    } catch (e) {
+      dbInitError = e;
+      console.error('[unified-mcp] Database initialization failed:', e.message);
+      console.error('[unified-mcp] Server will continue - tools requiring DB will return errors');
+      const { ValidationError } = require('./validation');
+      throw new ValidationError(
+        'Database unavailable',
+        `Database initialization failed: ${e.message}\n\n` +
+        'Possible causes:\n' +
+        '1. Not in a valid project directory (no .git, package.json, or .claude/)\n' +
+        '2. Database file is corrupted or inaccessible\n' +
+        '3. SQLite module failed to load\n\n' +
+        'Run health_check tool for diagnostics, or try:\n' +
+        '  npx mpalpha/unified-mcp-server --init'
+      );
+    }
   }
   return db;
+}
+
+/**
+ * Try to get database without throwing (for health checks)
+ * Attempts initialization if not yet done, but catches errors
+ * @returns {Database|null}
+ */
+function tryGetDatabase() {
+  if (dbInitError) {
+    return null;
+  }
+  if (!db) {
+    try {
+      initDatabase();
+    } catch (e) {
+      dbInitError = e;
+      return null;
+    }
+  }
+  return db;
+}
+
+/**
+ * Check if database is available
+ * @returns {boolean}
+ */
+function isDatabaseAvailable() {
+  if (dbInitError) return false;
+  if (db) return true;
+  // Try to initialize
+  try {
+    initDatabase();
+    return true;
+  } catch (e) {
+    dbInitError = e;
+    return false;
+  }
+}
+
+/**
+ * Get database initialization error (if any)
+ * @returns {Error|null}
+ */
+function getDatabaseError() {
+  return dbInitError;
 }
 
 /**
@@ -336,5 +435,8 @@ module.exports = {
   ensureGlobalConfig,
   initDatabase,
   getDatabase,
+  tryGetDatabase,
+  isDatabaseAvailable,
+  getDatabaseError,
   logActivity
 };

@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.2] - 2026-02-06
+
+### Fixed - Node.js Native Module Compatibility
+- **Problem**: `better-sqlite3` prebuilt binary compiled for one Node.js ABI fails with `ERR_DLOPEN_FAILED` when npx runs under a different Node.js version
+  - `bootstrap.js` explicitly skipped auto-rebuild for npx context (assumed cache was read-only)
+  - Users had to use `npm install -g --build-from-source` workaround
+- **Root Cause**:
+  1. `prebuild-install` downloads prebuilt binary for Node ABI at install time
+  2. npx caches package in `~/.npm/_npx/` — switching Node versions makes cached binary stale
+  3. `bootstrap.js` catches `ERR_DLOPEN_FAILED` but skipped rebuild for npx
+  4. `scripts/check-native-modules.js` postinstall may fail silently in npx context
+- **Solution**: Hybrid approach (Approach E) - try native first, WASM fallback for compatibility
+  - Added `node-sqlite3-wasm` as fallback when `better-sqlite3` fails to load
+  - WASM version requires no compilation, works on any Node.js v18+
+  - Native `better-sqlite3` used when available (best performance)
+  - WASM fallback only activates on `ERR_DLOPEN_FAILED` (ABI mismatch)
+- **Approach Selection Rationale**:
+  - Approach A (fix rebuild): Conflicts with AC1 (requires build tools)
+  - Approach B (WASM only): Performance tradeoff for all users
+  - Approach C (bundle prebuilts): Package size tradeoff, maintenance burden
+  - Approach D (runtime prebuild): Requires network, adds latency
+  - **Approach E (hybrid)**: Best of both worlds - native performance when possible, WASM fallback for compatibility
+- **Acceptance Criteria Met**:
+  - AC1: ✅ `npx mpalpha/unified-mcp-server --version` works without build tools
+  - AC2: ✅ Switching Node versions auto-recovers via WASM fallback
+  - AC3: ✅ Global installs continue using native `npm rebuild` path
+  - AC4: ✅ `node-sqlite3-wasm` added as dependency (justified - replaces better-sqlite3 in fallback)
+  - AC5: ✅ Bootstrap recovery works in npx cache directory
+  - AC6: ✅ All tests pass + compatibility tests added
+
+### Added
+- `node-sqlite3-wasm` dependency for WASM-based SQLite fallback
+- `src/database-wasm.js` - WASM adapter with better-sqlite3 compatible API
+- `test/test-npx.js` - Node version compatibility scenarios (8 new tests)
+- Graceful degradation - tools register with MCP even if database initialization fails
+- `health_check` now reports database backend (native/wasm) and Node version
+
+### Changed
+- `bootstrap.js` - Hybrid loading: try native, fallback to WASM on ABI mismatch
+- `bootstrap.js` - Now tries auto-rebuild for npx context (npx cache is not read-only)
+- `src/database.js` - Use database factory; lazy initialization for graceful degradation
+- `src/tools/automation.js` - `health_check` never throws; always returns meaningful status
+- `engines.node` - Updated to `>=18.0.0` (WASM requires Node 18+)
+- README troubleshooting section updated for v1.7.2 automatic fallback
+- `scripts/check-native-modules.js` - Enhanced for npx context with WASM fallback detection
+- `scripts/migrate-experiences.js` - Uses database factory for native/WASM selection
+- `index.js` - Fixed shutdown handler to use `tryGetDatabase()` (prevents crash when DB not initialized)
+- `index.js` - Initialize paths before CLI for path-dependent flags (--init, --preset, --health)
+
 ## [1.7.1] - 2026-02-05
 
 ### Fixed - apply_preset Config Persistence

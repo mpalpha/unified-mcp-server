@@ -2,6 +2,70 @@
 
 ## Version History
 
+### v1.7.2 - 2026-02-06 (Patch Release - Node.js Native Module Compatibility Fix)
+**Fix better-sqlite3 ABI mismatch when npx runs under different Node.js versions**
+- **Problem**: `better-sqlite3` prebuilt binary compiled for one Node.js ABI fails with `ERR_DLOPEN_FAILED` when npx runs under a different Node.js version (e.g., v20.16.0 vs v22.x)
+  - Current `bootstrap.js` explicitly skips auto-rebuild for npx context
+  - Users left with manual `npm install -g --build-from-source` workaround that defeats the purpose of npx
+- **Root Cause**:
+  1. `prebuild-install` downloads a prebuilt binary during `npm install` for the Node ABI at install time
+  2. npx caches the package in `~/.npm/_npx/` — switching Node versions (via nvm/fnm) makes the cached binary stale
+  3. `bootstrap.js` catches `ERR_DLOPEN_FAILED` but skips rebuild for npx because it assumed the cache was read-only (it's not)
+  4. `scripts/check-native-modules.js` postinstall attempts rebuild but may fail silently in npx context
+- **Goal**: `npx mpalpha/unified-mcp-server` works transparently on Node.js v18.x, v20.x, v22.x+ without requiring `--build-from-source`, global install, or build tools
+- **Constraint**: Backward compatible with existing global and local installs
+
+> **✅ APPROACH SELECTED: E (Hybrid - Native + WASM Fallback)**
+>
+> | Approach | Description | Tradeoff | Status |
+> |----------|-------------|----------|--------|
+> | **A** | Fix npx rebuild path — allow auto-rebuild in npx cache | Requires build tools (**conflicts with AC1**) | ❌ Rejected |
+> | **B** | Replace `better-sqlite3` with WASM-based SQLite | Performance tradeoff for ALL users | ❌ Rejected |
+> | **C** | Bundle prebuilt binaries for multiple Node ABIs | Package size, maintenance burden | ❌ Rejected |
+> | **D** | Use `prebuild-install` at runtime in `bootstrap.js` | Requires network, adds latency | ❌ Rejected |
+> | **E** | Hybrid — try native first, WASM fallback | Best of both worlds | ✅ **Selected** |
+>
+> **Rationale for Approach E**:
+> - **Meets AC1**: WASM fallback requires no build tools
+> - **Meets AC2**: Auto-recovers by falling back to WASM on ABI mismatch
+> - **Meets AC3**: Native path continues working for global installs with `npm rebuild`
+> - **Meets AC4**: `node-sqlite3-wasm` is the only new dependency (justified as it provides the fallback)
+> - **Performance**: Uses native `better-sqlite3` when available (best perf), WASM only as fallback
+> - **Research**: `node-sqlite3-wasm` has FTS5 enabled via `-DSQLITE_ENABLE_FTS5` flag, compatible with our schema
+> - **API Compatibility**: Similar but not identical - need adapter for `pragma()` method
+>
+> **Step 2 Investigation: npx cache auto-rebuild**
+> - The npx cache at `~/.npm/_npx/` is **NOT read-only** - rebuild CAN work there
+> - However, rebuild requires build tools (node-gyp, C++ compiler) which most users don't have
+> - Conclusion: Allow rebuild attempt, but WASM fallback is the reliable solution for AC1
+>
+> **Step 5 Decision: prebuild-install remains in optionalDependencies**
+> - `prebuild-install` downloads prebuilt binaries at `npm install` time, not runtime
+> - Promoting it to dependencies doesn't help with npx ABI mismatch (binary already downloaded)
+> - The WASM fallback (Approach E) is a better solution than runtime prebuild download
+> - Kept as optionalDependencies for users who want to install without build tools
+
+- **Acceptance Criteria**:
+  - **AC1**: `npx mpalpha/unified-mcp-server --version` succeeds on Node v18.x, v20.x, v22.x without build tools
+  - **AC2**: Switching Node versions and re-running npx auto-recovers without user intervention
+  - **AC3**: Existing global installs continue working with `npm rebuild` path
+  - **AC4**: No new runtime dependencies unless replacing `better-sqlite3` entirely
+  - **AC5**: Postinstall and bootstrap recovery paths both work in npx cache directory
+  - **AC6**: All existing tests pass + new compatibility tests added
+- **Cascading Updates** (adapt based on chosen approach):
+  1. Update `CHANGELOG.md` + `docs/IMPLEMENTATION_PLAN.md` FIRST — document chosen approach and why
+  2. Investigate whether `bootstrap.js` auto-rebuild works in npx cache directory
+  3. Remove or conditionalize the npx exclusion in `bootstrap.js` — allow auto-rebuild, fall back to error only if rebuild fails
+  4. Enhance `scripts/check-native-modules.js` for npx cache context
+  5. Evaluate promoting `prebuild-install` from `optionalDependencies` to `dependencies`
+  6. Add runtime prebuild fallback in `bootstrap.js`
+  7. If WASM/alternative chosen: replace `better-sqlite3` requires across `index.js`, `src/database.js`, `scripts/migrate-experiences.js`, and test fixtures; verify synchronous API compatibility
+  8. Update `README.md` troubleshooting section
+  9. Add test cases to `test/test-npx.js` for bootstrap recovery path
+  10. Verify `engines.node` in `package.json` covers v18+
+  11. Version bump to 1.7.2
+- **Testing**: Extend `test/test-npx.js` with Node version compatibility scenarios
+
 ### v1.7.0 - 2026-02-04 (Minor Release - Codebase Modularization)
 **Extract tool implementations from index.js to src/ modules**
 - **Problem**: `index.js` is 4017 lines - difficult to maintain, navigate, and test

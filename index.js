@@ -27,7 +27,7 @@ const { ValidationError, diceCoefficient, getBigrams } = require('./src/validati
 const {
   getProjectDir, getDbPath, getTokenDir, getConfigPath,
   ensureProjectContext, ensureGlobalConfig,
-  initDatabase, getDatabase, logActivity
+  initDatabase, getDatabase, tryGetDatabase, isDatabaseAvailable, getDatabaseError, logActivity
 } = require('./src/database');
 
 // v1.7.0: Import knowledge management tools from module
@@ -64,16 +64,31 @@ const {
   resetWorkflow
 } = require('./src/tools/workflow');
 
-const VERSION = '1.7.1';
+const VERSION = '1.7.2';
 
 // v1.7.0: Database and validation functions imported from modules
-// Legacy constants for backward compatibility
-const MCP_DIR = getProjectDir();
-const TOKEN_DIR = getTokenDir();
-const DB_PATH = getDbPath();
+// v1.7.2: Lazy initialization for graceful degradation - paths computed on demand
+// This allows tools/list to succeed even if project context is invalid
+let MCP_DIR, TOKEN_DIR, DB_PATH;
+function initPaths() {
+  if (MCP_DIR === undefined) {
+    try {
+      MCP_DIR = getProjectDir();
+      TOKEN_DIR = getTokenDir();
+      DB_PATH = getDbPath();
+    } catch (e) {
+      // Graceful degradation: paths may fail if no project context
+      MCP_DIR = null;
+      TOKEN_DIR = null;
+      DB_PATH = null;
+    }
+  }
+}
 
-// v1.7.0: Initialize database using module
-const db = getDatabase();
+// v1.7.2: Lazy database initialization for graceful degradation
+// Database is initialized on first tool call that needs it, not at module load
+// This allows tools/list to succeed even if database initialization fails
+// getDatabase() throws ValidationError with helpful message if init fails
 
 // v1.7.0: Knowledge management tools imported from ./src/tools/knowledge.js
 // v1.7.0: Reasoning tools imported from ./src/tools/reasoning.js
@@ -110,6 +125,13 @@ const { runCLI } = require('./src/cli');
 // ============================================================================
 
 const args = process.argv.slice(2);
+
+// v1.7.2: Initialize paths before CLI for flags that need them
+// --help and --version don't need paths, but --init, --preset, --health do
+const pathDependentFlags = ['--init', '--preset', '--health'];
+if (args.some(arg => pathDependentFlags.includes(arg))) {
+  initPaths();
+}
 
 // Run CLI if any flags provided
 const cliRan = runCLI({
@@ -692,7 +714,11 @@ rl.on('close', () => {
       // Give a moment for any pending database operations to complete
       // This prevents FTS5 corruption when processes close rapidly
       setTimeout(() => {
-        db.close();
+        // v1.7.2: Use tryGetDatabase() - db may not be initialized
+        const database = tryGetDatabase();
+        if (database) {
+          database.close();
+        }
         process.exit(0);
       }, 50);
     });

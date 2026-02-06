@@ -400,11 +400,16 @@ npm run lint
 
 **Problem**: Error like "was compiled against a different Node.js version"
 
-This occurs when `better-sqlite3` (native module) was compiled for a different Node.js version than you're currently using.
+This occurs when `better-sqlite3` (native module) was compiled for a different Node.js version than you're currently using. This commonly happens when using `npx` after switching Node versions via nvm/fnm.
 
-**Solutions** (in recommended order):
+**Automatic Fallback (v1.7.2+)**:
+Starting with v1.7.2, the server automatically falls back to a WebAssembly-based SQLite (`node-sqlite3-wasm`) when the native module fails to load. This means **most users won't encounter this error anymore** - the server will use WASM mode transparently.
 
-#### Option 1: Build from Source (Recommended - Works with Any Node Version)
+If you see `[bootstrap] Using WASM SQLite backend (slower but compatible)` in stderr, the fallback is working. WASM mode is slightly slower but fully compatible with all features including FTS5 full-text search.
+
+**Manual Solutions** (if automatic fallback fails):
+
+#### Option 1: Build from Source (Recommended - Best Performance)
 ```bash
 # This rebuilds better-sqlite3 for your specific Node version
 npm install -g mpalpha/unified-mcp-server --build-from-source
@@ -432,19 +437,14 @@ npm install  # Automatically rebuilds for your Node version
 node index.js --init
 ```
 
-#### Option 4: Use Specific Node Version (Only if Options 1-3 Don't Work)
+#### Option 4: Clear npx Cache (For npx Users)
 ```bash
-# Using nvm
-nvm install 20
-nvm use 20
-npx mpalpha/unified-mcp-server --init
-
-# Using volta
-volta install node@20
+# Clear the npx cache to force re-download
+rm -rf ~/.npm/_npx/
 npx mpalpha/unified-mcp-server --init
 ```
 
-**Recommended Node Versions**: 18.x, 20.x, or 22.x (but any recent version should work with Option 1)
+**Required Node Versions**: 18.x or higher (WASM requires Node 18+)
 
 **Check Your Node Version**:
 ```bash

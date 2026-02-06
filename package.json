@@ -1,6 +1,6 @@
 {
   "name": "unified-mcp-server",
-  "version": "1.7.1",
+  "version": "1.7.2",
   "description": "Unified MCP server combining memory-augmented reasoning and protocol enforcement with modern tool ergonomics",
   "author": "Jason Lusk <jason@jasonlusk.com>",
   "license": "MIT",
@@ -35,13 +35,14 @@
     "test:npx": "node test/test-npx.js"
   },
   "dependencies": {
-    "better-sqlite3": "^11.0.0"
+    "better-sqlite3": "^11.0.0",
+    "node-sqlite3-wasm": "^0.8.30"
   },
   "optionalDependencies": {
     "prebuild-install": "^7.1.2"
   },
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=18.0.0"
   },
   "keywords": [
     "mcp",

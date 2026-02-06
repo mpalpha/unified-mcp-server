@@ -11,6 +11,7 @@
  * - MCP protocol mode works (no flags)
  * - Zero-config initialization
  *
+ * v1.7.2: Added WASM fallback and Node version compatibility tests
  * v1.4.0: Updated for project-scoped experiences
  */
 
@@ -238,6 +239,126 @@ test('--preset validates preset names', () => {
   }
 });
 
+// v1.7.2: WASM Fallback Tests
+// Test 13: WASM adapter module exists
+test('WASM adapter module exists', () => {
+  const wasmAdapterPath = path.join(__dirname, '..', 'src', 'database-wasm.js');
+  if (!fs.existsSync(wasmAdapterPath)) {
+    throw new Error('WASM adapter not found at src/database-wasm.js');
+  }
+});
+
+// Test 14: WASM adapter exports correct interface
+test('WASM adapter exports correct interface', () => {
+  const { Database, isWasmAvailable } = require('../src/database-wasm.js');
+  if (typeof Database !== 'function') {
+    throw new Error('WASM adapter must export Database class');
+  }
+  if (typeof isWasmAvailable !== 'function') {
+    throw new Error('WASM adapter must export isWasmAvailable function');
+  }
+});
+
+// Test 15: node-sqlite3-wasm is installed
+test('node-sqlite3-wasm dependency installed', () => {
+  const pkg = JSON.parse(fs.readFileSync(PACKAGE_PATH, 'utf8'));
+  if (!pkg.dependencies['node-sqlite3-wasm']) {
+    throw new Error('node-sqlite3-wasm not in dependencies');
+  }
+  // Verify it's actually installed
+  const { isWasmAvailable } = require('../src/database-wasm.js');
+  if (!isWasmAvailable()) {
+    throw new Error('node-sqlite3-wasm not actually installed');
+  }
+});
+
+// Test 16: WASM adapter has better-sqlite3 compatible API
+test('WASM adapter has better-sqlite3 compatible API', () => {
+  const { Database } = require('../src/database-wasm.js');
+  const db = new Database(':memory:');
+
+  // Test core API methods exist
+  const methods = ['exec', 'prepare', 'pragma', 'run', 'get', 'all', 'close'];
+  for (const method of methods) {
+    if (typeof db[method] !== 'function') {
+      db.close();
+      throw new Error(`WASM Database missing method: ${method}`);
+    }
+  }
+
+  // Test basic operations
+  db.exec('CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)');
+  db.run('INSERT INTO test (name) VALUES (?)', 'test1');
+  const row = db.get('SELECT * FROM test WHERE id = 1');
+  if (!row || row.name !== 'test1') {
+    db.close();
+    throw new Error('WASM basic query failed');
+  }
+
+  // Test pragma method
+  db.pragma('journal_mode = DELETE');
+
+  db.close();
+});
+
+// Test 17: WASM adapter supports FTS5
+test('WASM adapter supports FTS5', () => {
+  const { Database } = require('../src/database-wasm.js');
+  const db = new Database(':memory:');
+
+  try {
+    // Create FTS5 table (same as production schema)
+    db.exec(`
+      CREATE VIRTUAL TABLE test_fts USING fts5(
+        content,
+        tokenize='porter unicode61'
+      )
+    `);
+
+    // Insert and search
+    db.run("INSERT INTO test_fts (content) VALUES ('hello world')");
+    const results = db.all("SELECT * FROM test_fts WHERE test_fts MATCH 'hello'");
+
+    if (results.length !== 1) {
+      throw new Error('FTS5 search returned unexpected results');
+    }
+  } finally {
+    db.close();
+  }
+});
+
+// Test 18: Bootstrap exports getDatabaseBackend
+test('Bootstrap exports getDatabaseBackend', () => {
+  const { getDatabaseBackend } = require('../bootstrap.js');
+  if (typeof getDatabaseBackend !== 'function') {
+    throw new Error('Bootstrap must export getDatabaseBackend');
+  }
+});
+
+// Test 19: engines.node requires Node 18+
+test('engines.node requires Node 18+', () => {
+  const pkg = JSON.parse(fs.readFileSync(PACKAGE_PATH, 'utf8'));
+  if (!pkg.engines || !pkg.engines.node) {
+    throw new Error('Missing engines.node in package.json');
+  }
+  // Should be >=18.0.0 for WASM compatibility
+  if (!pkg.engines.node.includes('18')) {
+    throw new Error(`Expected engines.node to require 18+, got: ${pkg.engines.node}`);
+  }
+});
+
+// Test 20: Database module uses getDatabaseClass factory
+test('Database module uses getDatabaseClass factory', () => {
+  const dbModulePath = path.join(__dirname, '..', 'src', 'database.js');
+  const content = fs.readFileSync(dbModulePath, 'utf8');
+  if (!content.includes('getDatabaseClass')) {
+    throw new Error('Database module must use getDatabaseClass factory');
+  }
+  if (!content.includes('UNIFIED_MCP_DB_BACKEND')) {
+    throw new Error('Database module must check UNIFIED_MCP_DB_BACKEND env var');
+  }
+});
+
 // v1.4.0: Cleanup test project
 try {
   fs.rmSync(TEST_PROJECT, { recursive: true, force: true });
@@ -245,9 +366,10 @@ try {
   // Ignore cleanup errors
 }
 
+const totalTests = 20;
 console.log(`\n=== Results ===`);
-console.log(`Passed: ${passed}/12`);
-console.log(`Failed: ${failed}/12`);
+console.log(`Passed: ${passed}/${totalTests}`);
+console.log(`Failed: ${failed}/${totalTests}`);
 
 if (failed > 0) {
   process.exit(1);

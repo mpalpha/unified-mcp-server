@@ -17,7 +17,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const { getDatabase, getTokenDir, getDbPath, logActivity } = require('../database.js');
+const { getDatabase, tryGetDatabase, getTokenDir, getDbPath, getDatabaseError, isDatabaseAvailable, logActivity } = require('../database.js');
 const { ValidationError } = require('../validation.js');
 
 // Import recordExperience for import_data - lazy load to avoid circular dependency
@@ -341,46 +341,89 @@ function getSessionState(params) {
 /**
  * Tool 24: health_check
  * System health diagnostics
+ *
+ * v1.7.2: Graceful degradation - always returns status even if DB unavailable
+ * This tool NEVER throws - it reports issues in the response
  */
 function healthCheck(params) {
-  const db = getDatabase();
   const issues = [];
   const warnings = [];
+  let experienceCount = 0;
+  let sessionCount = 0;
+  let workflowCount = 0;
+  let dbPath = null;
+  let tokenDir = null;
 
-  // Check database
-  try {
-    db.prepare('SELECT 1').get();
-  } catch (e) {
-    issues.push('Database connection failed');
-  }
+  // Check database availability (graceful - don't throw)
+  const dbError = getDatabaseError();
+  const db = tryGetDatabase();
 
-  // Check database tables
-  const tables = ['experiences', 'reasoning_sessions', 'reasoning_thoughts', 'workflow_sessions', 'activity_log'];
-  for (const table of tables) {
-    try {
-      db.prepare(`SELECT COUNT(*) as count FROM ${table}`).get();
-    } catch (e) {
-      issues.push(`Table "${table}" missing or corrupted`);
+  if (dbError) {
+    issues.push(`Database initialization failed: ${dbError.message}`);
+  } else if (!db) {
+    // Try to initialize
+    if (!isDatabaseAvailable()) {
+      issues.push('Database not available - may need to run in project directory or run --init');
     }
   }
 
-  // Check token directory
-  const tokenDir = getTokenDir();
-  if (!fs.existsSync(tokenDir)) {
-    warnings.push('Token directory does not exist');
+  // Only run DB checks if we have a connection
+  if (db) {
+    // Check database connection
+    try {
+      db.prepare('SELECT 1').get();
+    } catch (e) {
+      issues.push('Database connection failed: ' + e.message);
+    }
+
+    // Check database tables
+    const tables = ['experiences', 'reasoning_sessions', 'reasoning_thoughts', 'workflow_sessions', 'activity_log'];
+    for (const table of tables) {
+      try {
+        db.prepare(`SELECT COUNT(*) as count FROM ${table}`).get();
+      } catch (e) {
+        issues.push(`Table "${table}" missing or corrupted`);
+      }
+    }
+
+    // Check FTS5
+    try {
+      db.prepare('SELECT COUNT(*) FROM experiences_fts').get();
+    } catch (e) {
+      issues.push('FTS5 index corrupted or missing');
+    }
+
+    // Count records (only if tables exist)
+    try {
+      experienceCount = db.prepare('SELECT COUNT(*) as count FROM experiences').get()?.count || 0;
+      sessionCount = db.prepare('SELECT COUNT(*) as count FROM reasoning_sessions').get()?.count || 0;
+      workflowCount = db.prepare('SELECT COUNT(*) as count FROM workflow_sessions').get()?.count || 0;
+    } catch (e) {
+      warnings.push('Could not count records: ' + e.message);
+    }
   }
 
-  // Check FTS5
+  // Check paths (graceful)
   try {
-    db.prepare('SELECT COUNT(*) FROM experiences_fts').get();
+    dbPath = getDbPath();
   } catch (e) {
-    issues.push('FTS5 index corrupted or missing');
+    warnings.push('Could not determine database path');
   }
 
-  // Count records
-  const experienceCount = db.prepare('SELECT COUNT(*) as count FROM experiences').get().count;
-  const sessionCount = db.prepare('SELECT COUNT(*) as count FROM reasoning_sessions').get().count;
-  const workflowCount = db.prepare('SELECT COUNT(*) as count FROM workflow_sessions').get().count;
+  try {
+    tokenDir = getTokenDir();
+    if (tokenDir && !fs.existsSync(tokenDir)) {
+      warnings.push('Token directory does not exist');
+    }
+  } catch (e) {
+    warnings.push('Could not determine token directory');
+  }
+
+  // Check database backend (v1.7.2)
+  const dbBackend = process.env.UNIFIED_MCP_DB_BACKEND || 'native';
+  if (dbBackend === 'wasm') {
+    warnings.push('Using WASM SQLite backend (slower than native)');
+  }
 
   const healthy = issues.length === 0;
 
@@ -394,8 +437,10 @@ function healthCheck(params) {
       reasoning_sessions: sessionCount,
       workflow_sessions: workflowCount
     },
-    database_path: getDbPath(),
-    token_dir: tokenDir
+    database_path: dbPath,
+    token_dir: tokenDir,
+    database_backend: dbBackend,
+    node_version: process.version
   };
 }
 
