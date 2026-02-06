@@ -2,11 +2,43 @@
 
 ## Version History
 
+### v1.8.4 - TBD (Patch Release - Write Hooks to Project-Level Settings)
+**Write hooks to .claude/settings.local.json during --install**
+
+- **Problem**: `--install` only writes hooks to `~/.claude/settings.json` (global), but some IDE environments read from `.claude/settings.local.json` (project-level). Hooks don't fire without project-level config.
+
+- **Root Cause**: v1.8.3 added version tracking and upgrade prompts, but the actual fix is simpler - just write hooks to both locations during install.
+
+- **Solution**: Update `--install` to write hooks to `.claude/settings.local.json`
+  - `--install` already uses idempotent merge for config.json
+  - Apply same merge pattern to `.claude/settings.local.json`
+  - Add hooks configuration to the project-level settings
+
+- **Acceptance Criteria**:
+  - **AC1**: `--install` creates/updates `.claude/settings.local.json` with hook entries
+  - **AC2**: Existing `.claude/settings.local.json` values preserved (idempotent merge)
+  - **AC3**: Hook paths in settings.local.json point to global `~/.claude/hooks/` files
+  - **AC4**: All existing tests pass + new test for settings.local.json creation
+
+- **Cascading Updates**:
+  1. Update `CHANGELOG.md` with v1.8.4 entry
+  2. Update `runNonInteractiveInstall()` to write `.claude/settings.local.json`
+  3. Use `deepMerge()` to preserve existing project settings
+  4. Add test for settings.local.json creation
+  5. Version bump to 1.8.4
+
+- **Files to Modify**:
+  - `src/cli.js` - Update `runNonInteractiveInstall()` to write settings.local.json
+  - `CHANGELOG.md` - v1.8.4 entry
+  - `test/test-cli.js` - Test for settings.local.json
+
+---
+
 ### v1.8.3 - 2026-02-06 (Patch Release - Auto-Sync Project Hook Registrations)
-**Status**: ✅ COMPLETE
+**Status**: ✅ COMPLETE (incomplete fix - see v1.8.4)
 **Auto-sync project hook registrations on version change**
 
-- **Problem**: VSCode reads hooks from `.claude/settings.local.json` (project-level), but `--install` only writes to `~/.claude/settings.json` (global). Hooks never fire in VSCode because project-level settings aren't configured.
+- **Problem**: Some environments read hooks from `.claude/settings.local.json` (project-level), but `--install` only writes to `~/.claude/settings.json` (global). Hooks may not fire without project-level config.
   - Global hooks work fine (installed by `--install`)
   - Project-level hooks are never set up
   - VSCode users don't get hook functionality
