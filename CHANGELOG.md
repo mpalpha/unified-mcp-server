@@ -29,6 +29,7 @@ Fixed stale lock cleanup to handle node-sqlite3-wasm's directory-based locking m
 - `src/database.js` - Updated `cleanupStaleArtifacts()` to handle directories
 - `hooks/session-start.cjs` - Added CONTEXT RECOVERY guidance for transcript reading
 - `test/test-database.js` - Added tests for lock directory cleanup
+- `test/test-hook-execution.js` - Added test verifying CHORES output includes CONTEXT RECOVERY
 
 ## [1.8.6] - 2026-02-09
 
