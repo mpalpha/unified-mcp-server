@@ -1,6 +1,7 @@
 /**
  * Database Module - SQLite with FTS5 full-text search
  *
+ * v1.8.7: Fix lock cleanup to handle directories (node-sqlite3-wasm uses mkdirSync)
  * v1.8.6: Stale lock file cleanup on startup
  * v1.8.5: WASM-only SQLite (removed native better-sqlite3)
  * v1.8.2: Migration runner for schema versioning (Flyway-style)
@@ -270,6 +271,13 @@ function runMigrations(database) {
  *
  * @param {string} dbPath - Path to the database file
  */
+/**
+ * Clean up stale SQLite artifacts before database initialization
+ * v1.8.7: Handle both files AND directories (node-sqlite3-wasm uses fs.mkdirSync for .lock)
+ * v1.8.6: Initial implementation
+ *
+ * @param {string} dbPath - Path to the database file
+ */
 function cleanupStaleArtifacts(dbPath) {
   const staleExtensions = ['-journal', '-wal', '-shm', '.lock'];
   const STALE_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
@@ -281,8 +289,15 @@ function cleanupStaleArtifacts(dbPath) {
         const stat = fs.statSync(artifactPath);
         const ageMs = Date.now() - stat.mtimeMs;
         if (ageMs > STALE_THRESHOLD_MS) {
-          fs.unlinkSync(artifactPath);
-          console.error(`[unified-mcp] Cleaned stale file: ${path.basename(artifactPath)} (age: ${Math.round(ageMs / 60000)}min)`);
+          // v1.8.7: Handle both files and directories
+          // node-sqlite3-wasm creates .lock as a DIRECTORY via fs.mkdirSync()
+          if (stat.isDirectory()) {
+            fs.rmdirSync(artifactPath);
+            console.error(`[unified-mcp] Cleaned stale lock directory: ${path.basename(artifactPath)} (age: ${Math.round(ageMs / 60000)}min)`);
+          } else {
+            fs.unlinkSync(artifactPath);
+            console.error(`[unified-mcp] Cleaned stale file: ${path.basename(artifactPath)} (age: ${Math.round(ageMs / 60000)}min)`);
+          }
         }
       } catch (e) {
         // Ignore cleanup errors - best effort

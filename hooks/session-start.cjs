@@ -67,6 +67,16 @@ console.log('  • If something seems wrong, state disagreement with evidence');
 console.log('  • Don\'t confirm without verification');
 console.log('  • Accuracy over agreement - even if user won\'t like it\n');
 
+console.log('□ CONTEXT RECOVERY (when resuming from summary)');
+console.log('  • If you see "Summary:" or "conversation was summarized" in context:');
+console.log('    1. LOCATE: Find the transcript path (usually ~/.claude/projects/.../*.jsonl)');
+console.log('    2. READ: Use Read tool with offset/limit to scan relevant sections');
+console.log('    3. SEARCH: Use Grep on transcript for keywords from current task');
+console.log('    4. VERIFY: Cross-check summary claims against actual transcript');
+console.log('  • Focus on: exact code changes, error messages, user decisions, file paths');
+console.log('  • Transcripts are large - search strategically, don\'t read entire file');
+console.log('  • If unsure about prior context, state what you\'re uncertain about\n');
+
 console.log('State which items apply and how you addressed them.\n');
 
 // Display existing generic prompts

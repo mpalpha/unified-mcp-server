@@ -2,6 +2,120 @@
 
 ## Version History
 
+### v1.8.7 - 2026-02-09 (Patch Release - Lock Directory Cleanup Fix)
+**Status**: ✅ COMPLETE
+**v1.8.6 cleanup doesn't handle node-sqlite3-wasm's directory-based locking**
+
+- **Problem**: v1.8.6 stale lock cleanup doesn't fix "database is locked" errors
+  - User report: "Still hit the stale lock issue - required manual process restart to recover"
+  - Lock artifact exists but cleanup doesn't remove it
+  - Even manual removal of lock artifact doesn't fix issue mid-session
+
+- **Diagnosis Findings**:
+  1. **The `.lock` is a DIRECTORY, not a file**
+     - node-sqlite3-wasm uses `fs.mkdirSync()` to create lock directories
+     - Our `cleanupStaleArtifacts()` uses `fs.unlinkSync()` which only works on files
+     - `fs.unlinkSync()` silently fails on directories (caught and ignored)
+
+  2. **Evidence from node-sqlite3-wasm source** (`node_modules/node-sqlite3-wasm/dist/node-sqlite3-wasm.js`):
+     ```javascript
+     function _nodejsLock(fi,level){
+       if(!_isLocked(fi)){
+         try{
+           fs.mkdirSync(`${_path(fi)}.lock`)  // Creates .lock DIRECTORY
+         }catch(err){
+           return err.code=="EEXIST"?SQLITE_BUSY:SQLITE_IOERR_LOCK
+         }
+         _setLocked(fi,true)
+       }
+       return SQLITE_OK
+     }
+
+     function _nodejsUnlock(fi,level){
+       if(level==SQLITE_LOCK_NONE&&_isLocked(fi)){
+         try{
+           fs.rmdirSync(`${_path(fi)}.lock`)  // Removes .lock DIRECTORY
+         }catch(err){
+           if(err.code!="ENOENT")return SQLITE_IOERR_UNLOCK
+         }
+         _setLocked(fi,false)
+       }
+       return SQLITE_OK
+     }
+     ```
+
+  3. **Why manual removal doesn't help mid-session**:
+     - `dbInitError` variable caches the initialization failure permanently
+     - Even if lock is removed, application state still reports "DB unavailable"
+     - Process restart required to clear cached error state
+
+  4. **Diagnostic evidence from user**:
+     ```
+     $ ls -la ~/.claude/data/experiences.db*
+     -rw-r--r--  experiences.db
+     drwxr-xr-x  experiences.db.lock/    # <-- DIRECTORY, not file
+     ```
+
+- **Implementation Team**: Please determine the correct approach considering:
+  - How to handle directory vs file artifacts in cleanup
+  - Whether test coverage needs to include directory-based locks
+  - Impact on existing tests (currently pass because they only test file cleanup)
+  - Whether the cached error state (`dbInitError`) should have a retry mechanism
+
+- **⚠️ CRITICAL - Protect Existing Functionality**:
+  - All 206+ existing tests MUST continue to pass
+  - Existing file-based cleanup (journal, wal, shm) must NOT regress
+  - Documentation in TROUBLESHOOTING.md must remain accurate
+  - User-facing error messages must remain helpful
+  - No breaking changes to public API or tool behavior
+  - Verify fix works across Node.js 18, 20, 22 (WASM compatibility)
+
+- **Related Files for Investigation**:
+  - `src/database.js` - `cleanupStaleArtifacts()` function (line ~20-40)
+  - `test/test-database.js` - Current tests only cover file artifacts
+  - `node_modules/node-sqlite3-wasm/dist/node-sqlite3-wasm.js` - Lock mechanism source
+
+---
+
+### Issue: Session Transcript Guidance for Context Recovery
+**Status**: ✅ COMPLETE - Implemented in v1.8.7
+**Agents should read session transcripts when resuming from summaries**
+
+- **Problem**: When context is compacted and conversation resumed, agents lose details
+  - Summary mentions transcript path but agents don't automatically read it
+  - Critical implementation details, error messages, and decisions are lost
+  - Agent proceeds with incomplete context, potentially causing rework
+
+- **Current Behavior**:
+  - Compaction creates summary with: "read the full transcript at: [path]"
+  - Agents receive the summary but don't follow the instruction
+  - No enforcement mechanism exists
+
+- **Requested Enhancement**: Add guidance to session-start hook
+  - Instruct agents to detect summary presence in their context
+  - Direct them to read the transcript `.jsonl` file before proceeding
+  - Make this a CHORES item for consistent enforcement
+
+- **Implementation Team**: Please determine:
+  - Best location for this guidance (CHORES section vs separate section)
+  - How to phrase the instruction for maximum compliance
+  - Whether this should be conditional (only when summary detected) or always present
+  - Testing approach for this behavioral guidance
+
+- **⚠️ CRITICAL - Protect Existing Functionality**:
+  - Existing CHORES items must NOT be removed or weakened
+  - Hook must remain idempotent and fast (no blocking operations)
+  - Silent failure mode must be preserved (don't block session start)
+  - Guidance must not conflict with existing behavioral rules
+  - Test hook execution to ensure no regressions in session startup
+  - Verify guidance doesn't create circular dependencies or loops
+
+- **Related Files**:
+  - `hooks/session-start.cjs` - CHORES framework and behavioral guidance
+  - Session transcripts: `~/.claude/projects/*.jsonl`
+
+---
+
 ### v1.8.6 - 2026-02-09 (Patch Release - Stale Lock File Cleanup)
 **Status**: ✅ COMPLETE
 **Clean up stale SQLite lock/journal files on MCP server startup**

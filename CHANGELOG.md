@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.7] - 2026-02-09
+
+### Fixed - Lock Directory Cleanup
+
+Fixed stale lock cleanup to handle node-sqlite3-wasm's directory-based locking mechanism.
+
+#### Problem
+- v1.8.6 cleanup didn't fix "database is locked" errors
+- The `.lock` artifact is a DIRECTORY, not a file (created by node-sqlite3-wasm via `fs.mkdirSync`)
+- `fs.unlinkSync()` only works on files, silently failing on directories
+- Tests passed because they created lock FILES, not matching real behavior
+
+#### Solution
+- Detect if artifact is a file or directory before attempting removal
+- Use `fs.rmdirSync()` for lock directories, `fs.unlinkSync()` for files
+- Update tests to cover both file and directory lock artifacts
+- Add guidance for session transcript recovery (CHORES framework)
+
+#### Changes
+- `src/database.js` - Updated `cleanupStaleArtifacts()` to handle directories
+- `hooks/session-start.cjs` - Added CONTEXT RECOVERY guidance for transcript reading
+- `test/test-database.js` - Added tests for lock directory cleanup
+
 ## [1.8.6] - 2026-02-09
 
 ### Added - Stale Lock File Cleanup
