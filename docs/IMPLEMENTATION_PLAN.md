@@ -2,6 +2,66 @@
 
 ## Version History
 
+### v1.8.5 - TBD (Minor Release - WASM-Only SQLite)
+**Switch from hybrid native/WASM to WASM-only SQLite implementation**
+
+- **Problem**: Global installs with multiple Node.js versions cause repeated `better-sqlite3` ABI mismatch errors
+  - v1.7.2 hybrid approach: try native → auto-rebuild → WASM fallback
+  - Auto-rebuild succeeds for current Node version but breaks other Node versions
+  - Users with multiple projects on different Node versions hit this repeatedly
+  - The "fix" for one project breaks another
+
+- **Root Cause**: Native `better-sqlite3` binaries are compiled for a specific Node ABI
+  - Global install shares one binary across all Node versions
+  - Rebuild for Node 18 breaks Node 20, and vice versa
+  - WASM fallback only triggers after rebuild fails, but rebuild "succeeds" (temporarily)
+
+- **Solution**: Use WASM-only SQLite (remove native `better-sqlite3` entirely)
+  - `node-sqlite3-wasm` is universally compatible across Node versions
+  - No compilation required, no ABI concerns
+  - Performance difference is negligible for MCP server workloads
+  - Dramatically simplifies bootstrap logic
+
+- **Acceptance Criteria**:
+  - **AC1**: Remove `better-sqlite3` from dependencies
+  - **AC2**: `node-sqlite3-wasm` is the sole SQLite implementation
+  - **AC3**: `bootstrap.js` simplified (no fallback/rebuild logic)
+  - **AC4**: Works on Node 18, 20, 22+ without any rebuild
+  - **AC5**: All existing tests pass
+  - **AC6**: Global install works across multiple Node versions
+
+- **Cascading Updates**:
+  1. Update `CHANGELOG.md` with v1.8.5 entry
+  2. Update `package.json` - remove `better-sqlite3`, keep `node-sqlite3-wasm`
+  3. Update `bootstrap.js` - remove fallback logic, always use WASM
+  4. Update `src/database.js` - always use WASM adapter
+  5. Update `src/database-wasm.js` - make it the primary (not fallback)
+  6. Update `scripts/check-native-modules.js` - simplify or remove
+  7. Update `scripts/migrate-experiences.js` - use WASM
+  8. Update tests - remove native-specific tests, update npx tests
+  9. Update `README.md` troubleshooting section
+  10. Version bump to 1.8.5
+
+- **Files to Modify**:
+  - `package.json` - Remove `better-sqlite3` dependency
+  - `bootstrap.js` - Simplify to just load index.js (no fallback logic)
+  - `src/database.js` - Always use WASM adapter
+  - `src/database-wasm.js` - Promote to primary implementation
+  - `scripts/check-native-modules.js` - Simplify or remove
+  - `scripts/migrate-experiences.js` - Use WASM
+  - `test/test-npx.js` - Update for WASM-only
+  - `CHANGELOG.md` - v1.8.5 entry
+  - `README.md` - Update troubleshooting
+
+- **Tradeoffs**:
+  - ✅ Universal Node.js version compatibility
+  - ✅ No build tools required ever
+  - ✅ Simpler codebase, fewer edge cases
+  - ✅ Eliminates repeated user issues
+  - ⚠️ Slightly slower than native (negligible for MCP workloads)
+
+---
+
 ### v1.8.4 - 2026-02-06 (Patch Release - Write Hooks to Project-Level Settings)
 **Status**: ✅ COMPLETE
 **Write hooks to .claude/settings.local.json during --install**
