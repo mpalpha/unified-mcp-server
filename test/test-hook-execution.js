@@ -3,6 +3,7 @@
  * Hook Execution Tests - Actually execute hooks and verify blocking behavior
  * These tests run the real hook scripts to verify they work correctly
  *
+ * v1.8.7: Added test for session-start CHORES output including CONTEXT RECOVERY
  * v1.2.1: Added test for user-prompt-submit output format (should not re-echo prompt)
  * v1.4.0: Updated for project-scoped experiences
  */
@@ -20,7 +21,7 @@ let TOKEN_DIR;
 let TEST_DB;
 
 async function runTests() {
-  console.log(colors.bold + '\nHOOK EXECUTION TESTS (6 tests)' + colors.reset);
+  console.log(colors.bold + '\nHOOK EXECUTION TESTS (7 tests)' + colors.reset);
   console.log(colors.cyan + '======================================================================' + colors.reset);
   console.log('These tests execute real hooks and verify blocking behavior\n');
 
@@ -274,6 +275,53 @@ async function runTests() {
     } catch (error) {
       // Hook should exit 0 for user-prompt-submit
       throw new Error(`user-prompt-submit hook should exit 0, but exited with ${error.status}`);
+    }
+  });
+
+  // Test 7: session-start hook outputs all CHORES items including CONTEXT RECOVERY (v1.8.7)
+  await test('session-start outputs CHORES framework including CONTEXT RECOVERY', () => {
+    console.log('\n  📋 Testing: session-start CHORES output (v1.8.7)');
+    console.log('  ─────────────────────────────────────────────────');
+
+    const hookPath = path.join(HOOKS_DIR, 'session-start.cjs');
+    assertTrue(fs.existsSync(hookPath), 'session-start.cjs must exist');
+
+    try {
+      const output = execSync(`node "${hookPath}"`, {
+        encoding: 'utf8',
+        cwd: testDir,
+        env: { ...process.env, PWD: testDir }
+      });
+
+      // Verify all CHORES items are present
+      const requiredItems = [
+        'CHORES',
+        'CONSTRAINTS',
+        'HALLUCINATION',
+        'OVERREACH',
+        'REASONING',
+        'ETHICS',
+        'SYCOPHANCY',
+        'CONTEXT RECOVERY'  // v1.8.7
+      ];
+
+      for (const item of requiredItems) {
+        assertTrue(
+          output.includes(item),
+          `session-start output must include "${item}"`
+        );
+      }
+      console.log('  ✅ All CHORES items present in output');
+
+      // Verify CONTEXT RECOVERY has actionable guidance
+      assertTrue(
+        output.includes('transcript') || output.includes('summary'),
+        'CONTEXT RECOVERY must mention transcripts or summaries'
+      );
+      console.log('  ✅ CONTEXT RECOVERY guidance includes transcript/summary reference');
+
+    } catch (error) {
+      throw new Error(`session-start hook should exit 0, but exited with ${error.status}`);
     }
   });
 
