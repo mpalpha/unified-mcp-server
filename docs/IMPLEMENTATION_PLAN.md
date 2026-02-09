@@ -2,6 +2,82 @@
 
 ## Version History
 
+### v1.8.6 - TBD (Patch Release - Stale Lock File Cleanup)
+**Status**: 🔲 PENDING
+**Clean up stale SQLite lock/journal files on MCP server startup**
+
+- **Problem**: Stale SQLite artifacts may prevent database initialization
+  - Previous session crashes or abnormal termination can leave behind lock files
+  - SQLite creates `.db-journal`, `.db-wal`, `.db-shm` files during operation
+  - WASM SQLite may not always clean these up on process exit
+  - New session sees stale artifacts and may fail to initialize
+
+- **Root Cause**: SQLite file artifacts not cleaned up on session termination
+  - Normal shutdown should clean these automatically
+  - Crashes, force-kills, or hook failures can leave artifacts behind
+  - Age-based detection: artifacts older than 30 minutes are likely stale
+
+- **Solution**: Add startup cleanup in `src/database.js` before database open
+  - Check for `.db-journal`, `.db-wal`, `.db-shm`, `.db.lock` files
+  - If file age > 30 minutes, remove as stale
+  - Log cleanup actions for debugging
+  - Run BEFORE database initialization to prevent open failures
+
+- **Acceptance Criteria**:
+  - **AC1**: `src/database.js` checks for stale artifacts before DB open
+  - **AC2**: Artifacts older than 30 minutes are automatically removed
+  - **AC3**: Cleanup is logged to stderr: `[unified-mcp] Cleaned stale file: X`
+  - **AC4**: Fresh artifacts (< 30 min) are NOT removed (may be in-use by another process)
+  - **AC5**: All existing tests pass
+  - **AC6**: New test verifies stale file cleanup behavior
+
+- **Cascading Updates**:
+  1. Update `CHANGELOG.md` with v1.8.6 entry
+  2. Update `src/database.js` - add `cleanupStaleArtifacts()` function
+  3. Call cleanup before `initializeDatabase()` in database module
+  4. Add test for stale artifact cleanup
+  5. Version bump to 1.8.6
+
+- **Files to Modify**:
+  - `src/database.js` - Add cleanup function
+  - `CHANGELOG.md` - v1.8.6 entry
+  - `test/test-tools.js` or new `test/test-database.js` - Stale cleanup test
+  - `package.json` - Version bump
+  - `index.js` - Version constant
+
+- **Implementation Details**:
+  ```javascript
+  // In src/database.js, before initializeDatabase()
+  function cleanupStaleArtifacts(dbPath) {
+    const staleExtensions = ['-journal', '-wal', '-shm', '.lock'];
+    const STALE_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
+
+    for (const ext of staleExtensions) {
+      const artifactPath = dbPath + ext;
+      if (fs.existsSync(artifactPath)) {
+        try {
+          const stat = fs.statSync(artifactPath);
+          const ageMs = Date.now() - stat.mtimeMs;
+          if (ageMs > STALE_THRESHOLD_MS) {
+            fs.unlinkSync(artifactPath);
+            console.error(`[unified-mcp] Cleaned stale file: ${path.basename(artifactPath)} (age: ${Math.round(ageMs/60000)}min)`);
+          }
+        } catch (e) {
+          // Ignore cleanup errors - best effort
+        }
+      }
+    }
+  }
+  ```
+
+- **Tradeoffs**:
+  - ✅ Prevents initialization failures from stale artifacts
+  - ✅ Self-healing without user intervention
+  - ✅ Age threshold prevents removing active files
+  - ⚠️ 30-minute threshold is arbitrary (but safe default)
+
+---
+
 ### v1.8.5 - 2026-02-09 (Minor Release - WASM-Only SQLite)
 **Status**: ✅ COMPLETE
 **Switch from hybrid native/WASM to WASM-only SQLite implementation**
