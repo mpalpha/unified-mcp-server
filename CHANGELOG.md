@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.6] - 2026-02-09
+
+### Added - Stale Lock File Cleanup
+
+Self-healing mechanism to clean up stale SQLite artifacts on MCP server startup.
+
+#### Problem
+- Previous session crashes or abnormal termination can leave behind lock files
+- SQLite creates `.db-journal`, `.db-wal`, `.db-shm` files during operation
+- WASM SQLite may not always clean these up on process exit
+- New session sees stale artifacts and may fail to initialize
+
+#### Solution
+- Check for stale SQLite artifacts before database initialization
+- Remove artifacts older than 30 minutes (safe threshold for stale detection)
+- Log cleanup actions to stderr for debugging
+- Best-effort cleanup (errors are silently ignored)
+
+#### Files Cleaned
+- `experiences.db-journal` (rollback journal)
+- `experiences.db-wal` (write-ahead log)
+- `experiences.db-shm` (shared memory)
+- `experiences.db.lock` (custom lock file if present)
+
+### Changed
+- `src/database.js` - Added `cleanupStaleArtifacts()` function called before DB init
+
 ## [1.8.5] - 2026-02-09
 
 ### Changed - WASM-Only SQLite

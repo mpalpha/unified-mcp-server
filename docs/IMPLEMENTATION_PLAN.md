@@ -2,8 +2,8 @@
 
 ## Version History
 
-### v1.8.6 - TBD (Patch Release - Stale Lock File Cleanup)
-**Status**: 🔲 PENDING
+### v1.8.6 - 2026-02-09 (Patch Release - Stale Lock File Cleanup)
+**Status**: ✅ COMPLETE
 **Clean up stale SQLite lock/journal files on MCP server startup**
 
 - **Problem**: Stale SQLite artifacts may prevent database initialization

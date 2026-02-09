@@ -1,6 +1,7 @@
 /**
  * Database Module - SQLite with FTS5 full-text search
  *
+ * v1.8.6: Stale lock file cleanup on startup
  * v1.8.5: WASM-only SQLite (removed native better-sqlite3)
  * v1.8.2: Migration runner for schema versioning (Flyway-style)
  * v1.7.2: Hybrid database loading - native better-sqlite3 or WASM fallback
@@ -264,12 +265,42 @@ function runMigrations(database) {
 }
 
 /**
+ * Clean up stale SQLite artifacts before database initialization
+ * v1.8.6: Self-healing mechanism for stale lock/journal files
+ *
+ * @param {string} dbPath - Path to the database file
+ */
+function cleanupStaleArtifacts(dbPath) {
+  const staleExtensions = ['-journal', '-wal', '-shm', '.lock'];
+  const STALE_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
+
+  for (const ext of staleExtensions) {
+    const artifactPath = dbPath + ext;
+    if (fs.existsSync(artifactPath)) {
+      try {
+        const stat = fs.statSync(artifactPath);
+        const ageMs = Date.now() - stat.mtimeMs;
+        if (ageMs > STALE_THRESHOLD_MS) {
+          fs.unlinkSync(artifactPath);
+          console.error(`[unified-mcp] Cleaned stale file: ${path.basename(artifactPath)} (age: ${Math.round(ageMs / 60000)}min)`);
+        }
+      } catch (e) {
+        // Ignore cleanup errors - best effort
+      }
+    }
+  }
+}
+
+/**
  * Initialize database connection and schema
  */
 function initDatabase() {
   ensureProjectContext();
 
   const dbPath = getDbPath();
+
+  // v1.8.6: Clean up stale artifacts before opening database
+  cleanupStaleArtifacts(dbPath);
   const Database = getDatabaseClass();
   db = new Database(dbPath);
   db.pragma('journal_mode = DELETE');
@@ -525,6 +556,7 @@ module.exports = {
   getMigrationsDir,
   ensureProjectContext,
   ensureGlobalConfig,
+  cleanupStaleArtifacts,
   initDatabase,
   runMigrations,
   getDatabase,
