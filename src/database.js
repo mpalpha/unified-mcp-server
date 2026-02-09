@@ -1,6 +1,7 @@
 /**
  * Database Module - SQLite with FTS5 full-text search
  *
+ * v1.8.5: WASM-only SQLite (removed native better-sqlite3)
  * v1.8.2: Migration runner for schema versioning (Flyway-style)
  * v1.7.2: Hybrid database loading - native better-sqlite3 or WASM fallback
  * v1.7.0: Synchronized with index.js schema
@@ -12,22 +13,13 @@ const path = require('path');
 const os = require('os');
 
 /**
- * Get the appropriate Database class based on backend
- * Uses environment variable set by bootstrap.js
- * @returns {typeof import('better-sqlite3') | typeof import('./database-wasm').Database}
+ * Get the Database class (WASM-only in v1.8.5+)
+ * @returns {typeof import('./database-wasm').Database}
  */
 function getDatabaseClass() {
-  const backend = process.env.UNIFIED_MCP_DB_BACKEND;
-
-  if (backend === 'wasm') {
-    // Use WASM fallback
-    const { Database } = require('./database-wasm');
-    return Database;
-  }
-
-  // Default to native better-sqlite3
-  // This will throw if not available, which is expected during bootstrap
-  return require('better-sqlite3');
+  // v1.8.5: Always use WASM for universal Node.js version compatibility
+  const { Database } = require('./database-wasm');
+  return Database;
 }
 
 // Singleton database instance

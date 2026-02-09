@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.5] - 2026-02-09
+
+### Changed - WASM-Only SQLite
+
+Switched from hybrid native/WASM to WASM-only SQLite implementation for universal Node.js version compatibility.
+
+#### Problem
+- Global installs with multiple Node.js versions cause repeated `better-sqlite3` ABI mismatch errors
+- v1.7.2 hybrid approach: try native → auto-rebuild → WASM fallback
+- Auto-rebuild succeeds for current Node version but breaks other Node versions
+- Users with multiple projects on different Node versions hit this repeatedly
+
+#### Solution
+- Use `node-sqlite3-wasm` as the sole SQLite implementation
+- Remove `better-sqlite3` native module entirely
+- Simplify bootstrap logic (no more fallback/rebuild complexity)
+
+#### Benefits
+- ✅ Universal compatibility across Node 18, 20, 22+
+- ✅ No build tools required ever
+- ✅ Simpler codebase, fewer edge cases
+- ✅ Eliminates repeated user issues
+- ⚠️ Slightly slower than native (negligible for MCP workloads)
+
+### Removed
+- `better-sqlite3` dependency (replaced by `node-sqlite3-wasm`)
+- `prebuild-install` optional dependency (no longer needed)
+- Native module rebuild logic in `bootstrap.js`
+- `scripts/check-native-modules.js` postinstall script
+
+### Changed
+- `bootstrap.js` - Simplified to just load index.js (no fallback logic)
+- `src/database.js` - Always use WASM adapter
+- `src/database-wasm.js` - Promoted to primary implementation
+- `scripts/migrate-experiences.js` - Use WASM directly
+
 ## [1.8.4] - 2026-02-06
 
 ### Fixed - Write Hooks to Project-Level Settings

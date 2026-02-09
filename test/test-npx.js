@@ -11,6 +11,7 @@
  * - MCP protocol mode works (no flags)
  * - Zero-config initialization
  *
+ * v1.8.5: WASM-only (removed native/hybrid tests)
  * v1.7.2: Added WASM fallback and Node version compatibility tests
  * v1.4.0: Updated for project-scoped experiences
  */
@@ -340,11 +341,16 @@ test('WASM adapter supports FTS5', () => {
   }
 });
 
-// Test 18: Bootstrap exports getDatabaseBackend
+// Test 18: Bootstrap exports getDatabaseBackend (always 'wasm' in v1.8.5+)
 test('Bootstrap exports getDatabaseBackend', () => {
   const { getDatabaseBackend } = require('../bootstrap.js');
   if (typeof getDatabaseBackend !== 'function') {
     throw new Error('Bootstrap must export getDatabaseBackend');
+  }
+  // v1.8.5: Should always return 'wasm'
+  const backend = getDatabaseBackend();
+  if (backend !== 'wasm') {
+    throw new Error(`Expected backend 'wasm', got '${backend}'`);
   }
 });
 
@@ -360,15 +366,16 @@ test('engines.node requires Node 18+', () => {
   }
 });
 
-// Test 20: Database module uses getDatabaseClass factory
-test('Database module uses getDatabaseClass factory', () => {
+// Test 20: Database module uses WASM-only (v1.8.5)
+test('Database module uses WASM-only', () => {
   const dbModulePath = path.join(__dirname, '..', 'src', 'database.js');
   const content = fs.readFileSync(dbModulePath, 'utf8');
   if (!content.includes('getDatabaseClass')) {
     throw new Error('Database module must use getDatabaseClass factory');
   }
-  if (!content.includes('UNIFIED_MCP_DB_BACKEND')) {
-    throw new Error('Database module must check UNIFIED_MCP_DB_BACKEND env var');
+  // v1.8.5: Should import from database-wasm directly
+  if (!content.includes("require('./database-wasm')")) {
+    throw new Error('Database module must use WASM adapter');
   }
 });
 

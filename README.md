@@ -410,55 +410,19 @@ npm run lint
 
 ## Troubleshooting
 
-### Installation / Native Module Issues
+### Database / SQLite Issues
 
-**Problem**: Error like "was compiled against a different Node.js version"
+**v1.8.5+: WASM-Only SQLite**
 
-This occurs when `better-sqlite3` (native module) was compiled for a different Node.js version than you're currently using. This commonly happens when using `npx` after switching Node versions via nvm/fnm.
+Starting with v1.8.5, the server uses WebAssembly-based SQLite (`node-sqlite3-wasm`) exclusively. This provides:
+- ✅ Universal compatibility across Node.js 18, 20, 22+
+- ✅ No build tools required
+- ✅ No native module ABI issues when switching Node versions
+- ✅ Works identically on all platforms (macOS, Linux, Windows)
 
-**Automatic Fallback (v1.7.2+)**:
-Starting with v1.7.2, the server automatically falls back to a WebAssembly-based SQLite (`node-sqlite3-wasm`) when the native module fails to load. This means **most users won't encounter this error anymore** - the server will use WASM mode transparently.
+**Note**: Earlier versions (v1.7.2-v1.8.4) used a hybrid approach that could cause issues when switching between Node versions. Upgrade to v1.8.5+ to resolve these issues.
 
-If you see `[bootstrap] Using WASM SQLite backend (slower but compatible)` in stderr, the fallback is working. WASM mode is slightly slower but fully compatible with all features including FTS5 full-text search.
-
-**Manual Solutions** (if automatic fallback fails):
-
-#### Option 1: Build from Source (Recommended - Best Performance)
-```bash
-# This rebuilds better-sqlite3 for your specific Node version
-npm install -g mpalpha/unified-mcp-server --build-from-source
-unified-mcp-server --init
-```
-
-#### Option 2: Global Install with Rebuild
-```bash
-# Install globally
-npm install -g mpalpha/unified-mcp-server
-
-# Rebuild native module for your Node version
-npm rebuild -g better-sqlite3
-
-# Run
-unified-mcp-server --init
-```
-
-#### Option 3: Local Install (Best for Existing Projects)
-```bash
-# Keeps your project's Node version unchanged
-git clone https://github.com/mpalpha/unified-mcp-server.git
-cd unified-mcp-server
-npm install  # Automatically rebuilds for your Node version
-node index.js --init
-```
-
-#### Option 4: Clear npx Cache (For npx Users)
-```bash
-# Clear the npx cache to force re-download
-rm -rf ~/.npm/_npx/
-npx mpalpha/unified-mcp-server --init
-```
-
-**Required Node Versions**: 18.x or higher (WASM requires Node 18+)
+**Required Node Versions**: 18.x or higher
 
 **Check Your Node Version**:
 ```bash

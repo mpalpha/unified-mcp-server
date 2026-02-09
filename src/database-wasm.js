@@ -1,11 +1,13 @@
 /**
  * WASM SQLite Adapter - better-sqlite3 Compatible API
  *
- * v1.7.2: Provides a better-sqlite3 compatible wrapper around node-sqlite3-wasm
- * for use as a fallback when native better-sqlite3 fails to load due to
- * Node.js ABI mismatch (common in npx scenarios with version switches).
+ * v1.8.5: Primary SQLite implementation (WASM-only for universal compatibility)
+ * v1.7.2: Added as fallback when native better-sqlite3 fails to load
  *
- * API Differences from better-sqlite3:
+ * Uses node-sqlite3-wasm which works on any Node.js 18+ without build tools.
+ * Provides a better-sqlite3 compatible API for seamless integration.
+ *
+ * API Notes:
  * - pragma() method: Implemented via exec("PRAGMA ...")
  * - prepare() returns a Statement wrapper that auto-finalizes
  * - Manual close() required (memory leak risk in WASM)
