@@ -2,7 +2,8 @@
 
 ## Version History
 
-### v1.8.5 - TBD (Minor Release - WASM-Only SQLite)
+### v1.8.5 - 2026-02-09 (Minor Release - WASM-Only SQLite)
+**Status**: ✅ COMPLETE
 **Switch from hybrid native/WASM to WASM-only SQLite implementation**
 
 - **Problem**: Global installs with multiple Node.js versions cause repeated `better-sqlite3` ABI mismatch errors
