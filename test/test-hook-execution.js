@@ -3,6 +3,7 @@
  * Hook Execution Tests - Actually execute hooks and verify blocking behavior
  * These tests run the real hook scripts to verify they work correctly
  *
+ * v1.8.8: Added test for CONTEXT RECOVERY being FIRST CHORES item
  * v1.8.7: Added test for session-start CHORES output including CONTEXT RECOVERY
  * v1.2.1: Added test for user-prompt-submit output format (should not re-echo prompt)
  * v1.4.0: Updated for project-scoped experiences
@@ -21,7 +22,7 @@ let TOKEN_DIR;
 let TEST_DB;
 
 async function runTests() {
-  console.log(colors.bold + '\nHOOK EXECUTION TESTS (7 tests)' + colors.reset);
+  console.log(colors.bold + '\nHOOK EXECUTION TESTS (8 tests)' + colors.reset);
   console.log(colors.cyan + '======================================================================' + colors.reset);
   console.log('These tests execute real hooks and verify blocking behavior\n');
 
@@ -319,6 +320,49 @@ async function runTests() {
         'CONTEXT RECOVERY must mention transcripts or summaries'
       );
       console.log('  ✅ CONTEXT RECOVERY guidance includes transcript/summary reference');
+
+    } catch (error) {
+      throw new Error(`session-start hook should exit 0, but exited with ${error.status}`);
+    }
+  });
+
+  // Test 8: CONTEXT RECOVERY is FIRST CHORES item (v1.8.8)
+  await test('session-start has CONTEXT RECOVERY as FIRST CHORES item', () => {
+    console.log('\n  📋 Testing: CONTEXT RECOVERY position (v1.8.8)');
+    console.log('  ───────────────────────────────────────────────');
+
+    const hookPath = path.join(HOOKS_DIR, 'session-start.cjs');
+    assertTrue(fs.existsSync(hookPath), 'session-start.cjs must exist');
+
+    try {
+      const output = execSync(`node "${hookPath}"`, {
+        encoding: 'utf8',
+        cwd: testDir,
+        env: { ...process.env, PWD: testDir }
+      });
+
+      // Find positions of CHORES items
+      const contextRecoveryPos = output.indexOf('CONTEXT RECOVERY');
+      const constraintsPos = output.indexOf('□ CONSTRAINTS');
+      const hallucinationPos = output.indexOf('□ HALLUCINATION');
+
+      // CONTEXT RECOVERY must appear BEFORE other CHORES items
+      assertTrue(
+        contextRecoveryPos < constraintsPos,
+        `CONTEXT RECOVERY (pos ${contextRecoveryPos}) must appear BEFORE CONSTRAINTS (pos ${constraintsPos})`
+      );
+      assertTrue(
+        contextRecoveryPos < hallucinationPos,
+        `CONTEXT RECOVERY (pos ${contextRecoveryPos}) must appear BEFORE HALLUCINATION (pos ${hallucinationPos})`
+      );
+      console.log('  ✅ CONTEXT RECOVERY is FIRST CHORES item (before CONSTRAINTS and HALLUCINATION)');
+
+      // Verify stronger "STOP FIRST" language
+      assertTrue(
+        output.includes('CHECK FIRST') || output.includes('STOP'),
+        'CONTEXT RECOVERY must have strong "CHECK FIRST" or "STOP" language'
+      );
+      console.log('  ✅ CONTEXT RECOVERY has strong "CHECK FIRST" language');
 
     } catch (error) {
       throw new Error(`session-start hook should exit 0, but exited with ${error.status}`);

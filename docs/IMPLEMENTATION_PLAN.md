@@ -2,8 +2,8 @@
 
 ## Version History
 
-### Issue: CONTEXT RECOVERY Should Be First CHORES Item for Resumed Sessions
-**Status**: 🔍 DIAGNOSED - Awaiting implementation team review
+### v1.8.8 - 2026-02-09 (Patch Release - CONTEXT RECOVERY Position Fix)
+**Status**: ✅ COMPLETE
 **User agent ignored CONTEXT RECOVERY reminder - position in CHORES matters**
 
 - **Problem**: CONTEXT RECOVERY guidance is being ignored by agents

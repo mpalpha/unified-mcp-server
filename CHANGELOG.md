@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.8] - 2026-02-09
+
+### Fixed - CONTEXT RECOVERY Position in CHORES
+
+Moved CONTEXT RECOVERY to first position in CHORES framework to ensure agents read transcripts before proceeding.
+
+#### Problem
+- CONTEXT RECOVERY was positioned LAST (7th) in CHORES framework
+- User agent ignored the guidance and proceeded without reading transcript
+- Agent cannot properly verify CONSTRAINTS, HALLUCINATION, etc. without full context
+- Position at end of list made it easy to overlook
+
+#### Solution
+- Move CONTEXT RECOVERY to FIRST position in CHORES
+- Add stronger "⛔ STOP FIRST" language to ensure compliance
+- Add test verifying CONTEXT RECOVERY is first item in output
+
+#### Changes
+- `hooks/session-start.cjs` - Reordered CHORES: CONTEXT RECOVERY now first
+- `test/test-hook-execution.js` - Added test verifying CONTEXT RECOVERY position
+
 ## [1.8.7] - 2026-02-09
 
 ### Fixed - Lock Directory Cleanup

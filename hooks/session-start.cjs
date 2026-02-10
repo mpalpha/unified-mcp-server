@@ -23,6 +23,18 @@ const os = require('os');
 // CHORES - Behavioral compliance framework (highest priority)
 console.log('⚠️  CHORES - VERIFY BEFORE EVERY RESPONSE:\n');
 
+// v1.8.8: CONTEXT RECOVERY must be FIRST - agent needs full context before other checks
+console.log('□ CONTEXT RECOVERY (⛔ CHECK FIRST if resuming from summary)');
+console.log('  • If you see "Summary:" or "conversation was summarized" in context:');
+console.log('    1. STOP - Do not proceed until you have recovered context');
+console.log('    2. LOCATE: Find the transcript path (~/.claude/projects/.../*.jsonl)');
+console.log('    3. READ: Use Read tool with offset/limit to scan relevant sections');
+console.log('    4. SEARCH: Use Grep on transcript for keywords from current task');
+console.log('    5. VERIFY: Cross-check summary claims against actual transcript');
+console.log('  • Focus on: exact code changes, error messages, user decisions, file paths');
+console.log('  • Transcripts are large - search strategically, don\'t read entire file');
+console.log('  • You CANNOT properly verify other CHORES items without full context\n');
+
 console.log('□ CONSTRAINTS');
 console.log('  • Re-read user\'s current request');
 console.log('  • Discover project rules intelligently:');
@@ -66,16 +78,6 @@ console.log('  • Evaluate user\'s assumptions critically before proceeding');
 console.log('  • If something seems wrong, state disagreement with evidence');
 console.log('  • Don\'t confirm without verification');
 console.log('  • Accuracy over agreement - even if user won\'t like it\n');
-
-console.log('□ CONTEXT RECOVERY (when resuming from summary)');
-console.log('  • If you see "Summary:" or "conversation was summarized" in context:');
-console.log('    1. LOCATE: Find the transcript path (usually ~/.claude/projects/.../*.jsonl)');
-console.log('    2. READ: Use Read tool with offset/limit to scan relevant sections');
-console.log('    3. SEARCH: Use Grep on transcript for keywords from current task');
-console.log('    4. VERIFY: Cross-check summary claims against actual transcript');
-console.log('  • Focus on: exact code changes, error messages, user decisions, file paths');
-console.log('  • Transcripts are large - search strategically, don\'t read entire file');
-console.log('  • If unsure about prior context, state what you\'re uncertain about\n');
 
 console.log('State which items apply and how you addressed them.\n');
 

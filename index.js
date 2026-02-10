@@ -64,7 +64,7 @@ const {
   resetWorkflow
 } = require('./src/tools/workflow');
 
-const VERSION = '1.8.7';
+const VERSION = '1.8.8';
 
 // v1.7.0: Database and validation functions imported from modules
 // v1.7.2: Lazy initialization for graceful degradation - paths computed on demand
