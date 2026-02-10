@@ -2,6 +2,40 @@
 
 ## Version History
 
+### Issue: CONTEXT RECOVERY Should Be First CHORES Item for Resumed Sessions
+**Status**: 🔍 DIAGNOSED - Awaiting implementation team review
+**User agent ignored CONTEXT RECOVERY reminder - position in CHORES matters**
+
+- **Problem**: CONTEXT RECOVERY guidance is being ignored by agents
+  - Currently positioned LAST in CHORES framework (after SYCOPHANCY)
+  - User agent resumed from summary but did not read transcript
+  - Agent proceeded with incomplete context despite guidance
+  - Position at end of list makes it easy to overlook
+
+- **Evidence**:
+  - CONTEXT RECOVERY added in v1.8.7 as the 7th CHORES item
+  - For resumed sessions, context recovery should happen BEFORE other checks
+  - Agent cannot properly verify CONSTRAINTS, HALLUCINATION, etc. without full context
+
+- **Implementation Team**: Please determine the correct approach considering:
+  - Should CONTEXT RECOVERY be moved to FIRST position always?
+  - Should it be conditionally first only when summary is detected?
+  - How to detect "resumed from summary" state in the hook?
+  - Whether to add stronger language (e.g., "STOP - Read transcript FIRST")
+  - Impact on agents that are NOT resuming from summary (noise concern)
+
+- **⚠️ CRITICAL - Protect Existing Functionality**:
+  - Other CHORES items must NOT be removed or weakened
+  - Hook must remain idempotent and fast
+  - Test must verify CONTEXT RECOVERY appears in output (already exists)
+  - Consider adding test for position/ordering of CHORES items
+
+- **Related Files**:
+  - `hooks/session-start.cjs` - CHORES framework ordering
+  - `test/test-hook-execution.js` - Test verifies item presence but not position
+
+---
+
 ### v1.8.7 - 2026-02-09 (Patch Release - Lock Directory Cleanup Fix)
 **Status**: ✅ COMPLETE
 **v1.8.6 cleanup doesn't handle node-sqlite3-wasm's directory-based locking**
