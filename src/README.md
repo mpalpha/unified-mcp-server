@@ -1,4 +1,4 @@
-# src/ Directory - Active Modules (v1.7.0)
+# src/ Directory - Active Modules
 
 This directory contains active, imported modules used by `index.js`.
 
@@ -9,18 +9,38 @@ This directory contains active, imported modules used by `index.js`.
 | File | Purpose | Lines |
 |------|---------|-------|
 | `validation.js` | ValidationError class, validators, diceCoefficient | ~105 |
-| `database.js` | Database init, schema, path helpers, logActivity | ~340 |
-| `cli.js` | CLI commands (--help, --version, --init, --preset, --health, --validate) | ~560 |
+| `database.js` | Database init, schema, path helpers, logActivity | ~580 |
+| `database-wasm.js` | WASM SQLite wrapper (node-sqlite3-wasm) | ~50 |
+| `cli.js` | CLI commands (--help, --version, --init, --install, --doctor, --demo) | ~1800 |
 
 ### Tool Modules
 
 | File | Purpose | Status |
 |------|---------|--------|
 | `tools/knowledge.js` | 7 knowledge management tools | ✅ Wired |
-| `tools/reasoning.js` | 4 reasoning tools | ✅ Wired |
+| `tools/reasoning.js` | 4 reasoning tools (legacy, shimmed) | ✅ Wired (deprecated) |
+| `tools/memory.js` | 6 memory system MCP tools | ✅ Wired |
 | `tools/workflow.js` | 5 workflow enforcement tools | ✅ Wired |
 | `tools/config.js` | 5 configuration tools + BUILT_IN_PRESETS | ✅ Wired |
 | `tools/automation.js` | 7 automation tools | ✅ Wired |
+
+### Memory System Modules
+
+| File | Purpose |
+|------|---------|
+| `memory/index.js` | Barrel export for all memory modules |
+| `memory/canonical.js` | Canonical JSON, SHA-256 hashing, HMAC-SHA256 signing |
+| `memory/schema.js` | Memory schema application (migration 002) |
+| `memory/salience.js` | Salience computation formula |
+| `memory/sessions.js` | Memory session management |
+| `memory/invocations.js` | Hash-chained invocation ledger |
+| `memory/experiences.js` | Episodic experience recording |
+| `memory/scenes.js` | Scenes, cells, evidence linking |
+| `memory/consolidation.js` | Deterministic consolidation engine |
+| `memory/context-pack.js` | Byte-budgeted context packing |
+| `memory/guarded-cycle.js` | 7-phase state machine |
+| `memory/finalize.js` | Response finalization with trust labeling |
+| `memory/governance.js` | Receipts, tokens, validation, violations |
 
 ## What's Imported
 
@@ -34,7 +54,7 @@ const { ValidationError, diceCoefficient, getBigrams } = require('./src/validati
 const {
   getProjectDir, getDbPath, getTokenDir, getConfigPath,
   ensureProjectContext, ensureGlobalConfig,
-  initDatabase, getDatabase, logActivity
+  initDatabase, getDatabase, tryGetDatabase, isDatabaseAvailable, getDatabaseError, logActivity
 } = require('./src/database');
 
 // From ./src/tools/knowledge.js
@@ -43,11 +63,17 @@ const {
   updateExperience, tagExperience, exportExperiences, importExperiences
 } = require('./src/tools/knowledge');
 
-// From ./src/tools/reasoning.js
+// From ./src/tools/reasoning.js (legacy, shimmed)
 const {
   detectGoal, detectPriority, detectFormat, detectContext, suggestLocalFiles,
   analyzeProblem, gatherContext, reasonThrough, finalizeDecision
 } = require('./src/tools/reasoning');
+
+// From ./src/tools/memory.js
+const {
+  complianceSnapshot, complianceRouter, contextPack,
+  guardedCycle, finalizeResponse, runConsolidation
+} = require('./src/tools/memory');
 
 // From ./src/tools/workflow.js
 const {
@@ -68,27 +94,20 @@ const {
 } = require('./src/tools/automation');
 
 // From ./src/cli.js
-const { runCLI } = require('./src/cli');
+const { runCLI, checkVersionAndPrompt } = require('./src/cli');
 ```
 
-## Progress
+## CLI Flags
 
-- v1.7.0 Phase 1: Extracted validation and database modules (~445 lines)
-- v1.7.0 Phase 2: Extracted knowledge tools (~500 lines)
-- v1.7.0 Phase 3: Extracted reasoning tools (~450 lines)
-- v1.7.0 Phase 4: Extracted workflow tools (~340 lines)
-- v1.7.0 Phase 5: Extracted config tools (~380 lines)
-- v1.7.0 Phase 6: Extracted automation tools (~630 lines)
-- v1.7.0 Phase 7: Extracted CLI to cli.js (~560 lines)
-- **index.js reduced from 3676 → 716 lines (80.5% reduction)**
-- All 140+ tests pass
-
-## Completed
-
-1. ~~Extract knowledge tools to `tools/knowledge.js`~~ ✅
-2. ~~Extract reasoning tools to `tools/reasoning.js`~~ ✅
-3. ~~Extract workflow tools to `tools/workflow.js`~~ ✅
-4. ~~Extract config tools to `tools/config.js`~~ ✅
-5. ~~Extract automation tools to `tools/automation.js`~~ ✅
-6. ~~Extract CLI to `cli.js`~~ ✅
-7. ~~Target: index.js < 800 lines (~78% reduction)~~ ✅ **Achieved: 716 lines (80.5% reduction)**
+| Flag | Purpose |
+|------|---------|
+| `--help` | Show usage |
+| `--version` | Show version |
+| `--init` | Interactive setup wizard |
+| `--install` | Non-interactive install |
+| `--preset <name>` | Set workflow preset |
+| `--health` | Run health check |
+| `--doctor` | System diagnostics (DB, schema, integrity) |
+| `--demo` | Exercise all memory system phases |
+| `hooks install` | Install hooks |
+| `hooks uninstall` | Remove hooks |

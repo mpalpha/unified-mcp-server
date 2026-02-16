@@ -1,8 +1,8 @@
 # Tool Reference
 
-Complete reference for all 25 tools in the unified MCP server.
+Complete reference for all tools in the unified MCP server.
 
-## Knowledge Management Tools (6)
+## Knowledge Management Tools (7)
 
 ### record_experience
 Record a working pattern (effective or ineffective). Also use for "remember X" requests - stores user-directed memories for later recall.
@@ -16,9 +16,8 @@ Record a working pattern (effective or ineffective). Also use for "remember X" r
 - `reasoning` (required): Why this approach worked/failed
 - `confidence` (optional): 0.0-1.0
 - `tags` (optional): Array of strings
-- `scope` (optional): "user" | "project" | "auto"
 
-**Returns:** `{ recorded: true, experience_id: number, scope: string }`
+**Returns:** `{ recorded: true, experience_id: number }`
 
 ### search_experiences
 Full-text search with FTS5 and BM25 ranking. Also use for "what did I tell you?" or "recall X" - retrieves stored memories and past experiences.
@@ -27,7 +26,9 @@ Full-text search with FTS5 and BM25 ranking. Also use for "what did I tell you?"
 - `query` (required): Search query
 - `domain` (optional): Filter by domain
 - `type` (optional): "effective" | "ineffective"
-- `output_mode` (optional): "files_with_matches" | "content"
+- `min_confidence` (optional): 0.0-1.0
+- `limit` (optional): 1-100 (default: 20)
+- `offset` (optional): 0+ (default: 0)
 
 **Returns:** `{ results: array, count: number }`
 
@@ -88,32 +89,112 @@ Export experiences to file.
 
 **Parameters:**
 - `format` (required): "json" | "markdown"
-- `file_path` (optional): Where to save
-- `domain` (optional): Filter by domain
-- `type` (optional): Filter by type
+- `filter` (optional): Object with domain/type filters
+- `output_path` (optional): Where to save
 
 **Returns:** `{ exported: true, count: number, file_path: string }`
 
-## Reasoning Tools (4)
+### import_experiences
+Import experiences from a JSON file exported from another project.
+
+**Parameters:**
+- `filename` (required): Path to JSON file to import
+- `filter` (optional): Object with domain/type filters
+
+**Returns:** `{ imported: number, skipped: number, errors: number }`
+
+## Memory System Tools (6)
+
+### compliance_snapshot
+Take a compliance snapshot of the current context. Replaces `analyze_problem` in the new GUARDED_REASON lifecycle.
+
+**Parameters:**
+- `session_id` (required): Memory session ID (integer)
+- `context` (optional): Additional context to include in snapshot
+
+**Returns:** `{ snapshot_hash: string, session_id: number, phase: "SNAPSHOT" }`
+
+### compliance_router
+Route the compliance check based on snapshot results. Determines which reasoning path to follow.
+
+**Parameters:**
+- `session_id` (required): Memory session ID
+- `snapshot_hash` (required): Hash from compliance_snapshot
+
+**Returns:** `{ route: string, session_id: number, phase: "ROUTER" }`
+
+### context_pack
+Pack relevant context within a byte budget. Replaces `gather_context` in the new lifecycle.
+
+**Parameters:**
+- `session_id` (required): Memory session ID
+- `scope` (optional): "project" | "global" (default: "project")
+- `byte_budget` (optional): Maximum bytes for context (default: 8000)
+- `context_keys` (optional): Array of context key strings to prioritize
+
+**Returns:** `{ packed_context: object, context_hash: string, byte_count: number, phase: "CONTEXT_PACK" }`
+
+### guarded_cycle
+Execute a phase of the guarded reasoning cycle. Replaces `reason_through` in the new lifecycle. Must be called in phase order: SNAPSHOT → ROUTER → CONTEXT_PACK → DRAFT → FINALIZE_RESPONSE → GOVERNANCE_VALIDATE → MEMORY_UPDATE.
+
+**Parameters:**
+- `session_id` (required): Memory session ID
+- `phase` (required): Phase to execute
+- `input` (required): Phase-specific input data
+
+**Returns:** `{ phase: string, output: object, next_phase: string, session_id: number }`
+
+### finalize_response
+Finalize a response with trust-aware labeling and integrity markers. Replaces `finalize_decision` in the new lifecycle.
+
+**Parameters:**
+- `session_id` (required): Memory session ID
+- `draft` (required): Draft response text
+- `context_hash` (required): Hash from context_pack
+- `cells` (optional): Array of cells used in reasoning
+
+**Returns:** `{ response: string, integrity: string, violations: array }`
+
+### run_consolidation
+Run the deterministic consolidation engine. Processes episodic experiences into semantic cells via conservative templates.
+
+**Parameters:**
+- `scope` (optional): "project" | "global" (default: "project")
+- `threshold` (optional): Minimum experiences before consolidation (default: 5)
+
+**Returns:** `{ processed: number, cells_created: number, cells_updated: number, idempotent: boolean }`
+
+## Reasoning Tools (4) — DEPRECATED
+
+> **Breaking Change**: These tools are deprecated in favor of Memory System Tools.
+> They remain functional via compatibility shims but return `deprecated: true` in responses.
+> See Compatibility Shim Matrix in ARCHITECTURE.md.
 
 ### analyze_problem
+**DEPRECATED** → Use `compliance_snapshot` + `compliance_router`
+
 Start reasoning session with problem analysis.
 
 **Parameters:**
 - `problem` (required): Problem description
+- `available_tools` (optional): Array of MCP tool names
 
-**Returns:** `{ session_id: string, intent: object, suggested_queries: array }`
+**Returns:** `{ session_id: string, user_intent: object, suggested_queries: object, deprecated: true, replacement: "compliance_snapshot + compliance_router" }`
 
 ### gather_context
+**DEPRECATED** → Use `context_pack`
+
 Gather context from multiple sources.
 
 **Parameters:**
 - `session_id` (required): Reasoning session ID
 - `sources` (required): Object with context sources
 
-**Returns:** `{ synthesized: true, context_summary: object }`
+**Returns:** `{ synthesized_context: string, token_count: number, deprecated: true, replacement: "context_pack" }`
 
 ### reason_through
+**DEPRECATED** → Use `guarded_cycle`
+
 Record a reasoning thought.
 
 **Parameters:**
@@ -122,9 +203,11 @@ Record a reasoning thought.
 - `thought_number` (required): Sequential number
 - `confidence` (optional): 0.0-1.0
 
-**Returns:** `{ recorded: true, thought_id: number }`
+**Returns:** `{ thought_id: number, thought_number: number, deprecated: true, replacement: "guarded_cycle" }`
 
 ### finalize_decision
+**DEPRECATED** → Use `finalize_response` + governance validation
+
 Close reasoning session with conclusion.
 
 **Parameters:**
@@ -133,7 +216,7 @@ Close reasoning session with conclusion.
 - `rationale` (optional): Why this decision
 - `record_as_experience` (optional): Auto-record (default: true)
 
-**Returns:** `{ finalized: true, experience_id: number }`
+**Returns:** `{ conclusion: string, experience_id: number, deprecated: true, replacement: "finalize_response" }`
 
 ## Workflow Enforcement Tools (5)
 
@@ -223,15 +306,15 @@ Export configuration to file.
 
 **Returns:** `{ exported: true, file_path: string }`
 
-## Automation Tools (5)
+## Automation Tools (7)
 
 ### install_hooks
-Install workflow hooks (MVP).
+Install workflow hooks to `~/.claude/hooks/`.
 
 **Returns:** `{ installed: true, hooks: array, location: string }`
 
 ### uninstall_hooks
-Remove installed hooks (MVP).
+Remove installed hooks from `~/.claude/hooks/`.
 
 **Returns:** `{ uninstalled: true, removed_count: number }`
 
@@ -244,9 +327,9 @@ Get complete session state.
 **Returns:** `{ session_id: string, reasoning_session: object, thoughts: array }`
 
 ### health_check
-Run system health diagnostics.
+Run system health diagnostics including memory system status.
 
-**Returns:** `{ healthy: boolean, issues: array, warnings: array, stats: object }`
+**Returns:** `{ healthy: boolean, issues: array, warnings: array, stats: object, memory_system: object }`
 
 ### import_data
 Import data from JSON file.
@@ -255,3 +338,25 @@ Import data from JSON file.
 - `source_file` (required): Path to JSON file
 
 **Returns:** `{ imported: number, skipped: number, errors: number }`
+
+### update_project_context
+Update project-specific context (data-only, no code execution).
+
+**Parameters:**
+- `enabled` (required): Enable/disable project context display
+- `summary` (optional): One-line project summary (max 200 chars)
+- `highlights` (optional): Key project highlights (max 5 items)
+- `reminders` (optional): Important reminders (max 3 items)
+- `preImplementation` (optional): Pre-coding checklist items
+- `postImplementation` (optional): Post-coding checklist items
+- `project_path` (optional): Project directory path
+
+**Returns:** `{ updated: true, path: string }`
+
+### get_project_context
+Get current project context configuration.
+
+**Parameters:**
+- `project_path` (optional): Project directory path
+
+**Returns:** Project context object

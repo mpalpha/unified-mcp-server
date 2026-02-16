@@ -2,8 +2,7 @@
 
 > Protocol-enforced learning system combining memory-augmented reasoning with workflow automation for AI assistants
 
-[![Tests](https://img.shields.io/badge/tests-183%2F183%20passing-brightgreen)](test/)
-[![Node](https://img.shields.io/badge/node-%3E%3D16.0.0-brightgreen)](package.json)
+[![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](package.json)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 ## Overview
@@ -15,16 +14,15 @@ Unified MCP Server is a Model Context Protocol server that enforces research-bas
 - 🔒 **Protocol enforcement**: Hooks prevent file operations without learning
 - 📚 **Knowledge libraries**: Organize experiences by project/domain
 - 🔄 **Experience migration**: Import from old database formats
-- ✅ **182 automated tests**: 100% test coverage
+- ✅ **230+ automated tests**: Comprehensive test coverage
 
 ## Quick Start
 
 ### System Requirements
 
 **Runtime:**
-- **Node.js**: >=16.0.0 (check with `node --version`)
+- **Node.js**: >=18.0.0 (check with `node --version`)
   - Recommended: 18.x, 20.x, or 22.x
-  - Other versions work with `--build-from-source` flag
 - **npm**: 8.x or higher
 - **Disk Space**: ~50 MB for installation
 - **Memory**: 100 MB minimum
@@ -34,11 +32,7 @@ Unified MCP Server is a Model Context Protocol server that enforces research-bas
 - ✅ Linux (x64, arm64)
 - ✅ Windows 10/11 (x64)
 
-**Build Tools** (for native modules):
-- **macOS**: Xcode Command Line Tools (`xcode-select --install`)
-- **Linux**: `build-essential` package (`sudo apt-get install build-essential`)
-- **Windows**: Visual Studio Build Tools or `windows-build-tools`
-- **All platforms**: Python 3.x (for node-gyp)
+No native build tools required (uses WASM SQLite since v1.8.5).
 
 ### Installation
 
@@ -84,6 +78,49 @@ If you need to manually configure (e.g., custom args), add to your MCP settings:
 ```
 
 After any manual changes, restart Claude Code for settings to take effect.
+
+## What Changed in v1.9.0: Deterministic Memory System
+
+v1.9.0 replaces the REASON phase with a deterministic, governance-enforced memory system.
+
+### Lifecycle Change
+
+```
+Before: TEACH → LEARN → REASON → ACT
+After:  TEACH → LEARN → GUARDED_REASON → ACT
+```
+
+### New Tools (6)
+
+| Tool | Purpose |
+|------|---------|
+| `compliance_snapshot` | Take compliance snapshot (SNAPSHOT phase) |
+| `compliance_router` | Route compliance check (ROUTER phase) |
+| `context_pack` | Byte-budgeted context packing |
+| `guarded_cycle` | Execute guarded reasoning phase |
+| `finalize_response` | Trust-aware response finalization |
+| `run_consolidation` | Deterministic consolidation engine |
+
+### Deprecated Tools (4)
+
+| Old Tool | Replacement |
+|----------|-------------|
+| `analyze_problem` | `compliance_snapshot` + `compliance_router` |
+| `gather_context` | `context_pack` |
+| `reason_through` | `guarded_cycle` |
+| `finalize_decision` | `finalize_response` |
+
+Legacy tools still work but return `deprecated: true` with replacement guidance.
+
+### Architecture
+
+- 13 modules in `src/memory/`
+- 9 new database tables via `migrations/002_memory_system.sql`
+- 34 total MCP tools (was 28)
+- HMAC-SHA256 signed receipts and tokens
+- Deterministic salience scoring and hash-chained invocation ledger
+
+See [ARCHITECTURE.md](docs/ARCHITECTURE.md) and [TOOL_REFERENCE.md](docs/TOOL_REFERENCE.md) for details.
 
 ## v1.4.0: Project-Scoped Experiences
 

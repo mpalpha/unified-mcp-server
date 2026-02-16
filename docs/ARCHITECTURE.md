@@ -2,10 +2,28 @@
 
 ## System Overview
 
-The unified MCP server is a single-file, atomic tool suite that combines:
-- Memory-augmented reasoning
-- Protocol enforcement
-- Workflow automation
+The unified MCP server is a modular tool suite that combines:
+- Memory-augmented reasoning (episodic + semantic)
+- Deterministic governance enforcement
+- Workflow automation with hook integration
+
+### Lifecycle
+
+```
+TEACH → LEARN → GUARDED_REASON → ACT
+```
+
+**GUARDED_REASON** replaces the legacy REASON phase with a deterministic, governance-enforced reasoning engine. Legacy REASON tools (`analyze_problem`, `gather_context`, `reason_through`, `finalize_decision`) are wrapped with compatibility shims that delegate to the new memory system tools.
+
+### Guarded Cycle Phases
+
+The guarded cycle enforces a strict 7-phase state machine:
+
+```
+SNAPSHOT → ROUTER → CONTEXT_PACK → DRAFT → FINALIZE_RESPONSE → GOVERNANCE_VALIDATE → MEMORY_UPDATE
+```
+
+Each phase must complete before the next begins. Phase violations are logged and blocked.
 
 ## Design Principles
 
@@ -13,10 +31,14 @@ The unified MCP server is a single-file, atomic tool suite that combines:
 2. **Composable**: Tools work together seamlessly
 3. **Stateless**: Each call is independent (state in DB)
 4. **Validated**: All inputs validated before execution
+5. **Deterministic**: Same inputs always produce same outputs (canonical JSON, stable ordering)
+6. **Governance-Enforced**: All reasoning passes through hash chain verification and receipt signing
 
 ## Database Schema
 
-### experiences
+### Migration 001: Core Tables
+
+#### experiences
 Core knowledge records with full-text search.
 
 ```sql
@@ -41,8 +63,8 @@ CREATE VIRTUAL TABLE experiences_fts USING fts5(
 );
 ```
 
-### reasoning_sessions
-Reasoning workflow tracking.
+#### reasoning_sessions
+Reasoning workflow tracking (legacy, retained for backward compatibility).
 
 ```sql
 CREATE TABLE reasoning_sessions (
@@ -58,8 +80,8 @@ CREATE TABLE reasoning_sessions (
 );
 ```
 
-### reasoning_thoughts
-Sequential thought history.
+#### reasoning_thoughts
+Sequential thought history (legacy, retained for backward compatibility).
 
 ```sql
 CREATE TABLE reasoning_thoughts (
@@ -74,7 +96,7 @@ CREATE TABLE reasoning_thoughts (
 );
 ```
 
-### workflow_sessions
+#### workflow_sessions
 Workflow state and preset tracking.
 
 ```sql
@@ -89,7 +111,7 @@ CREATE TABLE workflow_sessions (
 );
 ```
 
-### activity_log
+#### activity_log
 Audit trail for all operations.
 
 ```sql
@@ -102,32 +124,247 @@ CREATE TABLE activity_log (
 );
 ```
 
+### Migration 002: Memory System Tables
+
+9 tables supporting the deterministic memory system. All use `INTEGER PRIMARY KEY AUTOINCREMENT` for consistency.
+
+#### memory_sessions
+Memory-aware session tracking with scope and phase state.
+
+```sql
+CREATE TABLE memory_sessions (
+  session_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  created_at TEXT NOT NULL,
+  scope_mode TEXT NOT NULL DEFAULT 'project',
+  flags_json TEXT NOT NULL DEFAULT '{}',
+  last_phase TEXT,
+  last_context_hash TEXT
+);
+```
+
+#### invocations
+Hash-chained invocation ledger for tamper detection.
+
+```sql
+CREATE TABLE invocations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id INTEGER NOT NULL,
+  ts TEXT NOT NULL,
+  tool_name TEXT NOT NULL,
+  input_hash TEXT NOT NULL,
+  output_hash TEXT NOT NULL,
+  meta_json TEXT DEFAULT '{}',
+  prev_hash TEXT,
+  hash TEXT NOT NULL,
+  FOREIGN KEY (session_id) REFERENCES memory_sessions(session_id)
+);
+```
+
+#### receipts
+Signed governance receipts for audit trail.
+
+```sql
+CREATE TABLE receipts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id INTEGER NOT NULL,
+  ts TEXT NOT NULL,
+  receipt_type TEXT NOT NULL,
+  payload_json TEXT NOT NULL,
+  payload_hash TEXT NOT NULL,
+  signature TEXT NOT NULL,
+  public_meta_json TEXT DEFAULT '{}',
+  FOREIGN KEY (session_id) REFERENCES memory_sessions(session_id)
+);
+```
+
+#### memory_tokens
+Signed tokens stored in database (complements file-based `.claude/tokens/`).
+
+```sql
+CREATE TABLE memory_tokens (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id INTEGER NOT NULL,
+  ts TEXT NOT NULL,
+  token_type TEXT NOT NULL,
+  payload_json TEXT NOT NULL,
+  payload_hash TEXT NOT NULL,
+  signature TEXT NOT NULL,
+  FOREIGN KEY (session_id) REFERENCES memory_sessions(session_id)
+);
+```
+
+#### episodic_experiences
+Episodic memory with trust, salience, and scope tracking. Distinct from `experiences` table to avoid collision.
+
+```sql
+CREATE TABLE episodic_experiences (
+  experience_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id INTEGER,
+  scope TEXT NOT NULL DEFAULT 'project' CHECK(scope IN ('project', 'global')),
+  context_keys_json TEXT NOT NULL DEFAULT '[]',
+  summary TEXT NOT NULL,
+  outcome TEXT NOT NULL DEFAULT 'unknown' CHECK(outcome IN ('success', 'partial', 'fail', 'unknown')),
+  trust INTEGER NOT NULL DEFAULT 1 CHECK(trust BETWEEN 0 AND 3),
+  salience INTEGER NOT NULL DEFAULT 0 CHECK(salience BETWEEN 0 AND 1000),
+  created_at TEXT NOT NULL,
+  source TEXT NOT NULL DEFAULT 'system' CHECK(source IN ('user', 'system', 'agent', 'derived')),
+  FOREIGN KEY (session_id) REFERENCES memory_sessions(session_id)
+);
+```
+
+#### consolidation_meta
+Tracks last consolidation timestamp per scope.
+
+```sql
+CREATE TABLE consolidation_meta (
+  scope TEXT PRIMARY KEY CHECK(scope IN ('project', 'global')),
+  last_consolidation_ts TEXT
+);
+```
+
+#### scenes
+Semantic memory containers grouping related cells.
+
+```sql
+CREATE TABLE scenes (
+  scene_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  scope TEXT NOT NULL DEFAULT 'project' CHECK(scope IN ('project', 'global')),
+  label TEXT NOT NULL,
+  context_keys_json TEXT NOT NULL DEFAULT '[]',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+```
+
+#### cells
+Semantic memory units with trust, salience, state tracking, and canonical keys.
+
+```sql
+CREATE TABLE cells (
+  cell_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  scene_id INTEGER NOT NULL,
+  scope TEXT NOT NULL DEFAULT 'project' CHECK(scope IN ('project', 'global')),
+  cell_type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  trust INTEGER NOT NULL DEFAULT 1 CHECK(trust BETWEEN 0 AND 3),
+  salience INTEGER NOT NULL DEFAULT 0 CHECK(salience BETWEEN 0 AND 1000),
+  state TEXT NOT NULL DEFAULT 'unverified',
+  evidence_count INTEGER NOT NULL DEFAULT 0,
+  contradiction_count INTEGER NOT NULL DEFAULT 0,
+  conflict_group TEXT,
+  supersedes_cell_id INTEGER,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  canonical_key TEXT UNIQUE NOT NULL,
+  FOREIGN KEY (scene_id) REFERENCES scenes(scene_id),
+  FOREIGN KEY (supersedes_cell_id) REFERENCES cells(cell_id)
+);
+```
+
+#### cell_evidence
+Links cells to supporting/contradicting episodic experiences.
+
+```sql
+CREATE TABLE cell_evidence (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  cell_id INTEGER NOT NULL,
+  experience_id INTEGER NOT NULL,
+  relation TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (cell_id) REFERENCES cells(cell_id),
+  FOREIGN KEY (experience_id) REFERENCES episodic_experiences(experience_id)
+);
+```
+
+### Primary Key Strategy
+
+All tables use `INTEGER PRIMARY KEY AUTOINCREMENT`. No TEXT primary keys. If stable external identifiers are needed, add a separate `UNIQUE TEXT` column (e.g., `canonical_key` on cells).
+
+### Naming Collision Decisions
+
+| Concept | Table Name | Rationale |
+|---------|-----------|-----------|
+| Knowledge records | `experiences` | Original, unchanged |
+| Episodic memory | `episodic_experiences` | Avoids collision with `experiences` |
+| DB tokens | `memory_tokens` | Avoids collision with `.claude/tokens/` directory |
+| Memory sessions | `memory_sessions` | Avoids collision with `reasoning_sessions` |
+
 ## Token System
 
-### Operation Tokens
-- Single-use, 5-minute TTL
-- Created by `verify_compliance`
-- Consumed by `authorize_operation`
+### v1 Tokens (File-Based)
+- Single-use operation tokens: 5-minute TTL
+- Multi-use session tokens: 60-minute TTL
 - Stored as JSON in `.claude/tokens/` (project-local)
+- Created by `verify_compliance` / `authorize_operation`
 
-### Session Tokens
-- Multi-use, 60-minute TTL
-- Optional creation during authorization
-- Enables fast-track for multiple operations
-- Same storage location
+### v2 Tokens (Database + File)
+- Extends v1 with additional fields:
+  - `token_version: 2`
+  - `context_hash`: SHA-256 of context at token creation
+  - `invocation_chain_head`: Latest hash chain entry
+  - `compliance_version`: Schema version for validation
+- HMAC-SHA256 signed with project signing secret
+- Backward compatible: v1 tokens remain valid
 
-### Token Structure
+### Token Structure (v2)
 ```json
 {
   "token_id": "op-1234567890-abc123",
+  "token_version": 2,
   "created_at": 1234567890000,
   "expires_at": 1234567890300,
   "type": "operation",
   "session_id": "my-session",
   "phase": "teach",
-  "action": "record_experience"
+  "action": "record_experience",
+  "context_hash": "sha256-...",
+  "invocation_chain_head": "sha256-...",
+  "compliance_version": "1.9.0"
 }
 ```
+
+### Signing
+- Secret: 32-byte random hex stored at `.claude/signing.key`
+- Generated automatically by `--init` or `runNonInteractiveInstall()`
+- Algorithm: HMAC-SHA256
+
+## Deterministic Operations
+
+### Canonical JSON
+Recursive key sort ensures identical serialization regardless of insertion order.
+
+### Hashing
+SHA-256 for all content hashing (invocations, context, receipts).
+
+### Signing
+HMAC-SHA256 with per-project signing secret for receipts and tokens.
+
+### Stable Ordering
+All queries use deterministic ordering:
+```
+trust DESC, salience DESC, updated_at DESC, id ASC
+```
+
+### Salience Formula
+```
+salience = state_weight + evidence_count*60 + recency_bucket*20 + trust*40 - contradiction_count*120
+```
+
+Trust levels: 0 (untrusted) through 3 (verified).
+
+## Compatibility Shim Matrix
+
+Legacy REASON tools are wrapped to delegate to memory system tools:
+
+| Legacy Tool | New Tool(s) | Wrapper Behavior |
+|------------|------------|-----------------|
+| `analyze_problem` | `compliance_snapshot` + `compliance_router` | Returns `deprecated: true`, `replacement` field |
+| `gather_context` | `context_pack` | Returns `deprecated: true`, `replacement` field |
+| `reason_through` | `guarded_cycle` | Returns `deprecated: true`, `replacement` field |
+| `finalize_decision` | `finalize_response` + `governance_validate` | Returns `deprecated: true`, `replacement` field |
+
+Wrappers include error code `LEGACY_TOOL_DEPRECATED` and remediation guidance.
 
 ## Search Implementation
 
@@ -154,11 +391,44 @@ Each preset defines:
 - Token TTL values
 - Enforcement level
 
+### Memory Defaults
+```json
+{
+  "memory_enabled": true,
+  "consolidation_threshold": 5,
+  "max_cells_total": 1000,
+  "max_cells_per_scene": 50,
+  "max_experiences_total": 5000,
+  "byte_budget_default": 8000
+}
+```
+
 ### Validation
 - Checks required fields (name, gates)
 - Validates gate structure
 - Warns about missing recommendations
 - Returns errors and warnings arrays
+
+## Hook Integration
+
+### session-start.cjs
+- Displays CHORES framework
+- Creates memory session (`create_session`)
+- Persists session_id for downstream hooks
+
+### user-prompt-submit.cjs
+- Invokes guarded cycle enforcement
+- Loads project context and workflow gates
+
+### post-tool-use.cjs
+- Records invocations to hash chain (`record_invocation`)
+- Displays post-implementation checklist
+
+### stop.cjs
+- Runs governance validation (`governance_validate`)
+- Mints receipt and token
+- Closes memory session
+- Cleans up expired file-based tokens
 
 ## Protocol Flow
 
@@ -173,50 +443,99 @@ Each preset defines:
 - Validation errors: -32602
 - Unknown tools: -32601
 - Internal errors: -32603
+- Legacy tool deprecation: LEGACY_TOOL_DEPRECATED
 - Custom ValidationError class
 
 ## File Organization
 
-**Global (v1.5.0+):**
+**Server Source:**
+```
+src/
+├── database.js              # DB init, schema, path helpers
+├── database-wasm.js         # WASM SQLite wrapper
+├── validation.js            # ValidationError, validators
+├── cli.js                   # CLI commands (--init, --doctor, --demo)
+├── tools/
+│   ├── knowledge.js         # 7 knowledge management tools
+│   ├── reasoning.js         # 4 legacy reasoning tools (shimmed)
+│   ├── memory.js            # 8 memory system MCP tools
+│   ├── workflow.js          # 5 workflow enforcement tools
+│   ├── config.js            # 5 configuration tools
+│   └── automation.js        # 7 automation tools
+└── memory/
+    ├── index.js             # Barrel export
+    ├── canonical.js          # Canonical JSON, SHA-256, HMAC-SHA256
+    ├── schema.js             # Memory schema application
+    ├── salience.js           # Salience computation
+    ├── sessions.js           # Memory session management
+    ├── invocations.js        # Hash-chained invocation ledger
+    ├── experiences.js        # Episodic experience recording
+    ├── scenes.js             # Scenes, cells, evidence
+    ├── consolidation.js      # Deterministic consolidation engine
+    ├── context-pack.js       # Byte-budgeted context packing
+    ├── guarded-cycle.js      # 7-phase state machine
+    ├── finalize.js           # Response finalization
+    └── governance.js         # Receipts, tokens, validation
+```
+
+**Global (installed):**
 ```
 ~/.claude/
 ├── hooks/                    # Global hooks (DO NOT MODIFY)
+│   ├── session-start.cjs
 │   ├── user-prompt-submit.cjs
 │   ├── pre-tool-use.cjs
 │   ├── post-tool-use.cjs
-│   ├── stop.cjs
-│   └── session-start.cjs
-└── settings.json             # Hook configuration
+│   ├── pre-compact.cjs
+│   └── stop.cjs
+└── settings.json             # Hook + MCP server configuration
 ```
 
 **Project-Local (per project):**
 ```
 .claude/
-├── experiences.db            # SQLite database (project-scoped)
+├── experiences.db            # SQLite database (all tables)
 ├── config.json               # Workflow configuration
 ├── project-context.json      # Checklists, reminders
-└── tokens/                   # Operation & session tokens
+├── signing.key               # HMAC signing secret (mode 0600)
+└── tokens/                   # File-based tokens (v1 + v2)
     ├── op-*.json            # Operation tokens
     └── session-*.json       # Session tokens
 ```
 
+**Migrations:**
+```
+migrations/
+├── 001_initial_schema.sql    # Core tables (experiences, reasoning, workflow)
+└── 002_memory_system.sql     # Memory system tables (9 tables)
+```
+
+## User-Facing Behavior
+
+After the memory system upgrade, responses may include:
+- `[Inference]` labeling when trust < 2
+- Conflict notices when contradiction_count >= 1
+- Integrity marker appended to responses:
+  - `[INTEGRITY: OK]`
+  - `[INTEGRITY: NEEDS_VERIFICATION]`
+  - `[INTEGRITY: BLOCKED]`
+
+The system prefers clarifying questions over guessing. Memory persists across sessions (episodic + semantic). Repeated violations escalate to policy cells deterministically.
+
 ## Performance Characteristics
 
-- **Database**: SQLite with DELETE journal mode
+- **Database**: SQLite WASM with DELETE journal mode
 - **Search**: FTS5 index for O(log n) lookups
-- **Tokens**: File-based for simplicity
-- **Memory**: Minimal (stateless design)
-
-## Extension Points
-
-1. **Custom Presets**: Add JSON files to presets/
-2. **Import Format**: Support any JSON structure
-3. **Hook System**: MVP placeholder for future expansion
-4. **Token Storage**: Can swap to Redis/etc.
+- **Tokens**: File-based (v1) + DB-based (v2)
+- **Memory**: Minimal (stateless design per request)
+- **Hashing**: SHA-256 (crypto module, no external deps)
 
 ## Testing Strategy
 
 - **Unit Tests**: Each tool tested independently
 - **Integration Tests**: End-to-end workflows
-- **100% Coverage**: All 25 tools, all paths
+- **Memory System Tests**: 45 dedicated tests (`test:memory`)
+- **Hook Tests**: Hook execution and integration
+- **Demo Tests**: `--demo` exercises all 5 phases with PASS/FAIL markers
+- **Doctor Tests**: `--doctor` validates system health
 - **Automatic Cleanup**: Tests clean DB before run
