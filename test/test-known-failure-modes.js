@@ -149,7 +149,7 @@ async function analyzeFailureModes() {
       example: '7+ servers = 67k+ tokens (33% of 200k limit)',
       frequency: 'HIGH (documented Claude Code issue)',
       mitigation: [
-        '✓ Only 25 tools total',
+        '✓ Only 34 tools total',
         '✓ Concise descriptions',
         '✓ Single server (not 7+)',
         '⚠️  Still loads all tool schemas'

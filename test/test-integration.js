@@ -235,21 +235,23 @@ async function runTests() {
     assertTrue(resetData.reset, 'Should reset session');
   });
 
-  await test('Integration - all 25 tools accessible', async () => {
-    // This test verifies all 25 tools are registered in the MCP protocol
+  await test('Integration - all 34 tools accessible', async () => {
+    // This test verifies all 34 tools are registered in the MCP protocol
     const expectedTools = [
-      'record_experience', 'search_experiences', 'get_experience', 'update_experience', 'tag_experience', 'export_experiences',
+      'record_experience', 'search_experiences', 'get_experience', 'update_experience', 'tag_experience', 'export_experiences', 'import_experiences',
       'analyze_problem', 'gather_context', 'reason_through', 'finalize_decision',
+      'compliance_snapshot', 'compliance_router', 'context_pack', 'guarded_cycle', 'finalize_response', 'run_consolidation',
       'check_compliance', 'verify_compliance', 'authorize_operation', 'get_workflow_status', 'reset_workflow',
       'list_presets', 'apply_preset', 'validate_config', 'get_config', 'export_config',
-      'install_hooks', 'uninstall_hooks', 'get_session_state', 'health_check', 'import_data'
+      'install_hooks', 'uninstall_hooks', 'get_session_state', 'health_check', 'import_data',
+      'update_project_context', 'get_project_context'
     ];
 
     // Test that we can call a tool from each category
     await call('health_check', {});
     await call('list_presets', {});
 
-    assertTrue(expectedTools.length === 25, 'Should have exactly 25 tools');
+    assertTrue(expectedTools.length === 34, 'Should have exactly 34 tools');
   });
 
   const stats = getStats();

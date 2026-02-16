@@ -20,8 +20,8 @@ async function runTests() {
   const indexPath = path.join(__dirname, '../index.js');
   const indexContent = fs.readFileSync(indexPath, 'utf8');
 
-  // Test 1: analyze_problem description mentions "first step"
-  await test('analyze_problem indicates it is first step in reasoning', () => {
+  // Test 1: analyze_problem description mentions "first step" or is deprecated with replacement
+  await test('analyze_problem indicates it is first step in reasoning or deprecated', () => {
     console.log('\n  Checking: analyze_problem tool description');
 
     // Match tool description immediately after name (not parameter descriptions)
@@ -32,10 +32,14 @@ async function runTests() {
     console.log(`  Description: "${description}"`);
 
     assertTrue(
-      description.includes('First step') || description.includes('first step'),
-      'Description should indicate this is the first step'
+      description.includes('First step') || description.includes('first step') || description.includes('[DEPRECATED:'),
+      'Description should indicate first step or deprecated with replacement'
     );
-    console.log('  ✅ Description clearly marks as "First step"');
+    if (description.includes('[DEPRECATED:')) {
+      console.log('  ✅ Tool is deprecated with replacement guidance');
+    } else {
+      console.log('  ✅ Description clearly marks as "First step"');
+    }
   });
 
   // Test 2: gather_context mentions prerequisite
@@ -155,14 +159,16 @@ async function runTests() {
       const match = indexContent.match(tool.pattern);
       if (match) {
         const desc = match[1];
-        // Check for verbs in active voice (starts with verb)
-        const startsWithVerb = /^[A-Z][a-z]+\s/.test(desc);
+        // Deprecated tools start with [DEPRECATED: ...] which is valid guidance
+        const isDeprecated = desc.startsWith('[DEPRECATED:');
+        // Check for verbs in active voice (starts with verb) or deprecated prefix
+        const startsWithVerb = /^[A-Z][a-z]+\s/.test(desc) || isDeprecated;
         console.log(`  ${tool.name}: ${startsWithVerb ? '✓' : '✗'} "${desc}"`);
         if (!startsWithVerb) allClear = false;
       }
     }
 
-    assertTrue(allClear, 'All descriptions should use active voice');
+    assertTrue(allClear, 'All descriptions should use active voice (deprecated tools exempt)');
     console.log('  ✅ Tool descriptions use clear active language');
   });
 

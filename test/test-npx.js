@@ -196,8 +196,8 @@ test('Database auto-creation', () => {
   }
 });
 
-// Test 10: All 28 tools accessible via MCP - v1.4.0: runs in test project, added import_experiences
-test('All 28 tools accessible via MCP', () => {
+// Test 10: All 34 tools accessible via MCP - v1.9.0: added 6 memory system tools
+test('All 34 tools accessible via MCP', () => {
   const input = JSON.stringify({
     jsonrpc: '2.0',
     method: 'tools/list',
@@ -219,8 +219,8 @@ test('All 28 tools accessible via MCP', () => {
   }
 
   const toolCount = response.result.tools.length;
-  if (toolCount !== 28) {
-    throw new Error(`Expected 28 tools, got ${toolCount}`);
+  if (toolCount !== 34) {
+    throw new Error(`Expected 34 tools, got ${toolCount}`);
   }
 });
 
