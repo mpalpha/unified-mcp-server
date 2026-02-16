@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.1] - 2026-02-15
+
+### Fixed
+- **MCP server registration**: `ensureGlobalConfig()` wrote `mcpServers` to `~/.claude/settings.json`, which is silently ignored by Claude Code ([#24477](https://github.com/anthropics/claude-code/issues/24477)). MCP servers must be registered in `~/.claude.json` (user scope) or `.mcp.json` (project scope).
+- **Install flow**: `--install` now runs `claude mcp add unified-mcp -s user` to register properly at user scope, with fallback guidance if Claude CLI is unavailable.
+- **Stale cleanup**: `ensureGlobalConfig()` now removes stale `mcpServers` from `settings.json` on startup.
+
 ## [1.9.0] - 2026-02-15
 
 ### Added - Deterministic Memory System

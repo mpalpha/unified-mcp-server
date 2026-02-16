@@ -488,7 +488,8 @@ src/
 │   ├── post-tool-use.cjs
 │   ├── pre-compact.cjs
 │   └── stop.cjs
-└── settings.json             # Hook + MCP server configuration
+└── settings.json             # Hook + permissions configuration
+~/.claude.json                  # MCP server registration (user scope)
 ```
 
 **Project-Local (per project):**

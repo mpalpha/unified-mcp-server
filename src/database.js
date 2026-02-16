@@ -118,15 +118,12 @@ function ensureGlobalConfig() {
     }
   }
 
-  // 3. Ensure mcpServers entry exists
-  if (!settings.mcpServers) {
-    settings.mcpServers = {};
-  }
-  if (!settings.mcpServers['unified-mcp']) {
-    settings.mcpServers['unified-mcp'] = {
-      command: 'npx',
-      args: ['mpalpha/unified-mcp-server']
-    };
+  // 3. Clean up stale mcpServers from settings.json (v1.9.1)
+  // mcpServers in settings.json is silently ignored by Claude Code.
+  // MCP servers must be registered via ~/.claude.json (user scope) or .mcp.json (project scope).
+  // See: https://github.com/anthropics/claude-code/issues/24477
+  if (settings.mcpServers) {
+    delete settings.mcpServers;
     configUpdated = true;
   }
 

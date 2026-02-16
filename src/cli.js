@@ -1189,6 +1189,23 @@ function runNonInteractiveInstall(options, { dryRun, repair, presetName }) {
     }
   }
 
+  // v1.9.1: Register MCP server with Claude Code (user scope)
+  if (dryRun) {
+    console.log(`\n  [DRY RUN] Would register MCP server: claude mcp add unified-mcp -s user`);
+  } else {
+    try {
+      const { execSync } = require('child_process');
+      execSync('claude mcp add unified-mcp -s user -- npx mpalpha/unified-mcp-server', {
+        stdio: 'pipe',
+        timeout: 10000
+      });
+      console.log(`\n  ✓ Registered MCP server (user scope)`);
+    } catch (e) {
+      console.log(`\n  ⚠  Could not auto-register MCP server.`);
+      console.log(`     Run manually: claude mcp add unified-mcp -s user -- npx mpalpha/unified-mcp-server`);
+    }
+  }
+
   // v1.8.1: Create post-install prompt for project context customization
   let promptResult = null;
   if (dryRun) {
