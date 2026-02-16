@@ -11,7 +11,7 @@
  * User Prompt Submit Hook
  *
  * Runs when user submits a prompt in Claude Code.
- * Provides workflow guidance based on three-gate protocol (TEACH → LEARN → REASON).
+ * Provides workflow guidance based on TEACH → LEARN → GUARDED_REASON → ACT lifecycle.
  *
  * Outputs plain text guidance followed by the original prompt.
  */
@@ -104,9 +104,9 @@ try {
       }
 
       if (hasReasonGate) {
-        console.log(`${stepNum}. □ REASON: Analyze problem and gather context`);
-        console.log('   REQUIRED CALL: analyze_problem({ problem: "<describe task>" })');
-        console.log('   REQUIRED CALL: gather_context({ session_id: "...", sources: {...} })\n');
+        console.log(`${stepNum}. □ GUARDED_REASON: Compliance snapshot and context packing`);
+        console.log('   REQUIRED CALL: compliance_snapshot({ session_id: <id> })');
+        console.log('   REQUIRED CALL: context_pack({ session_id: <id> })\n');
         stepNum++;
       }
 

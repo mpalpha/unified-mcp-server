@@ -159,7 +159,10 @@ function analyzeProblem(params) {
     user_intent: userIntent,
     suggested_queries: suggestedQueries,
     key_concepts: keyConcepts,
-    next_step: 'Call gather_context with sources collected from suggested queries'
+    next_step: 'Call gather_context with sources collected from suggested queries',
+    deprecated: true,
+    replacement: 'compliance_snapshot + compliance_router',
+    deprecation_notice: 'analyze_problem is deprecated. Use compliance_snapshot followed by compliance_router for the new GUARDED_REASON lifecycle.'
   };
 }
 
@@ -295,7 +298,10 @@ function gatherContext(params) {
     synthesized_context: synthesis,
     token_count: tokenCount,
     priority_breakdown: priority,
-    next_step: 'Call reason_through to evaluate approaches'
+    next_step: 'Call reason_through to evaluate approaches',
+    deprecated: true,
+    replacement: 'context_pack',
+    deprecation_notice: 'gather_context is deprecated. Use context_pack for byte-budgeted context packing in the new GUARDED_REASON lifecycle.'
   };
 }
 
@@ -387,7 +393,10 @@ function reasonThrough(params) {
       'This thought may be diverging from the original problem. Consider refocusing.' : null,
     next_step: params.thought_number === 1 ?
       'Continue with more thoughts or call finalize_decision' :
-      'Call finalize_decision when reasoning is complete'
+      'Call finalize_decision when reasoning is complete',
+    deprecated: true,
+    replacement: 'guarded_cycle',
+    deprecation_notice: 'reason_through is deprecated. Use guarded_cycle for the 7-phase guarded reasoning in the new GUARDED_REASON lifecycle.'
   };
 }
 
@@ -491,7 +500,10 @@ function finalizeDecision(params) {
     },
     message: experienceId ?
       `Decision finalized and recorded as experience ${experienceId}` :
-      'Decision finalized'
+      'Decision finalized',
+    deprecated: true,
+    replacement: 'finalize_response + governance validation',
+    deprecation_notice: 'finalize_decision is deprecated. Use finalize_response for trust-aware response finalization in the new GUARDED_REASON lifecycle.'
   };
 }
 

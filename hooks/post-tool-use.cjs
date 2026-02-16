@@ -55,11 +55,14 @@ try {
       console.log('');
     }
 
-    console.log('\n💡 Consider recording this experience (TEACH gate):\n');
-    console.log('  finalize_decision({');
-    console.log('    session_id: "your-session-id",');
-    console.log('    conclusion: "What you learned or decided",');
-    console.log('    record_as_experience: true');
+    console.log('\n💡 Consider recording this experience:\n');
+    console.log('  record_experience({');
+    console.log('    type: "effective",');
+    console.log('    domain: "Decision",');
+    console.log('    situation: "What was happening",');
+    console.log('    approach: "What you did",');
+    console.log('    outcome: "What happened",');
+    console.log('    reasoning: "Why it worked"');
     console.log('  })\n');
     console.log('This helps future tasks by building a knowledge base of patterns.\n');
   }

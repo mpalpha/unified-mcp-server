@@ -22,6 +22,9 @@ try {
   // v1.5.2: Universal record prompt - Agent-Directed Instruction Design
   console.log('User rule: record_experience before exit + state what recorded. No exceptions.\n');
 
+  // Memory system: governance validation reminder
+  console.log('User rule: If memory session active, finalize with finalize_response before exit.\n');
+
   // v1.4.0: project-scoped tokens
   const projectDir = process.env.PWD || process.cwd();
   const tokenDir = path.join(projectDir, '.claude', 'tokens');

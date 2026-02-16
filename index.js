@@ -64,7 +64,17 @@ const {
   resetWorkflow
 } = require('./src/tools/workflow');
 
-const VERSION = '1.8.8';
+// Memory system MCP tools
+const {
+  complianceSnapshot,
+  complianceRouter,
+  contextPack: contextPackTool,
+  guardedCycle: guardedCycleTool,
+  finalizeResponse: finalizeResponseTool,
+  runConsolidation: runConsolidationTool
+} = require('./src/tools/memory');
+
+const VERSION = '1.9.0';
 
 // v1.7.0: Database and validation functions imported from modules
 // v1.7.2: Lazy initialization for graceful degradation - paths computed on demand
@@ -129,7 +139,7 @@ const args = process.argv.slice(2);
 
 // v1.8.0: Initialize paths before CLI for flags that need them
 // --help and --version don't need paths, but --init, --install, --preset, --health, hooks do
-const pathDependentFlags = ['--init', '--install', '--preset', '--health', 'hooks'];
+const pathDependentFlags = ['--init', '--install', '--preset', '--health', '--doctor', '--demo', 'hooks'];
 if (args.some(arg => pathDependentFlags.includes(arg))) {
   initPaths();
 }
@@ -314,7 +324,7 @@ rl.on('line', (line) => {
             },
             {
               name: 'analyze_problem',
-              description: 'Extract intent, concepts, and priorities from a user request. First step in reasoning workflow.',
+              description: '[DEPRECATED: Use compliance_snapshot + compliance_router] Extract intent, concepts, and priorities from a user request.',
               inputSchema: {
                 type: 'object',
                 properties: {
@@ -326,7 +336,7 @@ rl.on('line', (line) => {
             },
             {
               name: 'gather_context',
-              description: 'Collect and synthesize context from multiple sources (experiences, docs, MCP tools)',
+              description: '[DEPRECATED: Use context_pack] Collect and synthesize context from multiple sources.',
               inputSchema: {
                 type: 'object',
                 properties: {
@@ -348,7 +358,7 @@ rl.on('line', (line) => {
             },
             {
               name: 'reason_through',
-              description: 'Evaluate an approach or thought with confidence tracking. Can be called multiple times for sequential reasoning.',
+              description: '[DEPRECATED: Use guarded_cycle] Evaluate an approach or thought with confidence tracking.',
               inputSchema: {
                 type: 'object',
                 properties: {
@@ -364,7 +374,7 @@ rl.on('line', (line) => {
             },
             {
               name: 'finalize_decision',
-              description: 'Record final decision/conclusion and close reasoning session',
+              description: '[DEPRECATED: Use finalize_response] Record final decision/conclusion and close reasoning session.',
               inputSchema: {
                 type: 'object',
                 properties: {
@@ -576,6 +586,90 @@ rl.on('line', (line) => {
                   project_path: { type: 'string', description: 'Project directory path (optional, defaults to cwd)' }
                 }
               }
+            },
+            // Memory System Tools
+            {
+              name: 'compliance_snapshot',
+              description: 'Take a compliance snapshot of the current context (SNAPSHOT phase of guarded cycle)',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  session_id: { type: 'number', description: 'Memory session ID' },
+                  context: { type: 'string', description: 'Additional context to include' },
+                  scope: { type: 'string', enum: ['project', 'global'], description: 'Scope mode' },
+                  context_keys: { type: 'array', items: { type: 'string' }, description: 'Context key strings' }
+                },
+                required: ['session_id']
+              }
+            },
+            {
+              name: 'compliance_router',
+              description: 'Route compliance check based on snapshot (ROUTER phase of guarded cycle)',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  session_id: { type: 'number', description: 'Memory session ID' },
+                  snapshot_hash: { type: 'string', description: 'Hash from compliance_snapshot' },
+                  user_input: { type: 'string', description: 'User input to route' },
+                  scope: { type: 'string', enum: ['project', 'global'] }
+                },
+                required: ['session_id', 'snapshot_hash']
+              }
+            },
+            {
+              name: 'context_pack',
+              description: 'Pack relevant context within a byte budget from memory (replaces gather_context)',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  session_id: { type: 'number', description: 'Memory session ID' },
+                  scope: { type: 'string', enum: ['project', 'global'] },
+                  byte_budget: { type: 'number', description: 'Maximum bytes for context (default: 8000)' },
+                  context_keys: { type: 'array', items: { type: 'string' }, description: 'Context key strings to prioritize' },
+                  max_cells: { type: 'number', description: 'Max semantic cells (default: 20)' },
+                  max_experiences: { type: 'number', description: 'Max episodic experiences (default: 10)' }
+                },
+                required: ['session_id']
+              }
+            },
+            {
+              name: 'guarded_cycle',
+              description: 'Execute a phase of the guarded reasoning cycle. Must be called in order: SNAPSHOT → ROUTER → CONTEXT_PACK → DRAFT → FINALIZE_RESPONSE → GOVERNANCE_VALIDATE → MEMORY_UPDATE',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  session_id: { type: 'number', description: 'Memory session ID' },
+                  phase: { type: 'string', description: 'Phase to execute', enum: ['SNAPSHOT', 'ROUTER', 'CONTEXT_PACK', 'DRAFT', 'FINALIZE_RESPONSE', 'GOVERNANCE_VALIDATE', 'MEMORY_UPDATE'] },
+                  input: { type: 'object', description: 'Phase-specific input data' }
+                },
+                required: ['session_id', 'phase']
+              }
+            },
+            {
+              name: 'finalize_response',
+              description: 'Finalize a response with trust-aware labeling and integrity markers (replaces finalize_decision)',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  session_id: { type: 'number', description: 'Memory session ID' },
+                  draft: { type: 'string', description: 'Draft response text to finalize' },
+                  context_hash: { type: 'string', description: 'Hash from context_pack' },
+                  cells: { type: 'array', description: 'Cells used in reasoning' },
+                  experiences: { type: 'array', description: 'Experiences used in reasoning' }
+                },
+                required: ['session_id', 'draft']
+              }
+            },
+            {
+              name: 'run_consolidation',
+              description: 'Run deterministic consolidation engine to process episodic experiences into semantic cells',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  scope: { type: 'string', enum: ['project', 'global'], description: 'Scope to consolidate' },
+                  threshold: { type: 'number', description: 'Minimum experiences before consolidation (default: 5)' }
+                }
+              }
             }
           ]
         });
@@ -671,6 +765,25 @@ rl.on('line', (line) => {
               break;
             case 'get_project_context':
               result = getProjectContext(toolParams);
+              break;
+            // Memory System Tools
+            case 'compliance_snapshot':
+              result = complianceSnapshot(toolParams);
+              break;
+            case 'compliance_router':
+              result = complianceRouter(toolParams);
+              break;
+            case 'context_pack':
+              result = contextPackTool(toolParams);
+              break;
+            case 'guarded_cycle':
+              result = guardedCycleTool(toolParams);
+              break;
+            case 'finalize_response':
+              result = finalizeResponseTool(toolParams);
+              break;
+            case 'run_consolidation':
+              result = runConsolidationTool(toolParams);
               break;
             default:
               sendError(id, -32601, `Unknown tool: ${toolName}`);
