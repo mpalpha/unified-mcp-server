@@ -7,6 +7,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-02-15
+
+### Added - Deterministic Memory System
+
+Upgrades unified-mcp-server with a deterministic, governance-enforced, self-organizing memory system. Replaces the REASON phase with GUARDED_REASON.
+
+#### Breaking Changes
+- **Lifecycle**: TEACH → LEARN → REASON → ACT becomes TEACH → LEARN → GUARDED_REASON → ACT
+- **Deprecated tools**: `analyze_problem`, `gather_context`, `reason_through`, `finalize_decision` are wrapped with compatibility shims that return `deprecated: true` and `replacement` field
+- **Error code**: Legacy tools return `LEGACY_TOOL_DEPRECATED` with remediation guidance
+
+#### New MCP Tools
+- `compliance_snapshot` - Take compliance snapshot (replaces analyze_problem)
+- `compliance_router` - Route compliance check (replaces analyze_problem)
+- `context_pack` - Byte-budgeted context packing (replaces gather_context)
+- `guarded_cycle` - 7-phase guarded reasoning (replaces reason_through)
+- `finalize_response` - Trust-aware response finalization (replaces finalize_decision)
+- `run_consolidation` - Deterministic consolidation engine
+
+#### Memory System Architecture
+- 13 modules in `src/memory/`
+- 9 new database tables via `migrations/002_memory_system.sql`
+- Canonical JSON with recursive key sort
+- SHA-256 hashing, HMAC-SHA256 signing
+- Hash-chained invocation ledger for tamper detection
+- Salience formula: `state_weight + evidence_count*60 + recency_bucket*20 + trust*40 - contradiction_count*120`
+- Stable ordering: `trust DESC, salience DESC, updated_at DESC, id ASC`
+
+#### Hook Integration
+- `session-start.cjs`: Creates memory session, persists session_id
+- `user-prompt-submit.cjs`: Invokes guarded cycle enforcement
+- `post-tool-use.cjs`: Records invocations to hash chain
+- `stop.cjs`: Governance validation, receipt/token minting, session close
+
+#### Token System v2
+- Extends v1 tokens with `context_hash`, `invocation_chain_head`, `compliance_version`
+- HMAC-SHA256 signed with per-project signing secret
+- Backward compatible with v1 tokens
+
+#### Install Flow
+- `--init` / `--install` generates signing secret if missing
+- Memory defaults: `memory_enabled=true`, `consolidation_threshold=5`, `max_cells_total=1000`
+
+#### Naming Collision Decisions
+- `episodic_experiences` (not `experiences`) to avoid collision
+- `memory_tokens` (not `tokens`) to avoid collision with `.claude/tokens/`
+- `memory_sessions` (not `sessions`) to avoid collision with `reasoning_sessions`
+- All tables use `INTEGER PRIMARY KEY AUTOINCREMENT` (consistent with existing schema)
+
+#### User-Facing Behavior
+- `[Inference]` labeling when trust < 2
+- Conflict notices when contradiction_count >= 1
+- Integrity markers: `[INTEGRITY: OK]`, `[INTEGRITY: NEEDS_VERIFICATION]`, `[INTEGRITY: BLOCKED]`
+
+#### CLI
+- `--doctor`: System diagnostics (DB, schema, integrity, token support)
+- `--demo`: Exercises all 5 memory system phases with PASS/FAIL markers
+
+#### Documentation
+- Updated ARCHITECTURE.md with memory system, token v2, shim matrix, PK strategy
+- Updated TOOL_REFERENCE.md with 6 new tools and deprecation notices
+- Updated src/README.md with memory modules and CLI flags
+
 ## [1.8.8] - 2026-02-09
 
 ### Fixed - CONTEXT RECOVERY Position in CHORES
