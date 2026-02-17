@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.3] - 2026-02-17
+
+### Enhanced - Post-Install Prompt Rule Quality
+
+Added "REASON ABOUT RULE QUALITY" step (Step 9) to the post-install configuration prompt in `src/cli.js`.
+
+#### Problem
+- Post-install prompt guided agents to write project context rules without validating rule quality
+- Rules like hard-coded test counts ("284 tests") would go stale immediately after the next release
+- No guidance on writing durable, pattern-based rules vs fragile, instance-specific ones
+
+#### Solution
+- New Step 9 teaches agents to evaluate every proposed rule before writing it:
+  - **DURABILITY**: Will this rule survive the next release? (no hard-coded counts/versions)
+  - **SPECIFICITY**: Is it actionable or just vague advice?
+  - **PATTERN vs INSTANCE**: Does it describe a class of problems or one case?
+  - **REDUNDANCY**: Is it already covered by a doc file pointer?
+  - **FLEXIBILITY**: Does it apply broadly or need a scenario condition?
+- Includes concrete good/bad examples for each check
+- Steps renumbered: PRESENT FOR APPROVAL → Step 10, CLEANUP → Step 11
+- Updated PRINCIPLES section with two new entries
+
 ## [1.9.2] - 2026-02-17
 
 ### Fixed - Session Bootstrap (Memory System)

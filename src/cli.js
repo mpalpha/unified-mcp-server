@@ -851,17 +851,52 @@ Note: Each item has a 200 character limit. Keep pointers concise.
     ]
   })
 
-STEP 9: PRESENT FOR APPROVAL
+STEP 9: REASON ABOUT RULE QUALITY
+
+Before writing any rule into context, think ahead about whether it
+will survive change. Apply these checks to EVERY proposed rule:
+
+  DURABILITY — Will this rule still be true after the next release?
+    ✗ "Run npm test (253 tests)" — count changes every release
+    ✓ "npm test must pass with 0 failures" — always true
+    ✗ "Version is in package.json line 3" — lines shift
+    ✓ "Version lives in BOTH package.json AND index.js" — structural fact
+
+  SPECIFICITY — Is it actionable, or just advice?
+    ✗ "Be careful with naming" — no action to take
+    ✓ "Grep for constant/table names before using them" — concrete step
+    ✗ "Consider performance" — unverifiable
+    ✓ "READ docs/ARCHITECTURE.md before modifying src/" — specific action
+
+  PATTERN vs INSTANCE — Does it describe a class of problems or one case?
+    ✗ "Table is episodic_experiences not experiences" — one fact
+    ✓ "Verify names against actual schema — collisions have occurred" — pattern
+    ✗ "settings.json doesn't work for MCP servers" — one gotcha
+    ✓ "Cross-check which config file each feature reads from" — reusable
+
+  REDUNDANCY — Is this already in a doc file you're pointing to?
+    If yes: the "READ [file]" pointer is enough. Don't duplicate.
+    Rules should add insight that docs don't contain (gotchas, patterns).
+
+  FLEXIBILITY — Does it work across different types of changes?
+    Add "(applies: if [scenario])" for rules that only matter sometimes.
+    Rules without conditions should genuinely apply to ALL changes.
+
+If a proposed rule fails any check, rephrase it or drop it.
+Present each rule with its reasoning so the user can evaluate.
+
+STEP 10: PRESENT FOR APPROVAL
 
 Show the user:
   □ The constructed project context
+  □ Each rule with its durability/specificity reasoning
   □ Summary of files referenced
   □ Conflict resolutions applied
 
 Ask for approval before saving.
 If user requests changes, revise and present again.
 
-STEP 10: CLEANUP
+STEP 11: CLEANUP
 
 After approval: rm .claude/post-install-prompts/${projectHash}.md
 
@@ -875,6 +910,8 @@ PRINCIPLES:
   ✓ Handle missing documentation gracefully
   ✓ Resolve conflicts explicitly with user input
   ✓ Support multiple files with conditional applicability
+  ✓ Every rule must survive version changes without manual updates
+  ✓ Rules describe patterns, not instances — think ahead
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
 }

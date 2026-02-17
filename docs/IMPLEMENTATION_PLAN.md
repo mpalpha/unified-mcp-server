@@ -2,6 +2,10 @@
 
 ## Version History
 
+### v1.9.3 - (Post-Install Prompt Rule Quality Intelligence)
+**Status**: ✅ COMPLETE
+**Post-install configuration prompt now teaches agents to reason about rule quality**
+
 ### v1.9.2 - (Patch Release - Session Bootstrap Fix + Stale Doc Cleanup)
 **Status**: ✅ COMPLETE
 **Memory tools require session_id but no tool or hook creates memory sessions**
@@ -173,6 +177,59 @@ npm test
 # A19-A20: Version
 node -e "const p = require('./package.json'); console.assert(p.version === '1.9.2')"
 ```
+
+---
+
+### v1.9.3 - Post-Install Prompt Rule Quality Intelligence
+**Status**: ✅ COMPLETE
+**Post-install configuration prompt now teaches agents to reason about rule quality**
+
+## Post-Install Rule Quality (v1.9.3)
+
+### Problem Statement
+
+The post-install configuration prompt (`getPostInstallPromptContent()` in `src/cli.js`) guided agents through discovering project rules and writing them into `project-context.json`, but had no guidance on **rule quality**. Agents would write rules that:
+
+1. **Hard-coded values that change** — e.g., "Run npm test (284 tests)" when the count was actually 253 and changes every release
+2. **Described specific instances instead of patterns** — e.g., "Table is episodic_experiences not experiences" instead of "Verify names against actual schema"
+3. **Were too vague to act on** — e.g., "Be careful with naming" instead of "Grep for constant names before using them"
+4. **Duplicated doc file content** — restating what a file says instead of pointing to the file
+
+### Root Cause
+
+The prompt had Steps 1-8 for discovery/construction and Steps 9-10 for approval/cleanup, but no step that taught the agent to **think ahead** about whether each rule would survive change.
+
+### Solution
+
+Added **Step 9: REASON ABOUT RULE QUALITY** between construction and approval. This step teaches the agent five checks to apply to every proposed rule:
+
+| Check | Question | Bad Example | Good Example |
+|-------|----------|-------------|--------------|
+| DURABILITY | Will this survive the next release? | "npm test (253 tests)" | "npm test must pass with 0 failures" |
+| SPECIFICITY | Is it actionable? | "Be careful with naming" | "Grep for constant names before using" |
+| PATTERN vs INSTANCE | Class of problems or one case? | "Table is episodic_experiences" | "Verify names against actual schema" |
+| REDUNDANCY | Already in a doc file pointer? | Restating CONTRIBUTING.md | "READ docs/CONTRIBUTING.md" is enough |
+| FLEXIBILITY | Applies broadly or needs condition? | Unconditional rare-scenario rule | "(applies: if [scenario])" |
+
+### Changes
+
+| File | Change |
+|------|--------|
+| `src/cli.js` | Added Step 9 with 5 rule quality checks and examples. Renumbered Steps 10-11. Added 2 PRINCIPLES entries. |
+| `CHANGELOG.md` | Added [1.9.3] entry |
+| `package.json` | Version → 1.9.3 |
+| `index.js` | VERSION → '1.9.3' |
+
+### Acceptance Criteria
+
+- [x] A1: `getPostInstallPromptContent()` contains "REASON ABOUT RULE QUALITY"
+- [x] A2: Step 9 has DURABILITY, SPECIFICITY, PATTERN vs INSTANCE, REDUNDANCY, FLEXIBILITY checks
+- [x] A3: Each check has concrete good/bad examples
+- [x] A4: Steps renumbered (PRESENT → 10, CLEANUP → 11)
+- [x] A5: PRINCIPLES section includes "survive version changes" and "patterns not instances"
+- [x] A6: Version is 1.9.3 in both package.json and index.js
+- [x] A7: CHANGELOG has [1.9.3] entry
+- [x] A8: All tests pass with 0 failures
 
 ---
 
