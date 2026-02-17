@@ -74,7 +74,7 @@ const {
   runConsolidation: runConsolidationTool
 } = require('./src/tools/memory');
 
-const VERSION = '1.9.1';
+const VERSION = '1.9.2';
 
 // v1.7.0: Database and validation functions imported from modules
 // v1.7.2: Lazy initialization for graceful degradation - paths computed on demand
@@ -594,12 +594,12 @@ rl.on('line', (line) => {
               inputSchema: {
                 type: 'object',
                 properties: {
-                  session_id: { type: 'number', description: 'Memory session ID' },
+                  session_id: { type: 'number', description: 'Memory session ID. If omitted, a new session is auto-created.' },
                   context: { type: 'string', description: 'Additional context to include' },
                   scope: { type: 'string', enum: ['project', 'global'], description: 'Scope mode' },
                   context_keys: { type: 'array', items: { type: 'string' }, description: 'Context key strings' }
                 },
-                required: ['session_id']
+                required: []
               }
             },
             {

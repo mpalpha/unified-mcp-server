@@ -255,6 +255,60 @@ server.stdout.on('data', d => process.stdout.write(d));
    # Should show 1 session with 3+ thoughts
    ```
 
+## Test 6: Memory System Guarded Cycle (v1.9.0+)
+
+**Objective:** Verify agent uses the guarded cycle workflow with auto-created memory sessions.
+
+### Setup
+```bash
+# Clean state
+rm -rf .claude/experiences.db .claude/tokens/*
+```
+
+### Test Steps
+
+1. **Prompt:**
+   ```
+   Analyze this codebase and suggest improvements to the error handling.
+   ```
+
+2. **Expected agent workflow:**
+
+   1. **LEARN**: `search_experiences({ query: "error handling improvements" })`
+   2. **GUARDED_REASON**:
+      - `compliance_snapshot({})` → auto-creates session, returns `session_id`
+      - `context_pack({ session_id: <from snapshot> })` → packs relevant context
+   3. **TEACH**: `record_experience({ type: "effective", ... })` after completion
+
+3. **Key observations:**
+   - `compliance_snapshot({})` should work without providing `session_id`
+   - The returned `session_id` should be an integer
+   - Downstream tools should use the same `session_id`
+   - No separate session creation step is needed
+
+### Verification
+```bash
+# Check memory session was created
+node -e "
+  require('./src/database').initDatabase();
+  const { applyMemorySchema } = require('./src/memory/schema');
+  const { getDatabase } = require('./src/database');
+  applyMemorySchema(getDatabase());
+  const rows = getDatabase().prepare('SELECT * FROM memory_sessions ORDER BY session_id DESC LIMIT 1').all();
+  console.log('Latest memory session:', rows[0]);
+"
+
+# Check compliance_snapshot auto-creation works
+node -e "
+  require('./src/database').initDatabase();
+  const m = require('./src/tools/memory');
+  const r = m.complianceSnapshot({});
+  console.assert(typeof r.session_id === 'number', 'session_id must be number');
+  console.assert(r.phase === 'SNAPSHOT', 'phase must be SNAPSHOT');
+  console.log('PASS: auto-create works, session_id =', r.session_id);
+"
+```
+
 ## Automated Verification Scripts
 
 ### Check if agent followed workflow

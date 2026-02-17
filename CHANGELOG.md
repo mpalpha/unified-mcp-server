@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.2] - 2026-02-17
+
+### Fixed - Session Bootstrap (Memory System)
+
+Memory tools required `session_id` but no tool or hook created memory sessions, causing a deadlock.
+
+#### Problem
+- All 5 session-dependent memory tools required a numeric `session_id` from the `memory_sessions` table
+- No MCP tool created memory sessions (`createSession()` existed but was not exposed)
+- No hook could create sessions (hooks are shell scripts that output text, they cannot call MCP tools)
+- Hook guidance instructed agents to call `compliance_snapshot({ session_id: <id> })` but `<id>` had no source
+
+#### Solution
+- `compliance_snapshot` now **auto-creates** a memory session when `session_id` is omitted
+- `session_id` is OPTIONAL on `compliance_snapshot` only (the entry point)
+- `session_id` remains REQUIRED on all other memory tools (by then the agent has it)
+- No new MCP tool needed — tool count stays at 34
+- Follows same pattern as `analyze_problem` (auto-creates `reasoning_session`)
+
+#### Documentation Fixes
+- `ARCHITECTURE.md`: Removed false claim that legacy tools "delegate to" memory tools (they don't — they return deprecation notices independently)
+- `ARCHITECTURE.md`: Fixed `session-start.cjs` description (does not create memory sessions)
+- `WORKFLOWS.md`: Added "Guarded Cycle Workflow (v1.9.0+)" section, marked legacy section as DEPRECATED
+- `TOOL_REFERENCE.md`: Documented `compliance_snapshot` session_id as optional with auto-creation
+- `MANUAL_TESTING_GUIDE.md`: Added memory system test scenario (Test 6)
+- `CONFIGURATION.md`: Updated gate example to use `guarded_cycle` instead of `reason_through`
+
+#### Hook Fixes
+- `user-prompt-submit.cjs`: Changed to `compliance_snapshot({})` without session_id requirement
+- `pre-tool-use.cjs`: Replaced `analyze_problem` reference with `compliance_snapshot`
+
+### Changed
+- `src/tools/memory.js` - `complianceSnapshot()` auto-creates session when `session_id` omitted
+- `index.js` - Removed `session_id` from `compliance_snapshot` required array
+- `hooks/user-prompt-submit.cjs` - Updated workflow guidance for session auto-creation
+- `hooks/pre-tool-use.cjs` - Replaced `analyze_problem` with `compliance_snapshot` in blocking message
+
 ## [1.9.1] - 2026-02-15
 
 ### Fixed
@@ -43,10 +80,10 @@ Upgrades unified-mcp-server with a deterministic, governance-enforced, self-orga
 - Stable ordering: `trust DESC, salience DESC, updated_at DESC, id ASC`
 
 #### Hook Integration
-- `session-start.cjs`: Creates memory session, persists session_id
+- `session-start.cjs`: CHORES framework and workflow guidance
 - `user-prompt-submit.cjs`: Invokes guarded cycle enforcement
 - `post-tool-use.cjs`: Records invocations to hash chain
-- `stop.cjs`: Governance validation, receipt/token minting, session close
+- `stop.cjs`: Token cleanup and governance reminders
 
 #### Token System v2
 - Extends v1 tokens with `context_hash`, `invocation_chain_head`, `compliance_version`

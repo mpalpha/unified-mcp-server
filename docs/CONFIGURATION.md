@@ -46,7 +46,7 @@ Template for custom workflows.
       "description": "Gather context"
     },
     "reason": {
-      "required_tools": ["reason_through"],
+      "required_tools": ["guarded_cycle"],
       "description": "Think through problem"
     }
   },

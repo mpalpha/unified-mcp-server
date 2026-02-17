@@ -2,6 +2,205 @@
 
 ## Version History
 
+### v1.9.2 - (Patch Release - Session Bootstrap Fix + Stale Doc Cleanup)
+**Status**: ✅ COMPLETE
+**Memory tools require session_id but no tool or hook creates memory sessions**
+
+## Session Bootstrap Fix (v1.9.2)
+
+### Problem Statement
+
+All 5 session-dependent memory tools (`compliance_snapshot`, `compliance_router`, `context_pack`, `guarded_cycle`, `finalize_response`) require a numeric `session_id` from the `memory_sessions` table. But:
+
+1. **No MCP tool creates memory sessions.** `createSession()` exists in `src/memory/sessions.js` but is not exposed as an MCP tool.
+2. **No hook creates memory sessions.** Hooks are shell scripts that output text guidance — they cannot call MCP tools. `session-start.cjs` only prints CHORES.
+3. **`analyze_problem` creates the wrong session type.** It inserts into `reasoning_sessions` (TEXT PK), not `memory_sessions` (INTEGER AUTOINCREMENT). These are separate systems.
+4. **Hook guidance creates a deadlock.** `user-prompt-submit.cjs` instructs agents to call `compliance_snapshot({ session_id: <id> })` but `<id>` has no source. `pre-tool-use.cjs` still references `analyze_problem`.
+5. **CHANGELOG.md [1.9.0] line 46 is false.** Claims `session-start.cjs: Creates memory session, persists session_id` — this was never implemented.
+6. **ARCHITECTURE.md line 16 is false.** Claims legacy tools are "wrapped with compatibility shims that delegate to the new memory system tools" — they are not. They still use `reasoning_sessions` independently.
+7. **WORKFLOWS.md is entirely stale.** Documents only the legacy `analyze_problem` flow. No mention of v1.9.0 guarded cycle.
+
+### Root Cause
+
+`createSession()` was implemented, tested, and exported through the barrel (`src/memory/index.js:31`) but no MCP tool wrapper was created and no entry was added to `tools/list` in `index.js`.
+
+### Design Decision: Auto-Create in compliance_snapshot
+
+**Rationale:** `analyze_problem` creates a `reasoning_session` as a side effect of its first call — it does NOT require a separate `create_reasoning_session` tool. The memory system follows the same pattern: the entry-point tool (`compliance_snapshot`) auto-creates a session when `session_id` is omitted.
+
+- `session_id` becomes OPTIONAL on `compliance_snapshot` only (the entry point)
+- `session_id` stays REQUIRED on all other memory tools (by then the agent has it)
+- No new MCP tool needed. Tool count stays at 34.
+- `createSession()` is called internally, not exposed as MCP tool
+
+### Pre-Implementation Reading
+
+Before making any changes, read these files:
+- `docs/CONTRIBUTING.md` — Code style (2-space indent, JSDoc)
+- `docs/ARCHITECTURE.md` — File organization
+- `src/README.md` — Module structure for index.js and src/
+
+### Cascading Update Order
+
+Follow project convention: docs FIRST → impl → tests → version bump.
+
+**Step 1: Documentation Updates**
+
+| File | Change |
+|------|--------|
+| `docs/ARCHITECTURE.md` line 16 | Remove false "compatibility shims that delegate" claim. Replace with: "Legacy REASON tools return `deprecated: true` with `replacement` field pointing to memory system equivalents. They do NOT delegate to the new tools — they remain independent for backward compatibility." |
+| `docs/WORKFLOWS.md` | Add new section "## Guarded Cycle Workflow (v1.9.0+)" documenting the full flow: `compliance_snapshot({}) → use session_id → compliance_router → context_pack → guarded_cycle (DRAFT, FINALIZE_RESPONSE, GOVERNANCE_VALIDATE, MEMORY_UPDATE)`. Keep legacy section but add "DEPRECATED" header. |
+| `docs/TOOL_REFERENCE.md` | Update `compliance_snapshot` to document that `session_id` is optional and auto-created if omitted. Add note about returned `session_id` being used for downstream tools. |
+| `docs/MANUAL_TESTING_GUIDE.md` | Add memory system test scenario using new flow. |
+| `docs/CONFIGURATION.md` line 49 | Change `reason_through` to `guarded_cycle` in gate example. |
+| `CHANGELOG.md` | Fix line 46: remove false `session-start.cjs: Creates memory session` claim. Add v1.9.2 entry. |
+
+**Step 2: Implementation**
+
+| File | Change |
+|------|--------|
+| `src/tools/memory.js` `complianceSnapshot()` | Make `session_id` optional. If omitted or falsy, call `memory.createSession({ scope_mode: params.scope \|\| 'project', flags: {}, now: now() })` and use the returned `session_id`. Include `session_id` in the response so agents can use it downstream. |
+| `index.js` ~line 602 | Remove `'session_id'` from the `required` array in `compliance_snapshot`'s inputSchema. Keep it in the `properties` definition (still accepted, just not required). |
+
+**Step 3: Hook Updates**
+
+| File | Change |
+|------|--------|
+| `hooks/user-prompt-submit.cjs` lines 107-109 | Change `compliance_snapshot({ session_id: <id> })` to `compliance_snapshot({})` — note it auto-creates session. Change `context_pack({ session_id: <id> })` to `context_pack({ session_id: <from compliance_snapshot> })`. |
+| `hooks/pre-tool-use.cjs` lines 81-82 | Replace `analyze_problem({ problem: "<task>" })` with `compliance_snapshot({})`. Update step numbering and descriptions to match new flow. |
+
+**Step 4: Tests**
+
+| File | Change |
+|------|--------|
+| `test/test-memory-system.js` | Add tests: (1) `complianceSnapshot` without `session_id` auto-creates session and returns it; (2) `complianceSnapshot` with explicit `session_id` reuses existing session. |
+| `test/test-npx.js` | Verify tool count remains 34. |
+| `test/test-integration.js` | Verify tool count remains 34. |
+| `test/test-tool-guidance.js` | Update if it checks for "session_id from analyze_problem" text. |
+
+**Step 5: Version Bump**
+
+| File | Change |
+|------|--------|
+| `package.json` | `"version": "1.9.2"` |
+| `index.js` | `const VERSION = '1.9.2';` |
+| `CHANGELOG.md` | Add `## [1.9.2]` entry |
+
+### Hard Invariants
+
+1. `session_id` is OPTIONAL on `compliance_snapshot` ONLY — REQUIRED on all other memory tools
+2. `createSession()` stays internal — NOT exposed as an MCP tool
+3. Tool count stays at 34 (no new tools added)
+4. `analyze_problem` and other legacy tools remain functional (deprecated but not broken)
+5. Token validation logic UNCHANGED
+6. No schema migration needed — `memory_sessions` table already exists
+7. `run_consolidation` stays session-independent (no `session_id` parameter)
+8. All existing tests must continue to pass
+
+### Acceptance Criteria
+
+**Core Fix:**
+- A1: `compliance_snapshot({})` (no session_id) auto-creates session and returns `{ session_id: <integer>, ... }`
+- A2: `compliance_snapshot({ session_id: N })` (explicit session_id) reuses existing session (current behavior preserved)
+- A3: `session_id` NOT in `required` array for `compliance_snapshot` in index.js
+- A4: `session_id` still in `required` array for `compliance_router`, `context_pack`, `guarded_cycle`, `finalize_response`
+
+**Hook Fixes:**
+- A5: `user-prompt-submit.cjs` shows `compliance_snapshot({})` without session_id requirement
+- A6: `pre-tool-use.cjs` does NOT reference `analyze_problem`
+- A7: `pre-tool-use.cjs` references `compliance_snapshot` in workflow guidance
+
+**Documentation Fixes:**
+- A8: `ARCHITECTURE.md` does NOT claim shims "delegate to" memory tools
+- A9: `WORKFLOWS.md` contains "Guarded Cycle" section with v1.9.0+ flow
+- A10: `TOOL_REFERENCE.md` documents `compliance_snapshot` session_id as optional with auto-creation
+- A11: `MANUAL_TESTING_GUIDE.md` includes memory system test scenario
+- A12: `CONFIGURATION.md` gate example uses `guarded_cycle` not `reason_through`
+- A13: `CHANGELOG.md` does NOT contain false `session-start.cjs: Creates memory session` claim
+- A14: `CHANGELOG.md` has `[1.9.2]` entry
+
+**Tests:**
+- A15: `test-memory-system.js` has test for session auto-creation in complianceSnapshot
+- A16: `test-npx.js` tool count assertion is 34
+- A17: `test-integration.js` tool count assertion is 34
+- A18: `npm test` passes with 0 failures
+
+**Version:**
+- A19: `package.json` version is `"1.9.2"`
+- A20: `index.js` VERSION is `'1.9.2'`
+
+### Verification Commands
+
+```bash
+# A1: Auto-create works
+node -e "
+  require('./src/database').initDatabase();
+  const m = require('./src/tools/memory');
+  const r = m.complianceSnapshot({});
+  console.assert(typeof r.session_id === 'number', 'session_id must be number');
+  console.assert(r.phase === 'SNAPSHOT', 'phase must be SNAPSHOT');
+  console.log('PASS: auto-create');
+"
+
+# A3-A4: Required arrays
+node -e "
+  // Start server, check tools/list response for required fields
+  // compliance_snapshot should NOT have session_id in required
+  // compliance_router, context_pack, guarded_cycle, finalize_response SHOULD
+"
+
+# A5-A7: Hook content
+! grep -q 'analyze_problem' hooks/pre-tool-use.cjs
+grep -q 'compliance_snapshot' hooks/pre-tool-use.cjs
+grep -q 'compliance_snapshot({})' hooks/user-prompt-submit.cjs
+
+# A8: No false shim claim
+! grep -q 'delegate to the new memory' docs/ARCHITECTURE.md
+
+# A9: Guarded cycle docs
+grep -q 'Guarded Cycle' docs/WORKFLOWS.md
+
+# A13: No false session-start claim
+! grep -q 'Creates memory session, persists session_id' CHANGELOG.md
+
+# A16-A17: Tool counts unchanged
+grep -q '34' test/test-npx.js
+grep -q '34' test/test-integration.js
+
+# A18: All tests pass
+npm test
+
+# A19-A20: Version
+node -e "const p = require('./package.json'); console.assert(p.version === '1.9.2')"
+```
+
+---
+
+### v1.9.1 - 2026-02-15 (Patch Release - Fix MCP Server Registration)
+**Status**: ✅ COMPLETE
+**`ensureGlobalConfig()` wrote mcpServers to wrong config file**
+
+- **Problem**: `ensureGlobalConfig()` wrote `mcpServers` to `~/.claude/settings.json`, which is silently ignored by Claude Code ([#24477](https://github.com/anthropics/claude-code/issues/24477)). MCP servers must be registered in `~/.claude.json` (user scope) or `.mcp.json` (project scope).
+- **Fix**: Removed dead mcpServers code from `ensureGlobalConfig()`, added stale cleanup. Install flow now runs `claude mcp add unified-mcp -s user` with fallback guidance.
+- **Related Files**: `src/database.js`, `src/cli.js`, `docs/ARCHITECTURE.md`
+
+---
+
+### v1.9.0 - 2026-02-15 (Minor Release - Deterministic Memory System)
+**Status**: ✅ COMPLETE
+**Deterministic, governance-enforced, self-organizing memory system**
+
+- 13 modules in `src/memory/`, 6 new MCP tools in `src/tools/memory.js`
+- 9 database tables via `migrations/002_memory_system.sql`
+- Lifecycle: TEACH → LEARN → GUARDED_REASON → ACT
+- Legacy tools (`analyze_problem`, `gather_context`, `reason_through`, `finalize_decision`) deprecated with `deprecated: true` flag
+- CLI: `--doctor` and `--demo` flags
+- 45 tests in `test/test-memory-system.js`, 34 total MCP tools
+- See CHANGELOG.md [1.9.0] for full details
+- **Known Issue**: Session bootstrap bug (no tool creates memory sessions) — fixed in v1.9.2
+
+---
+
 ### v1.8.8 - 2026-02-09 (Patch Release - CONTEXT RECOVERY Position Fix)
 **Status**: ✅ COMPLETE
 **User agent ignored CONTEXT RECOVERY reminder - position in CHORES matters**

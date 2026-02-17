@@ -105,8 +105,8 @@ try {
 
       if (hasReasonGate) {
         console.log(`${stepNum}. □ GUARDED_REASON: Compliance snapshot and context packing`);
-        console.log('   REQUIRED CALL: compliance_snapshot({ session_id: <id> })');
-        console.log('   REQUIRED CALL: context_pack({ session_id: <id> })\n');
+        console.log('   REQUIRED CALL: compliance_snapshot({})');
+        console.log('   REQUIRED CALL: context_pack({ session_id: <from compliance_snapshot> })\n');
         stepNum++;
       }
 

@@ -76,11 +76,11 @@ try {
     // Block the operation
     console.error('⛔ STOP: This file operation is BLOCKED.\n');
     console.error('Complete these steps IN ORDER before file operations:\n');
-    console.error('1. □ search_experiences  (LEARN: Find similar patterns)');
+    console.error('1. □ search_experiences    (LEARN: Find similar patterns)');
     console.error('   REQUIRED CALL: search_experiences({ query: "<keywords>" })\n');
-    console.error('2. □ analyze_problem     (REASON: Synthesize solution)');
-    console.error('   REQUIRED CALL: analyze_problem({ problem: "<task>" })\n');
-    console.error('3. □ verify_compliance   (Get operation token)');
+    console.error('2. □ compliance_snapshot  (REASON: Compliance snapshot)');
+    console.error('   REQUIRED CALL: compliance_snapshot({})\n');
+    console.error('3. □ verify_compliance    (Get operation token)');
     console.error('   REQUIRED CALL: verify_compliance({ session_id: "...", ... })\n');
     console.error('4. □ authorize_operation (Create 60-min session token)');
     console.error('   REQUIRED CALL: authorize_operation({ operation_token: "...", ... })\n');

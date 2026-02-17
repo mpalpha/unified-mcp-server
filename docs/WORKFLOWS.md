@@ -1,5 +1,99 @@
 # Workflows
 
+## Guarded Cycle Workflow (v1.9.0+)
+
+The guarded cycle replaces the legacy reasoning workflow with a deterministic, governance-enforced reasoning engine.
+
+### 1. Compliance Snapshot (Entry Point)
+
+Start with a compliance snapshot. `session_id` is **optional** — if omitted, a memory session is auto-created.
+
+```json
+{
+  "name": "compliance_snapshot",
+  "arguments": {
+    "context": "How should I implement user authentication?"
+  }
+}
+```
+
+Returns: `session_id` (auto-created integer), `snapshot_hash`, `phase: "SNAPSHOT"`
+
+### 2. Compliance Router
+
+Route the compliance check using the snapshot hash.
+
+```json
+{
+  "name": "compliance_router",
+  "arguments": {
+    "session_id": "<from compliance_snapshot>",
+    "snapshot_hash": "<from compliance_snapshot>"
+  }
+}
+```
+
+Returns: `route`, `phase: "ROUTER"`
+
+### 3. Context Pack
+
+Pack relevant context within a byte budget.
+
+```json
+{
+  "name": "context_pack",
+  "arguments": {
+    "session_id": "<from compliance_snapshot>",
+    "scope": "project",
+    "byte_budget": 8000,
+    "context_keys": ["authentication", "security"]
+  }
+}
+```
+
+Returns: `packed_context`, `context_hash`, `byte_count`, `phase: "CONTEXT_PACK"`
+
+### 4. Guarded Cycle (Remaining Phases)
+
+Execute remaining phases in order: DRAFT → FINALIZE_RESPONSE → GOVERNANCE_VALIDATE → MEMORY_UPDATE.
+
+```json
+{
+  "name": "guarded_cycle",
+  "arguments": {
+    "session_id": "<from compliance_snapshot>",
+    "phase": "DRAFT",
+    "input": {
+      "draft": "Use JWT with refresh tokens for stateless auth"
+    }
+  }
+}
+```
+
+### 5. Finalize Response
+
+Finalize with trust-aware labeling and integrity markers.
+
+```json
+{
+  "name": "finalize_response",
+  "arguments": {
+    "session_id": "<from compliance_snapshot>",
+    "draft": "Use JWT with refresh tokens",
+    "context_hash": "<from context_pack>"
+  }
+}
+```
+
+Returns: `response`, `integrity` ("OK" | "NEEDS_VERIFICATION" | "BLOCKED"), `violations`
+
+---
+
+## DEPRECATED: Legacy Reasoning Workflow
+
+> **Deprecated in v1.9.0.** Use the Guarded Cycle Workflow above.
+> Legacy tools remain functional but return `deprecated: true` in responses.
+
 ## Complete Reasoning Workflow
 
 ### 1. Analyze Problem

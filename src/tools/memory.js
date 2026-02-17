@@ -31,17 +31,20 @@ function now() {
  * This is the SNAPSHOT phase of the guarded cycle.
  */
 function complianceSnapshot(params) {
-  if (!params.session_id && params.session_id !== 0) {
-    throw new ValidationError(
-      'Missing "session_id" parameter',
-      'Required: session_id = integer (from memory session)\n\n' +
-      'Example:\n' +
-      JSON.stringify({ session_id: 1, context: 'optional context' }, null, 2)
-    );
-  }
-
-  const sessionId = Number(params.session_id);
   const ts = now();
+  let sessionId;
+
+  if (!params.session_id && params.session_id !== 0) {
+    // Auto-create memory session when session_id is omitted (v1.9.2)
+    const session = memory.createSession({
+      scope_mode: params.scope || 'project',
+      flags: {},
+      now: ts
+    });
+    sessionId = session.session_id;
+  } else {
+    sessionId = Number(params.session_id);
+  }
 
   // Run SNAPSHOT phase of guarded cycle
   const result = memory.guardedCycle({

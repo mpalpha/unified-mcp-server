@@ -106,13 +106,17 @@ Import experiences from a JSON file exported from another project.
 ## Memory System Tools (6)
 
 ### compliance_snapshot
-Take a compliance snapshot of the current context. Replaces `analyze_problem` in the new GUARDED_REASON lifecycle.
+Take a compliance snapshot of the current context. Replaces `analyze_problem` in the new GUARDED_REASON lifecycle. This is the **entry point** for the guarded cycle.
 
 **Parameters:**
-- `session_id` (required): Memory session ID (integer)
+- `session_id` (optional): Memory session ID (integer). If omitted, a new memory session is **auto-created** and its `session_id` returned. Use the returned `session_id` for all downstream tools (`compliance_router`, `context_pack`, `guarded_cycle`, `finalize_response`).
 - `context` (optional): Additional context to include in snapshot
+- `scope` (optional): "project" | "global" (default: "project")
+- `context_keys` (optional): Array of context key strings
 
 **Returns:** `{ snapshot_hash: string, session_id: number, phase: "SNAPSHOT" }`
+
+**Session Auto-Creation:** When called without `session_id`, creates a new `memory_sessions` row via `createSession()` internally. No separate session creation tool is needed — the entry-point tool handles it, matching the pattern used by `analyze_problem` for `reasoning_sessions`.
 
 ### compliance_router
 Route the compliance check based on snapshot results. Determines which reasoning path to follow.

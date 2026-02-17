@@ -538,6 +538,28 @@ async function runTests() {
     assertEquals(exp.outcome, 'success');
   });
 
+  // === SESSION AUTO-CREATION (v1.9.2) ===
+  console.log(`\n${colors.bold}Session Auto-Creation (v1.9.2)${colors.reset}`);
+  const memoryTools = require('../src/tools/memory');
+
+  await test('complianceSnapshot - auto-creates session when session_id omitted', () => {
+    const result = memoryTools.complianceSnapshot({});
+    assertTrue(typeof result.session_id === 'number', 'session_id must be a number');
+    assertTrue(result.session_id > 0, 'session_id must be positive');
+    assertEquals(result.phase, 'SNAPSHOT');
+    // Verify session exists in DB
+    const session = getSession(result.session_id);
+    assertTrue(session !== null, 'Session must exist in DB');
+    assertEquals(session.scope_mode, 'project');
+  });
+
+  await test('complianceSnapshot - reuses explicit session_id', () => {
+    const s = createSession({ scope_mode: 'project', now: NOW });
+    const result = memoryTools.complianceSnapshot({ session_id: s.session_id });
+    assertEquals(result.session_id, s.session_id);
+    assertEquals(result.phase, 'SNAPSHOT');
+  });
+
   // === SUMMARY ===
   const stats = getStats();
   console.log(`\n${colors.cyan}${'═'.repeat(70)}${colors.reset}`);

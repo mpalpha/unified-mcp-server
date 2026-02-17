@@ -13,7 +13,7 @@ The unified MCP server is a modular tool suite that combines:
 TEACH → LEARN → GUARDED_REASON → ACT
 ```
 
-**GUARDED_REASON** replaces the legacy REASON phase with a deterministic, governance-enforced reasoning engine. Legacy REASON tools (`analyze_problem`, `gather_context`, `reason_through`, `finalize_decision`) are wrapped with compatibility shims that delegate to the new memory system tools.
+**GUARDED_REASON** replaces the legacy REASON phase with a deterministic, governance-enforced reasoning engine. Legacy REASON tools (`analyze_problem`, `gather_context`, `reason_through`, `finalize_decision`) return `deprecated: true` with `replacement` field pointing to memory system equivalents. They do NOT delegate to the new tools — they remain independent for backward compatibility.
 
 ### Guarded Cycle Phases
 
@@ -355,7 +355,7 @@ Trust levels: 0 (untrusted) through 3 (verified).
 
 ## Compatibility Shim Matrix
 
-Legacy REASON tools are wrapped to delegate to memory system tools:
+Legacy REASON tools return deprecation notices pointing to memory system equivalents. They do NOT delegate — they remain independent:
 
 | Legacy Tool | New Tool(s) | Wrapper Behavior |
 |------------|------------|-----------------|
@@ -413,8 +413,7 @@ Each preset defines:
 
 ### session-start.cjs
 - Displays CHORES framework
-- Creates memory session (`create_session`)
-- Persists session_id for downstream hooks
+- Detects and injects post-install prompts
 
 ### user-prompt-submit.cjs
 - Invokes guarded cycle enforcement
