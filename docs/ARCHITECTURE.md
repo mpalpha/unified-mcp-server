@@ -532,10 +532,6 @@ The system prefers clarifying questions over guessing. Memory persists across se
 
 ## Testing Strategy
 
-- **Unit Tests**: Each tool tested independently
-- **Integration Tests**: End-to-end workflows
-- **Memory System Tests**: 45 dedicated tests (`test:memory`)
-- **Hook Tests**: Hook execution and integration
-- **Demo Tests**: `--demo` exercises all 5 phases with PASS/FAIL markers
-- **Doctor Tests**: `--doctor` validates system health
-- **Automatic Cleanup**: Tests clean DB before run
+Tests cover unit, integration, memory system, hooks, CLI (`--demo`, `--doctor`), and more. Each test file cleans the DB before its run.
+
+For the complete test targeting guide — including the module-to-test-file mapping and when to run targeted vs full suite — see [CONTRIBUTING.md § Test Targeting Guide](CONTRIBUTING.md#test-targeting-guide).

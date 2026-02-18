@@ -93,6 +93,52 @@ await test('tool_name - test description', async () => {
 });
 ```
 
+### Development Workflow (Cascading Updates)
+
+When making changes, always follow this order:
+
+1. **Docs first** — update documentation to reflect what you intend to build
+2. **Implementation** — write the code
+3. **Tests** — add or update tests for the changed code
+4. **Version bump** — update version in `package.json` and `index.js`
+
+Run targeted tests after each implementation step. Run the full suite before commit.
+
+### Test Targeting Guide
+
+Use targeted test scripts during development instead of running the full suite every time. Pick the script(s) that cover the modules you changed.
+
+| Area | Source modules | Test script | Test file |
+|------|---------------|-------------|-----------|
+| **Infrastructure** | `src/database.js`, `src/database-wasm.js`, `src/errors.js`, `src/validation.js` | `npm run test:database` | `test/test-database.js` |
+| **CLI** | `src/cli.js`, `bootstrap.js`, `index.js` (entry) | `npm run test:cli` | `test/test-cli.js` |
+| **Memory system** | `src/memory/*.js` | `npm run test:memory` | `test/test-memory-system.js` |
+| **Tools — knowledge** | `src/tools/knowledge.js` | `npm run test:tools` | `test/test-tools.js` |
+| **Tools — reasoning** | `src/tools/reasoning.js` | `npm run test:tools` | `test/test-tools.js` |
+| **Tools — workflow** | `src/tools/workflow.js` | `npm run test:workflows` | `test/test-workflows.js` |
+| **Tools — config** | `src/tools/config.js` | `npm run test:config` | `test/test-config.js` |
+| **Tools — automation** | `src/tools/automation.js` | `npm run test:hook-execution` | `test/test-hook-execution.js` |
+| **Tools — memory MCP** | `src/tools/memory.js` | `npm run test:memory` | `test/test-memory-system.js` |
+| **Compliance / enforcement** | `src/tools/workflow.js` (compliance) | `npm run test:compliance` | `test/test-compliance.js` |
+| **Enforcement rules** | Protocol enforcement logic | `npm run test:enforcement` | `test/test-enforcement.js` |
+| **Project context** | `src/tools/automation.js` (project context) | `npm run test:project-context` | `test/test-project-context.js` |
+| **Tool descriptions** | Tool schema/descriptions | `npm run test:tool-description-dryrun` | `test/test-tool-description-dryrun.js` |
+| **Tool guidance** | Protocol-with-context | `npm run test:tool-guidance` | `test/test-tool-guidance.js` |
+| **Integration** | Cross-module workflows | `npm run test:integration` | `test/test-integration.js` |
+| **Agent workflows** | Agent-facing workflows | `npm run test:agent-workflows` | `test/test-agent-workflows.js` |
+| **npx** | Package/install behavior | `npm run test:npx` | `test/test-npx.js` |
+| **Version sync** | Version consistency across files | `npm run test:version-sync` | `test/test-version-sync.js` |
+
+### When to Run What
+
+- **During development** — run only the targeted script(s) for the modules you touched
+- **Spanning multiple areas** — chain the relevant scripts:
+  ```bash
+  npm run test:memory && npm run test:tools
+  ```
+- **Before commit/push** — always run the full suite: `npm test`
+- **Docs-only changes** — run `npm run test:version-sync` (checks doc/code consistency)
+
 ## Tool Development
 
 When adding new tools:
