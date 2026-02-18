@@ -14,7 +14,7 @@ Unified MCP Server is a Model Context Protocol server that enforces research-bas
 - 🔒 **Protocol enforcement**: Hooks prevent file operations without learning
 - 📚 **Knowledge libraries**: Organize experiences by project/domain
 - 🔄 **Experience migration**: Import from old database formats
-- ✅ **230+ automated tests**: Comprehensive test coverage
+- ✅ **Comprehensive test coverage**: All tests must pass with 0 failures
 
 ## Quick Start
 
@@ -205,7 +205,7 @@ Customize workflow reminders with project-specific context:
 - **`update_project_context`** - Store project context as JSON data (summary, highlights, reminders)
 - **`get_project_context`** - Retrieve current project context configuration
 
-**Total: 28 tools** (v1.4.0 adds `import_experiences`)
+**Total: 34 tools** (see [TOOL_REFERENCE.md](docs/TOOL_REFERENCE.md) for full list)
 
 ## Hooks
 
@@ -268,41 +268,46 @@ Our enforcement approach addresses:
 
 ```bash
 npm test
-# Expected: 183/183 tests passing
+# Expected: all tests passing with 0 failures
 ```
 
 ### Test Suites
 
 ```bash
-npm run test:tools           # 55 tool tests
-npm run test:workflows       # 18 workflow tests
-npm run test:compliance      # 10 compliance tests
-npm run test:config          # 8 config tests
-npm run test:integration     # 22 integration tests
-npm run test:enforcement     # 10 enforcement tests
-npm run test:agent-workflows # 7 agent workflow tests
-npm run test:hook-execution  # 5 hook execution tests
-npm run test:tool-guidance   # 4 tool guidance tests
-npm run test:npx             # 1 npx test
+npm run test:version-sync    # Version sync
+npm run test:tools           # Tool tests
+npm run test:workflows       # Workflow tests
+npm run test:compliance      # Compliance tests
+npm run test:config          # Config tests
+npm run test:integration     # Integration tests
+npm run test:enforcement     # Enforcement tests
+npm run test:agent-workflows # Agent workflow tests
+npm run test:hook-execution  # Hook execution tests
+npm run test:tool-guidance   # Tool guidance tests
+npm run test:project-context # Project context tests
+npm run test:npx             # NPX compatibility test
+npm run test:cli             # CLI tests
+npm run test:database        # Database tests
+npm run test:memory          # Memory system tests
 ```
 
 ### Additional Tests
 
 ```bash
-# Research-based compliance scenarios (50 tests)
+# Research-based compliance scenarios
 node test/test-agent-compliance.js
 
-# Experience usage scenarios (6 tests)
+# Experience usage scenarios
 node test/test-experience-usage.js
 
-# Edge scenarios (7 tests)
+# Edge scenarios
 node test/test-edge-scenarios.js
 
-# Migration tests (10 tests)
+# Migration tests
 node test/test-migration.js
 ```
 
-**Total: 182 automated tests** ✅
+Run `npm test` to verify all tests pass with 0 failures.
 
 ## CLI Commands
 
@@ -362,20 +367,20 @@ npx unified-mcp-server --install --repair    # Fix corrupted installation
 
 ```
 unified-mcp-server/
-├── index.js                 # Main MCP server (2000+ lines)
-├── scripts/
-│   └── migrate-experiences.js  # Migration tool
-├── test/
-│   ├── test-tools.js        # Tool tests (55)
-│   ├── test-workflows.js    # Workflow tests (18)
-│   ├── test-compliance.js   # Compliance tests (10)
-│   ├── test-migration.js    # Migration tests (10)
-│   └── ...                  # Additional test suites
-├── test/fixtures/
-│   └── create-test-migration-db.js  # Test data generator
-└── docs/
-    ├── MIGRATION_GUIDE.md   # User migration guide
-    └── IMPLEMENTATION_PLAN.md  # Development plan
+├── index.js                 # Main MCP server (~880 lines, dispatches to src/)
+├── bootstrap.js             # NPX entry point
+├── src/                     # Modular source (v1.7.0+)
+│   ├── validation.js        # Validators, dice coefficient
+│   ├── database.js          # Database init, schema, helpers
+│   ├── database-wasm.js     # WASM SQLite wrapper
+│   ├── errors.js            # Structured error classes
+│   ├── cli.js               # CLI commands and post-install prompt
+│   ├── tools/               # 34 MCP tools across 6 modules
+│   └── memory/              # 13 memory system modules
+├── migrations/              # Flyway-style numbered SQL
+├── scripts/                 # Utilities
+├── test/                    # 17 test suites
+└── docs/                    # Architecture, tools, workflows, contributing
 ```
 
 ## Configuration
@@ -413,9 +418,9 @@ Hooks automatically update: `~/.claude/settings.json`
 
 ### Requirements
 
-- Node.js >= 14.0.0
-- npm or yarn
-- better-sqlite3 (native module)
+- Node.js >= 18.0.0
+- npm
+- node-sqlite3-wasm (WASM, no native build tools needed)
 
 ### Build & Test
 

@@ -630,7 +630,7 @@ function displaySetupCompletion(setupState, options) {
     console.log('    5. This experience is saved for future use\n');
     console.log('  This verifies:');
     console.log('    ✓ MCP server is connected');
-    console.log('    ✓ All 25 tools are accessible');
+    console.log('    ✓ All 34 tools are accessible');
     console.log('    ✓ Database is working');
     console.log('    ✓ Workflow enforcement is ACTIVE');
     console.log('    ✓ Hooks are blocking/authorizing correctly');

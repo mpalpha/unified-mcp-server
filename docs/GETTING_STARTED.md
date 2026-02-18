@@ -30,7 +30,7 @@ npm install
 
 ## Claude Code Integration
 
-Add to your Claude Code MCP settings (`~/.config/claude/settings.json`):
+Add to your Claude Code MCP settings (`~/.claude.json`):
 
 ```json
 {
@@ -43,7 +43,7 @@ Add to your Claude Code MCP settings (`~/.config/claude/settings.json`):
 }
 ```
 
-Restart Claude Code, and all 25 tools will be available immediately!
+Restart Claude Code, and all 34 tools will be available immediately!
 
 ## Running Tests
 
@@ -51,7 +51,7 @@ Restart Claude Code, and all 25 tools will be available immediately!
 npm test
 ```
 
-Expected: `110/110 tests passing` (includes NPX compatibility tests)
+Expected: all tests passing with 0 failures
 
 ## Starting the Server
 
@@ -101,10 +101,11 @@ Search for it:
 
 **Global (Immutable Infrastructure):**
 - Hooks: `~/.claude/hooks/` (DO NOT MODIFY - managed by unified-mcp-server)
-- Settings: `~/.claude/settings.json` (hook configuration, MCP server registration)
+- Settings: `~/.claude/settings.json` (hook configuration)
+- MCP Registration: `~/.claude.json` (MCP server registration, user scope)
 
 **Project-Local (Per-Project Data):**
-- Database: `.claude/data.db` (project-scoped experiences)
+- Database: `.claude/experiences.db` (project-scoped experiences)
 - Context: `.claude/project-context.json` (checklists, reminders)
 - Config: `.claude/config.json` (workflow configuration)
 - Tokens: `.claude/tokens/` (session tokens)

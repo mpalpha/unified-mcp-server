@@ -2,6 +2,10 @@
 
 ## Version History
 
+### v1.9.4 - (Documentation Accuracy Sweep)
+**Status**: ✅ COMPLETE
+**Fix 17 stale references across docs, headers, and module descriptions**
+
 ### v1.9.3 - (Post-Install Prompt Rule Quality Intelligence)
 **Status**: ✅ COMPLETE
 **Post-install configuration prompt now teaches agents to reason about rule quality**
@@ -230,6 +234,49 @@ Added **Step 9: REASON ABOUT RULE QUALITY** between construction and approval. T
 - [x] A6: Version is 1.9.3 in both package.json and index.js
 - [x] A7: CHANGELOG has [1.9.3] entry
 - [x] A8: All tests pass with 0 failures
+
+---
+
+## Documentation Accuracy Sweep (v1.9.4)
+
+### Problem Statement
+
+17 stale references found across documentation and source headers via automated doc-code drift scan. These include:
+- Version references stuck at v1.7.0 (index.js header) despite being at v1.9.3
+- Tool counts stuck at 25/28 (README, GETTING_STARTED, errors.js) despite being 34 since v1.9.0
+- Hard-coded test counts (183, 182, 110, 230+) that were already wrong
+- Node.js requirement listed as >=14.0.0 in Development section (actual: >=18.0.0 since v1.7.2)
+- SQLite module listed as "better-sqlite3" (actual: node-sqlite3-wasm since v1.8.5)
+- index.js described as "2000+ lines" (actual: ~880 after v1.7.0 modularization)
+- Missing errors.js from src/README.md module table
+- Stale line counts in src/README.md (database-wasm.js: ~50 → ~380)
+
+### Root Cause
+
+Documentation was not systematically updated during the v1.7.0 modularization, v1.8.5 WASM migration, and v1.9.0 memory system additions. Each release fixed forward without sweeping backward through existing docs.
+
+### Changes
+
+| File | Change |
+|------|--------|
+| `README.md` | Tool count 28→34, test counts→generic "0 failures", index.js "2000+ lines"→"~880 lines", Node.js 14→18, better-sqlite3→node-sqlite3-wasm, "230+ tests"→generic |
+| `docs/GETTING_STARTED.md` | Tool count 25→34, test count→generic |
+| `index.js` | Header: v1.7.0→v1.9.4, 28 tools→34, Version line updated |
+| `src/errors.js` | Header: 28 tools→34 |
+| `src/README.md` | Added errors.js to Core Modules table, fixed database-wasm.js line count ~50→~380, validation.js ~105→~125, cli.js ~1800→~1870 |
+| `CHANGELOG.md` | Added [1.9.4] entry |
+| `package.json` | Version → 1.9.4 |
+
+### Acceptance Criteria
+
+- [x] A1: No file references tool count as 25 or 28 (all say 34)
+- [x] A2: No hard-coded test counts in docs (use "0 failures" pattern)
+- [x] A3: Node.js requirement is >=18.0.0 everywhere
+- [x] A4: SQLite module is node-sqlite3-wasm everywhere
+- [x] A5: index.js header matches current version
+- [x] A6: src/README.md includes errors.js and has corrected line counts
+- [x] A7: All tests pass with 0 failures
+- [x] A8: Version is 1.9.4 in both package.json and index.js
 
 ---
 

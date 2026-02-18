@@ -1,17 +1,16 @@
 #!/usr/bin/env node
 
 /**
- * Unified MCP Server v1.7.0
+ * Unified MCP Server
  *
  * Combines memory-augmented reasoning and protocol enforcement with modern tool ergonomics.
- * - 28 atomic, composable tools (not monolithic)
+ * - 34 atomic, composable tools (not monolithic)
+ * - Deterministic memory system with guarded reasoning (v1.9.0)
  * - Project-scoped experiences (v1.4.0)
  * - Zero-config defaults
  * - Automated hook installation
- * - Comprehensive documentation
- * - Modularized codebase (v1.7.0)
+ * - Modularized codebase — dispatches to src/ modules (v1.7.0)
  *
- * Version: 1.7.0
  * License: MIT
  * Author: Jason Lusk <jason@jasonlusk.com>
  */
@@ -74,7 +73,7 @@ const {
   runConsolidation: runConsolidationTool
 } = require('./src/tools/memory');
 
-const VERSION = '1.9.3';
+const VERSION = '1.9.4';
 
 // v1.7.0: Database and validation functions imported from modules
 // v1.7.2: Lazy initialization for graceful degradation - paths computed on demand

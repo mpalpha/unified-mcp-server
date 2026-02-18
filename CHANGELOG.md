@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.4] - 2026-02-17
+
+### Fixed - Documentation Accuracy Sweep
+
+Fixed 17 stale references across documentation and source headers found via automated doc-code drift scan.
+
+#### Fixes
+
+- **README.md**: Tool count 28→34, removed hard-coded test counts (183, 182, 230+) in favor of "0 failures", updated architecture tree to reflect modular structure, fixed index.js "2000+ lines"→"~880 lines", added missing test suites to listing
+- **README.md Development section**: Node.js >=14.0.0→>=18.0.0, better-sqlite3→node-sqlite3-wasm
+- **docs/GETTING_STARTED.md**: Tool count 25→34, removed hard-coded test count (110/110)
+- **index.js**: Header comments updated from v1.7.0/28 tools to current/34 tools, removed hard-coded version from header (version lives in VERSION constant)
+- **src/errors.js**: Header 28 tools→34
+- **src/README.md**: Added missing `errors.js` to Core Modules table, fixed stale line counts (database-wasm.js ~50→~380, validation.js ~105→~125, cli.js ~1800→~1870)
+
 ## [1.9.3] - 2026-02-17
 
 ### Enhanced - Post-Install Prompt Rule Quality

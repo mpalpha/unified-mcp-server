@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Tool Tests - All 25 MCP tools
- * Phases: Knowledge Management (6 tools), Reasoning (4 tools), Automation (5 tools)
+ * Tool Tests - MCP tools
+ * Covers: Knowledge (7), Reasoning (4 legacy), Memory (6), Workflow (5), Config (5), Automation (7) = 34 tools
  * v1.4.0: Updated for project-scoped experiences
  */
 

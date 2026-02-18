@@ -1,7 +1,7 @@
 /**
  * Structured Error Classes (v1.8.2)
  *
- * Provides consistent error responses across all 28 tools with:
+ * Provides consistent error responses across all 34 tools with:
  * - message: Human-readable error description
  * - code: Machine-readable error code (e.g., 'INVALID_DOMAIN')
  * - recoverable: Boolean indicating if the error can be recovered from

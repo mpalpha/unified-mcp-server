@@ -8,10 +8,11 @@ This directory contains active, imported modules used by `index.js`.
 
 | File | Purpose | Lines |
 |------|---------|-------|
-| `validation.js` | ValidationError class, validators, diceCoefficient | ~105 |
+| `validation.js` | ValidationError class, validators, diceCoefficient | ~125 |
 | `database.js` | Database init, schema, path helpers, logActivity | ~580 |
-| `database-wasm.js` | WASM SQLite wrapper (node-sqlite3-wasm) | ~50 |
-| `cli.js` | CLI commands (--help, --version, --init, --install, --doctor, --demo) | ~1800 |
+| `database-wasm.js` | WASM SQLite wrapper (node-sqlite3-wasm) | ~380 |
+| `errors.js` | Structured error classes for all 34 tools | ~315 |
+| `cli.js` | CLI commands (--help, --version, --init, --install, --doctor, --demo) | ~1870 |
 
 ### Tool Modules
 
