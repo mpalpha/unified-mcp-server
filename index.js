@@ -73,7 +73,7 @@ const {
   runConsolidation: runConsolidationTool
 } = require('./src/tools/memory');
 
-const VERSION = '1.9.4';
+const VERSION = '1.9.5';
 
 // v1.7.0: Database and validation functions imported from modules
 // v1.7.2: Lazy initialization for graceful degradation - paths computed on demand

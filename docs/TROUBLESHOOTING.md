@@ -2,14 +2,14 @@
 
 ## Common Issues
 
-### Database Locked
+### Database Locked / Unavailable
 
-**Symptom:** `SQLITE_BUSY: database is locked`
+**Symptom:** `SQLITE_BUSY: database is locked` or `Database unavailable`
 
 **Solution:**
-- Wait for concurrent operations to complete
-- Check for zombie processes: `ps aux | grep node`
-- Delete lock file if stale: `rm .claude/data.db-*`
+- Restart the Claude Code session (kills the old MCP server process and clears the stale lock automatically since v1.9.5)
+- If persists, manually remove: `rm -rf .claude/experiences.db.lock`
+- Check for zombie processes: `ps aux | grep unified-mcp`
 
 ### FTS5 Corruption
 

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.5] - 2026-02-17
+
+### Fixed - Stale lock blocks database after MCP server update
+
+- **Problem**: When the MCP server updated (npx fetching a new version), the old process died without removing its `.lock` directory. The new process saw a lock younger than the 30-minute threshold and refused to open the database, returning "Database unavailable".
+- **Fix**: Remove `.lock` unconditionally at startup. The MCP server is a single-instance subprocess — any lock present when `initDatabase()` runs is stale by definition. SQLite's own artifacts (`-journal`, `-wal`, `-shm`) still use the 30-minute age threshold.
+- **Files**: `src/database.js` (`cleanupStaleArtifacts`)
+
 ## [1.9.4] - 2026-02-17
 
 ### Fixed - Documentation Accuracy Sweep

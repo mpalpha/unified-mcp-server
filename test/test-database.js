@@ -3,6 +3,7 @@
  * Database Module Tests
  * Tests for database initialization and cleanup functionality
  *
+ * v1.9.5: Lock removed unconditionally at startup (no age threshold)
  * v1.8.7: Lock DIRECTORY cleanup tests (node-sqlite3-wasm uses mkdirSync)
  * v1.8.6: Stale artifact cleanup tests
  */
@@ -120,56 +121,48 @@ test('cleanupStaleArtifacts - removes stale SHM file (>30min old)', () => {
   assertFalse(fs.existsSync(shmPath), 'Stale SHM file should be removed');
 });
 
-// Test 5: Stale lock file is removed (legacy behavior)
-test('cleanupStaleArtifacts - removes stale lock file (>30min old)', () => {
+// Test 5: Lock file is removed unconditionally (v1.9.5)
+test('cleanupStaleArtifacts - removes lock file regardless of age', () => {
   const lockPath = testDbPath + '.lock';
 
-  // Create a stale lock file (legacy format)
-  fs.writeFileSync(lockPath, 'stale lock');
-  const staleTime = Date.now() - (40 * 60 * 1000); // 40 minutes ago
-  fs.utimesSync(lockPath, staleTime / 1000, staleTime / 1000);
+  // Create a lock file (legacy format) — even a fresh one should be removed
+  fs.writeFileSync(lockPath, 'lock');
 
   assertTrue(fs.existsSync(lockPath), 'Lock file should exist before cleanup');
 
   cleanupStaleArtifacts(testDbPath);
 
-  assertFalse(fs.existsSync(lockPath), 'Stale lock file should be removed');
+  assertFalse(fs.existsSync(lockPath), 'Lock file should be removed unconditionally');
 });
 
-// Test 5b: Stale lock DIRECTORY is removed (v1.8.7 - node-sqlite3-wasm behavior)
-test('cleanupStaleArtifacts - removes stale lock DIRECTORY (>30min old)', () => {
+// Test 5b: Lock DIRECTORY is removed unconditionally (v1.9.5)
+test('cleanupStaleArtifacts - removes lock DIRECTORY regardless of age', () => {
   const lockPath = testDbPath + '.lock';
 
-  // Create a stale lock DIRECTORY (how node-sqlite3-wasm actually creates locks)
+  // Create a fresh lock DIRECTORY (how node-sqlite3-wasm actually creates locks)
+  fs.mkdirSync(lockPath);
+
+  assertTrue(fs.existsSync(lockPath), 'Lock directory should exist before cleanup');
+  assertTrue(fs.statSync(lockPath).isDirectory(), 'Lock should be a directory');
+
+  cleanupStaleArtifacts(testDbPath);
+
+  assertFalse(fs.existsSync(lockPath), 'Lock directory should be removed unconditionally');
+});
+
+// Test 5c: Stale lock DIRECTORY is also removed (v1.9.5 — age doesn't matter)
+test('cleanupStaleArtifacts - removes old lock DIRECTORY too', () => {
+  const lockPath = testDbPath + '.lock';
+
   fs.mkdirSync(lockPath);
   const staleTime = Date.now() - (40 * 60 * 1000); // 40 minutes ago
   fs.utimesSync(lockPath, staleTime / 1000, staleTime / 1000);
 
   assertTrue(fs.existsSync(lockPath), 'Lock directory should exist before cleanup');
-  assertTrue(fs.statSync(lockPath).isDirectory(), 'Lock should be a directory');
 
   cleanupStaleArtifacts(testDbPath);
 
-  assertFalse(fs.existsSync(lockPath), 'Stale lock directory should be removed');
-});
-
-// Test 5c: Fresh lock DIRECTORY is preserved (v1.8.7)
-test('cleanupStaleArtifacts - preserves fresh lock DIRECTORY (<30min old)', () => {
-  const lockPath = testDbPath + '.lock';
-
-  // Create a fresh lock directory (just now)
-  fs.mkdirSync(lockPath);
-  // File is fresh (just created), no need to modify mtime
-
-  assertTrue(fs.existsSync(lockPath), 'Lock directory should exist before cleanup');
-  assertTrue(fs.statSync(lockPath).isDirectory(), 'Lock should be a directory');
-
-  cleanupStaleArtifacts(testDbPath);
-
-  assertTrue(fs.existsSync(lockPath), 'Fresh lock directory should be preserved');
-
-  // Cleanup for next test
-  fs.rmdirSync(lockPath);
+  assertFalse(fs.existsSync(lockPath), 'Old lock directory should be removed');
 });
 
 // Test 6: Multiple stale files are all removed

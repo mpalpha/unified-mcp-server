@@ -264,19 +264,32 @@ function runMigrations(database) {
 
 /**
  * Clean up stale SQLite artifacts before database initialization
- * v1.8.6: Self-healing mechanism for stale lock/journal files
- *
- * @param {string} dbPath - Path to the database file
- */
-/**
- * Clean up stale SQLite artifacts before database initialization
+ * v1.9.5: Remove .lock unconditionally — at startup, no valid process holds it
  * v1.8.7: Handle both files AND directories (node-sqlite3-wasm uses fs.mkdirSync for .lock)
  * v1.8.6: Initial implementation
  *
  * @param {string} dbPath - Path to the database file
  */
 function cleanupStaleArtifacts(dbPath) {
-  const staleExtensions = ['-journal', '-wal', '-shm', '.lock'];
+  // v1.9.5: Remove .lock unconditionally. The MCP server is a single-instance
+  // subprocess — if we're starting up, any existing lock is stale by definition.
+  const lockPath = dbPath + '.lock';
+  if (fs.existsSync(lockPath)) {
+    try {
+      const stat = fs.statSync(lockPath);
+      if (stat.isDirectory()) {
+        fs.rmdirSync(lockPath);
+      } else {
+        fs.unlinkSync(lockPath);
+      }
+      console.error(`[unified-mcp] Removed stale lock: ${path.basename(lockPath)}`);
+    } catch (e) {
+      // Ignore cleanup errors - best effort
+    }
+  }
+
+  // SQLite artifacts use age threshold — may indicate incomplete writes
+  const staleExtensions = ['-journal', '-wal', '-shm'];
   const STALE_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
 
   for (const ext of staleExtensions) {
@@ -286,15 +299,12 @@ function cleanupStaleArtifacts(dbPath) {
         const stat = fs.statSync(artifactPath);
         const ageMs = Date.now() - stat.mtimeMs;
         if (ageMs > STALE_THRESHOLD_MS) {
-          // v1.8.7: Handle both files and directories
-          // node-sqlite3-wasm creates .lock as a DIRECTORY via fs.mkdirSync()
           if (stat.isDirectory()) {
             fs.rmdirSync(artifactPath);
-            console.error(`[unified-mcp] Cleaned stale lock directory: ${path.basename(artifactPath)} (age: ${Math.round(ageMs / 60000)}min)`);
           } else {
             fs.unlinkSync(artifactPath);
-            console.error(`[unified-mcp] Cleaned stale file: ${path.basename(artifactPath)} (age: ${Math.round(ageMs / 60000)}min)`);
           }
+          console.error(`[unified-mcp] Cleaned stale artifact: ${path.basename(artifactPath)} (age: ${Math.round(ageMs / 60000)}min)`);
         }
       } catch (e) {
         // Ignore cleanup errors - best effort
