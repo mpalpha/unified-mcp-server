@@ -7,6 +7,8 @@ Complete reference for all tools in the unified MCP server.
 ### record_experience
 Record a working pattern (effective or ineffective). Also use for "remember X" requests - stores user-directed memories for later recall.
 
+> **v1.10.0**: Now writes to both the legacy `experiences` table AND `episodic_experiences` (memory system). New experiences automatically appear in `context_pack` and `run_consolidation` results. Bridge failure is isolated — the primary insert always succeeds.
+
 **Parameters:**
 - `type` (required): "effective" | "ineffective"
 - `domain` (required): Tools | Protocol | Communication | Process | Debugging | Decision

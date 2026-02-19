@@ -3,6 +3,7 @@
  * Database Module Tests
  * Tests for database initialization and cleanup functionality
  *
+ * v1.10.1: coldStart parameter — lock removal only on server cold start
  * v1.9.5: Lock removed unconditionally at startup (no age threshold)
  * v1.8.7: Lock DIRECTORY cleanup tests (node-sqlite3-wasm uses mkdirSync)
  * v1.8.6: Stale artifact cleanup tests
@@ -12,9 +13,8 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-// Import cleanupStaleArtifacts directly for testing
-// Note: We need to test this before database is initialized
-const { cleanupStaleArtifacts } = require('../src/database.js');
+// Import cleanupStaleArtifacts and isLockHeld directly for testing
+const { cleanupStaleArtifacts, isLockHeld } = require('../src/database.js');
 
 let passed = 0;
 let failed = 0;
@@ -121,21 +121,21 @@ test('cleanupStaleArtifacts - removes stale SHM file (>30min old)', () => {
   assertFalse(fs.existsSync(shmPath), 'Stale SHM file should be removed');
 });
 
-// Test 5: Lock file is removed unconditionally (v1.9.5)
+// Test 5: Lock file is removed on cold start (v1.10.1: requires coldStart: true)
 test('cleanupStaleArtifacts - removes lock file regardless of age', () => {
   const lockPath = testDbPath + '.lock';
 
-  // Create a lock file (legacy format) — even a fresh one should be removed
+  // Create a lock file (legacy format) — removed on cold start
   fs.writeFileSync(lockPath, 'lock');
 
   assertTrue(fs.existsSync(lockPath), 'Lock file should exist before cleanup');
 
-  cleanupStaleArtifacts(testDbPath);
+  cleanupStaleArtifacts(testDbPath, { coldStart: true });
 
-  assertFalse(fs.existsSync(lockPath), 'Lock file should be removed unconditionally');
+  assertFalse(fs.existsSync(lockPath), 'Lock file should be removed on cold start');
 });
 
-// Test 5b: Lock DIRECTORY is removed unconditionally (v1.9.5)
+// Test 5b: Lock DIRECTORY is removed on cold start (v1.10.1)
 test('cleanupStaleArtifacts - removes lock DIRECTORY regardless of age', () => {
   const lockPath = testDbPath + '.lock';
 
@@ -145,12 +145,12 @@ test('cleanupStaleArtifacts - removes lock DIRECTORY regardless of age', () => {
   assertTrue(fs.existsSync(lockPath), 'Lock directory should exist before cleanup');
   assertTrue(fs.statSync(lockPath).isDirectory(), 'Lock should be a directory');
 
-  cleanupStaleArtifacts(testDbPath);
+  cleanupStaleArtifacts(testDbPath, { coldStart: true });
 
-  assertFalse(fs.existsSync(lockPath), 'Lock directory should be removed unconditionally');
+  assertFalse(fs.existsSync(lockPath), 'Lock directory should be removed on cold start');
 });
 
-// Test 5c: Stale lock DIRECTORY is also removed (v1.9.5 — age doesn't matter)
+// Test 5c: Stale lock DIRECTORY also removed on cold start (v1.10.1)
 test('cleanupStaleArtifacts - removes old lock DIRECTORY too', () => {
   const lockPath = testDbPath + '.lock';
 
@@ -160,9 +160,9 @@ test('cleanupStaleArtifacts - removes old lock DIRECTORY too', () => {
 
   assertTrue(fs.existsSync(lockPath), 'Lock directory should exist before cleanup');
 
-  cleanupStaleArtifacts(testDbPath);
+  cleanupStaleArtifacts(testDbPath, { coldStart: true });
 
-  assertFalse(fs.existsSync(lockPath), 'Old lock directory should be removed');
+  assertFalse(fs.existsSync(lockPath), 'Old lock directory should be removed on cold start');
 });
 
 // Test 6: Multiple stale files are all removed
@@ -220,6 +220,91 @@ test('cleanupStaleArtifacts - preserves file at exactly 30min (boundary)', () =>
   if (fs.existsSync(journalPath)) {
     fs.unlinkSync(journalPath);
   }
+});
+
+// v1.10.1: coldStart parameter tests
+console.log('\n\x1b[1mcoldStart Parameter Tests (v1.10.1)\x1b[0m');
+console.log('\x1b[36m----------------------------------------------------------------------\x1b[0m');
+
+// Test 9: coldStart: false preserves existing lock directory
+test('cleanupStaleArtifacts - coldStart: false preserves lock directory', () => {
+  const lockPath = testDbPath + '.lock';
+
+  fs.mkdirSync(lockPath, { recursive: true });
+  assertTrue(fs.existsSync(lockPath), 'Lock directory should exist before cleanup');
+
+  cleanupStaleArtifacts(testDbPath, { coldStart: false });
+
+  assertTrue(fs.existsSync(lockPath), 'Lock directory should be preserved with coldStart: false');
+
+  // Cleanup
+  fs.rmdirSync(lockPath);
+});
+
+// Test 10: coldStart: false preserves existing lock file
+test('cleanupStaleArtifacts - coldStart: false preserves lock file', () => {
+  const lockPath = testDbPath + '.lock';
+
+  fs.writeFileSync(lockPath, 'lock');
+  assertTrue(fs.existsSync(lockPath), 'Lock file should exist before cleanup');
+
+  cleanupStaleArtifacts(testDbPath, { coldStart: false });
+
+  assertTrue(fs.existsSync(lockPath), 'Lock file should be preserved with coldStart: false');
+
+  // Cleanup
+  fs.unlinkSync(lockPath);
+});
+
+// Test 11: Default (no options) preserves lock (same as coldStart: false)
+test('cleanupStaleArtifacts - default options preserve lock', () => {
+  const lockPath = testDbPath + '.lock';
+
+  fs.mkdirSync(lockPath, { recursive: true });
+  assertTrue(fs.existsSync(lockPath), 'Lock directory should exist before cleanup');
+
+  cleanupStaleArtifacts(testDbPath);
+
+  assertTrue(fs.existsSync(lockPath), 'Lock should be preserved with default options');
+
+  // Cleanup
+  fs.rmdirSync(lockPath);
+});
+
+// Test 12: isLockHeld returns true when lock exists
+test('isLockHeld - returns true when lock directory exists', () => {
+  const lockPath = testDbPath + '.lock';
+
+  fs.mkdirSync(lockPath, { recursive: true });
+  assertTrue(isLockHeld(testDbPath), 'isLockHeld should return true when lock exists');
+
+  // Cleanup
+  fs.rmdirSync(lockPath);
+});
+
+// Test 13: isLockHeld returns false when no lock
+test('isLockHeld - returns false when no lock exists', () => {
+  assertFalse(isLockHeld(testDbPath), 'isLockHeld should return false when no lock');
+});
+
+// Test 14: coldStart: false still removes stale journal/wal/shm files
+test('cleanupStaleArtifacts - coldStart: false still removes stale artifacts', () => {
+  const journalPath = testDbPath + '-journal';
+  const lockPath = testDbPath + '.lock';
+
+  // Create stale journal and lock
+  fs.writeFileSync(journalPath, 'stale');
+  const staleTime = Date.now() - (45 * 60 * 1000);
+  fs.utimesSync(journalPath, staleTime / 1000, staleTime / 1000);
+  fs.mkdirSync(lockPath, { recursive: true });
+
+  cleanupStaleArtifacts(testDbPath, { coldStart: false });
+
+  assertFalse(fs.existsSync(journalPath), 'Stale journal should still be removed');
+  assertTrue(fs.existsSync(lockPath), 'Lock should be preserved');
+
+  // Cleanup
+  fs.rmdirSync(lockPath);
 });
 
 // Cleanup test directory

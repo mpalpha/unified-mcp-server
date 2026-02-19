@@ -560,6 +560,76 @@ async function runTests() {
     assertEquals(result.phase, 'SNAPSHOT');
   });
 
+  // === EXPERIENCE BRIDGE (v1.10.0) ===
+  console.log(`\n${colors.bold}Experience Bridge (v1.10.0)${colors.reset}`);
+
+  await test('recordExperience bridges to episodic_experiences', () => {
+    const { recordExperience } = require('../src/tools/knowledge');
+    const { getDatabase } = require('../src/database');
+
+    const result = recordExperience({
+      type: 'effective',
+      domain: 'Process',
+      situation: 'Bridge test: verifying dual-write',
+      approach: 'Called recordExperience with all fields',
+      outcome: 'Both tables should have entries',
+      reasoning: 'Bridge maps fields from experiences to episodic_experiences',
+      confidence: 0.85,
+      tags: ['bridge-test', 'v1.10.0']
+    });
+
+    assertTrue(result.recorded, 'Primary insert should succeed');
+
+    // Verify episodic_experiences has a matching row
+    const db = getDatabase();
+    const episodic = db.prepare(
+      "SELECT * FROM episodic_experiences WHERE summary = ? AND source = 'agent'"
+    ).get('Bridge test: verifying dual-write');
+
+    assertTrue(!!episodic, 'Episodic experience should exist');
+    assertEquals(episodic.outcome, 'success');
+    assertEquals(episodic.trust, 3); // confidence 0.85 > 0.75 → trust 3
+    assertEquals(episodic.scope, 'project');
+    assertEquals(episodic.source, 'agent');
+
+    // Verify context_keys includes domain and tags
+    const keys = JSON.parse(episodic.context_keys_json);
+    assertTrue(keys.includes('process'), 'context_keys should include domain (lowercased)');
+    assertTrue(keys.includes('bridge-test'), 'context_keys should include tags');
+    assertTrue(keys.includes('v1.10.0'), 'context_keys should include tags');
+  });
+
+  await test('bridge failure does not break primary experiences insert', () => {
+    const { recordExperience } = require('../src/tools/knowledge');
+    const { getDatabase } = require('../src/database');
+    const db = getDatabase();
+
+    // Record with minimal fields (bridge should still work, but test isolation)
+    const countBefore = db.prepare('SELECT COUNT(*) as c FROM experiences').get().c;
+
+    const result = recordExperience({
+      type: 'ineffective',
+      domain: 'Debugging',
+      situation: 'Bridge isolation test',
+      approach: 'Minimal fields to test fault isolation',
+      outcome: 'Primary insert must succeed regardless of bridge',
+      reasoning: 'try/catch around bridge ensures isolation'
+    });
+
+    assertTrue(result.recorded, 'Primary insert must succeed');
+
+    const countAfter = db.prepare('SELECT COUNT(*) as c FROM experiences').get().c;
+    assertTrue(countAfter > countBefore, 'Experience count should increase');
+
+    // Verify episodic side maps 'ineffective' → 'fail'
+    const episodic = db.prepare(
+      "SELECT * FROM episodic_experiences WHERE summary = ? AND source = 'agent'"
+    ).get('Bridge isolation test');
+    assertTrue(!!episodic, 'Episodic experience should exist');
+    assertEquals(episodic.outcome, 'fail');
+    assertEquals(episodic.trust, 0); // no confidence → 0
+  });
+
   // === SUMMARY ===
   const stats = getStats();
   console.log(`\n${colors.cyan}${'═'.repeat(70)}${colors.reset}`);

@@ -10,6 +10,7 @@
 const fs = require('fs');
 const { getDatabase, ensureProjectContext, logActivity } = require('../database.js');
 const { ValidationError, diceCoefficient } = require('../validation.js');
+const { recordEpisodicExperience } = require('../memory/index.js');
 
 /**
  * Find duplicate experience using Dice coefficient similarity
@@ -116,6 +117,38 @@ function recordExperience(params) {
     type: params.type,
     domain: params.domain
   });
+
+  // v1.10.0: Bridge to episodic_experiences (memory system)
+  // Failure must NOT break the primary insert
+  try {
+    const confidence = params.confidence || 0;
+    let trust;
+    if (confidence > 0.75) trust = 3;
+    else if (confidence > 0.5) trust = 2;
+    else if (confidence > 0.25) trust = 1;
+    else trust = 0;
+
+    // Build context_keys from domain + tags
+    const contextKeys = [params.domain];
+    if (params.tags) {
+      const tagArray = Array.isArray(params.tags) ? params.tags : JSON.parse(params.tags);
+      contextKeys.push(...tagArray);
+    }
+
+    const now = new Date().toISOString();
+    recordEpisodicExperience({
+      session_id: null,
+      scope: 'project',
+      context_keys: contextKeys,
+      summary: (params.situation || '').slice(0, 4000),
+      outcome: params.type === 'effective' ? 'success' : 'fail',
+      trust,
+      source: 'agent',
+      now
+    });
+  } catch (bridgeErr) {
+    process.stderr.write(`[bridge] episodic write failed: ${bridgeErr.message}\n`);
+  }
 
   return {
     recorded: true,

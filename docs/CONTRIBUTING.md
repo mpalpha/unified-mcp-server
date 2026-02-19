@@ -190,6 +190,107 @@ Maintainers handle releases:
 5. Update gist deployment
 6. Announce release
 
+## Implementation Plans
+
+When planning multi-file changes (features, bug fixes spanning modules, version releases), add a section to `docs/IMPLEMENTATION_PLAN.md`. Plans are designed for **iterative execution** — an implementing agent may re-read the plan multiple times, seeing only accumulated file changes between passes. Every element must survive re-reading.
+
+### Section Structure
+
+Each plan section follows this template:
+
+```
+## Feature Name (vX.Y.Z)
+
+### Problem Statement
+### Root Cause (if applicable)
+### Design Decision
+### Pre-Implementation Reading
+### Cascading Update Steps (tables: File | Change)
+### Hard Invariants
+### Acceptance Criteria (A1–AN)
+### Verification Commands
+```
+
+Add a summary entry to the Version History at the top of the file:
+
+```
+### vX.Y.Z - (Short Description)
+**Status**: 🚧 IN PROGRESS
+**One-line summary**
+```
+
+Mark `✅ COMPLETE` after all criteria pass and git operations are done.
+
+### Core Principle: Idempotent State Verification
+
+Every plan element must be:
+
+- **State-based, not process-based** — check what files contain, not what steps were taken
+- **Idempotent** — verifying a criterion on pass 5 gives the same result as pass 1
+- **Resilient to partial completion** — agent determines what's done by running verification commands
+
+### Writing Acceptance Criteria
+
+Numbered `A1`–`AN`, grouped by category (e.g., Core, Documentation, Tests, Version). Each must be verifiable from file or test state with a single bash command.
+
+Good:
+```
+A1: src/tools/knowledge.js references 'recordEpisodicExperience'
+    → grep -q 'recordEpisodicExperience' src/tools/knowledge.js
+
+A18: npm test passes with 0 failures
+    → npm test
+```
+
+Bad:
+```
+A1: Bridge code was added after the INSERT on line 101
+    → Line numbers shift; "was added" checks process, not state
+
+A5: Step 2 was done before Step 3
+    → Process-based; can't verify from file state
+```
+
+### What to Include vs Avoid
+
+| Include | Avoid |
+|---------|-------|
+| File names (stable across iterations) | Line numbers (shift when code changes) |
+| Conceptual changes ("make X optional") | Exact code blocks to paste (constrains approach) |
+| Grep-verifiable strings in criteria | Process checks ("was done before") |
+| Field mapping tables (conceptual) | Assumptions about iteration order |
+| Hard invariants (what must NOT change) | Git operations (commit, push, tag) |
+
+### Cascading Order Across Iterations
+
+Follow the cascading update order (docs → impl → tests → version) as initial prioritization. On subsequent passes:
+
+- Run verification commands to check which criteria already pass
+- Focus effort on remaining criteria
+- Do not re-modify files that already satisfy their criteria
+
+### Git Operations Are Post-Plan
+
+Plans describe **file-level changes only**. Version bumps are file edits (`package.json`, `index.js`), not git tags.
+
+- Do NOT include commit, push, tag, or branch operations as plan steps
+- Do NOT include git state as acceptance criteria
+- Git operations are performed by the operator after all acceptance criteria pass
+
+### Verification Commands
+
+End each plan with bash one-liners mapping 1:1 to acceptance criteria. These serve as both automated verification and progress tracking:
+
+```bash
+# A1: Bridge exists
+grep -q 'recordEpisodicExperience' src/tools/knowledge.js
+
+# A17: All tests pass
+npm test
+```
+
+Agents can run these at any point to determine remaining work.
+
 ## Questions?
 
 - Open a discussion for general questions

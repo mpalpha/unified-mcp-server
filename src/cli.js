@@ -789,14 +789,33 @@ Present conflicts to user for resolution:
 
    Which takes precedence?"
 
-STEP 6: IDENTIFY CRITICAL VIOLATIONS
+STEP 6: MINE VIOLATIONS FROM EVIDENCE (GATE — must complete before Step 7)
 
-Ask the user - do not guess:
+DO NOT ask the user to guess. Mine violations from actual data:
 
-  "Which rules are MOST COMMONLY VIOLATED - the specific items you
-   frequently have to correct? (3-5 items)
+  □ REQUIRED: search_experiences({ type: "ineffective" })
+    Extract patterns from recorded failures. List each with its domain.
 
-   These become critical reminders shown every session."
+  □ REQUIRED: Mine session transcripts for correction patterns
+    Search ~/.claude/projects/ for .jsonl transcript files.
+    Grep for correction keywords: "wrong", "no,", "actually", "should be",
+    "not that", "I said", "stop", "revert", "undo".
+    List findings with transcript dates.
+
+  □ Present combined findings to the user:
+    "I found these violation patterns from your project history:
+
+     FROM EXPERIENCES (ineffective):
+     [list each pattern with domain and count]
+
+     FROM TRANSCRIPTS:
+     [list each correction pattern with date]
+
+     Which of these should become critical reminders? (3-5 items)
+     Are there others I missed?"
+
+  DO NOT proceed to Step 7 until mining results are presented
+  and the user has selected which violations to highlight.
 
 STEP 7: MAP FILES TO SCENARIOS
 
@@ -851,39 +870,38 @@ Note: Each item has a 200 character limit. Keep pointers concise.
     ]
   })
 
-STEP 9: REASON ABOUT RULE QUALITY
+STEP 9: EVALUATE RULE QUALITY (GATE — must complete before Step 10)
 
-Before writing any rule into context, think ahead about whether it
-will survive change. Apply these checks to EVERY proposed rule:
+Before writing any rule into context, evaluate it against all five
+DSPRF checks. Present results in a mandatory table format.
 
-  DURABILITY — Will this rule still be true after the next release?
-    ✗ "Run npm test (253 tests)" — count changes every release
-    ✓ "npm test must pass with 0 failures" — always true
-    ✗ "Version is in package.json line 3" — lines shift
-    ✓ "Version lives in BOTH package.json AND index.js" — structural fact
+  DSPRF CHECK DEFINITIONS:
+    D (Durability)  — Will this rule survive the next release?
+    S (Specificity)  — Is it actionable, not just advice?
+    P (Pattern)      — Class of problems, not one instance?
+    R (Redundancy)   — Not already in a pointed-to doc file?
+    F (Flexibility)  — Works across change types? Needs condition?
 
-  SPECIFICITY — Is it actionable, or just advice?
-    ✗ "Be careful with naming" — no action to take
-    ✓ "Grep for constant/table names before using them" — concrete step
-    ✗ "Consider performance" — unverifiable
-    ✓ "READ docs/ARCHITECTURE.md before modifying src/" — specific action
+  EXAMPLES:
+    ✗ D: "Run npm test (253 tests)" — count changes every release
+    ✓ D: "npm test must pass with 0 failures" — always true
+    ✗ S: "Be careful with naming" — no action to take
+    ✓ S: "Grep for constant/table names before using them" — concrete step
+    ✗ P: "Table is episodic_experiences not experiences" — one fact
+    ✓ P: "Verify names against actual schema — collisions have occurred"
+    ✓ R: If already in a doc pointer, the "READ [file]" is enough
+    ✓ F: Add "(applies: if [scenario])" for conditional rules
 
-  PATTERN vs INSTANCE — Does it describe a class of problems or one case?
-    ✗ "Table is episodic_experiences not experiences" — one fact
-    ✓ "Verify names against actual schema — collisions have occurred" — pattern
-    ✗ "settings.json doesn't work for MCP servers" — one gotcha
-    ✓ "Cross-check which config file each feature reads from" — reusable
+  REQUIRED OUTPUT FORMAT — present this table to the user:
 
-  REDUNDANCY — Is this already in a doc file you're pointing to?
-    If yes: the "READ [file]" pointer is enough. Don't duplicate.
-    Rules should add insight that docs don't contain (gotchas, patterns).
+    | Rule | D | S | P | R | F | Pass? |
+    |------|---|---|---|---|---|-------|
+    | [rule text] | ✓/✗ | ✓/✗ | ✓/✗ | ✓/✗ | ✓/✗ | Yes/No |
 
-  FLEXIBILITY — Does it work across different types of changes?
-    Add "(applies: if [scenario])" for rules that only matter sometimes.
-    Rules without conditions should genuinely apply to ALL changes.
+    Rules that fail ANY check must be rephrased or dropped.
+    Show the revised version and re-evaluate.
 
-If a proposed rule fails any check, rephrase it or drop it.
-Present each rule with its reasoning so the user can evaluate.
+  DO NOT call update_project_context until the user approves the table.
 
 STEP 10: PRESENT FOR APPROVAL
 
@@ -1209,18 +1227,25 @@ function runNonInteractiveInstall(options, { dryRun, repair, presetName }) {
   }
 
   // Memory system initialization (schema + signing key)
+  // v1.10.1: Check for lock before opening database — avoids corruption
+  // when MCP server is running concurrently
   if (dryRun) {
     console.log(`\n  [DRY RUN] Would initialize memory system schema and signing key`);
   } else {
     try {
-      const { getDatabase } = require('./database');
-      const { applyMemorySchema } = require('./memory/schema');
-      const { ensureSigningSecret } = require('./memory/canonical');
-      const db = getDatabase();
-      applyMemorySchema(db);
-      ensureSigningSecret(MCP_DIR);
-      console.log(`\n  ✓ Memory system schema initialized`);
-      console.log(`  ✓ Signing key created/verified`);
+      const { getDatabase, isLockHeld, getDbPath } = require('./database');
+      const dbPath = getDbPath();
+      if (isLockHeld(dbPath)) {
+        console.log(`\n  ⚠️  MCP server is running — memory schema will be applied on next restart`);
+      } else {
+        const { applyMemorySchema } = require('./memory/schema');
+        const { ensureSigningSecret } = require('./memory/canonical');
+        const db = getDatabase();
+        applyMemorySchema(db);
+        ensureSigningSecret(MCP_DIR);
+        console.log(`\n  ✓ Memory system schema initialized`);
+        console.log(`  ✓ Signing key created/verified`);
+      }
     } catch (e) {
       console.log(`\n  ⚠️  Memory system init skipped: ${e.message}`);
     }

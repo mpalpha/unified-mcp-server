@@ -73,7 +73,7 @@ const {
   runConsolidation: runConsolidationTool
 } = require('./src/tools/memory');
 
-const VERSION = '1.9.5';
+const VERSION = '1.10.1';
 
 // v1.7.0: Database and validation functions imported from modules
 // v1.7.2: Lazy initialization for graceful degradation - paths computed on demand
@@ -164,6 +164,15 @@ const cliRan = runCLI({
 // ============================================================================
 // MCP PROTOCOL IMPLEMENTATION
 // ============================================================================
+
+// v1.10.1: Cold start — safe to remove stale locks (single-instance subprocess)
+// This must run before any tool call triggers getDatabase() lazily
+try {
+  initDatabase({ coldStart: true });
+} catch (e) {
+  // Graceful degradation: DB init may fail if no project context
+  // getDatabase() will retry and surface the error on first tool call
+}
 
 // State management
 const state = {

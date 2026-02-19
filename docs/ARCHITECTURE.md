@@ -290,6 +290,24 @@ All tables use `INTEGER PRIMARY KEY AUTOINCREMENT`. No TEXT primary keys. If sta
 | DB tokens | `memory_tokens` | Avoids collision with `.claude/tokens/` directory |
 | Memory sessions | `memory_sessions` | Avoids collision with `reasoning_sessions` |
 
+### Experience Bridge (v1.10.0)
+
+The `record_experience` tool (knowledge system) now writes to both `experiences` and `episodic_experiences` tables. This bridges the legacy knowledge store with the v1.9.0 memory system, enabling `context_pack` and `run_consolidation` to surface real project knowledge.
+
+**Field mapping** (`experiences` → `episodic_experiences`):
+
+| experiences | episodic_experiences | Mapping |
+|---|---|---|
+| situation | summary | Direct copy (truncate to 4000 chars) |
+| type | outcome | 'effective' → 'success', 'ineffective' → 'fail' |
+| confidence | trust | 0–0.25→0, 0.26–0.5→1, 0.51–0.75→2, 0.76–1.0→3 |
+| tags + domain | context_keys_json | Merge domain + tags, sort, dedup, JSON |
+| — | source | 'agent' |
+| — | scope | 'project' |
+| created_at (epoch) | created_at (ISO) | `new Date(epoch * 1000).toISOString()` |
+
+Bridge failure does NOT break the primary `experiences` insert (try/catch isolation). Migration 003 backfills existing records using SQL-level field mapping.
+
 ## Token System
 
 ### v1 Tokens (File-Based)
@@ -507,7 +525,8 @@ src/
 ```
 migrations/
 ├── 001_initial_schema.sql    # Core tables (experiences, reasoning, workflow)
-└── 002_memory_system.sql     # Memory system tables (9 tables)
+├── 002_memory_system.sql     # Memory system tables (9 tables)
+└── 003_backfill_experiences_bridge.sql  # Backfill episodic_experiences from experiences
 ```
 
 ## User-Facing Behavior
@@ -521,6 +540,25 @@ After the memory system upgrade, responses may include:
   - `[INTEGRITY: BLOCKED]`
 
 The system prefers clarifying questions over guessing. Memory persists across sessions (episodic + semantic). Repeated violations escalate to policy cells deterministically.
+
+## Database Locking
+
+### WASM SQLite Locking Limitation
+
+`node-sqlite3-wasm` uses directory-based locking (`fs.mkdirSync` for `.lock`) instead of OS-level `fcntl` locks. This means concurrent access from separate processes is **not safely coordinated** — two processes opening the same database file can corrupt it.
+
+### Lock-Aware Access (v1.10.1)
+
+To prevent corruption, `cleanupStaleArtifacts()` accepts a `coldStart` parameter:
+
+- **`coldStart: true`** (MCP server mode): Removes `.lock` unconditionally. Because the MCP server is a single-instance subprocess, any existing lock at startup is stale by definition. This preserves the v1.9.5 fix for stale locks blocking startup after updates.
+- **`coldStart: false`** (CLI commands like `--install`): Preserves existing `.lock` directories. If another process holds the lock, CLI commands skip database-dependent operations (e.g., memory schema init) with a warning and complete successfully. Schema changes are deferred to the next server restart.
+
+### Invariants
+
+1. MCP server cold start **must** remove stale locks (prevents post-update deadlock).
+2. CLI commands **must not** remove locks held by a running server (prevents corruption).
+3. CLI commands **must** complete successfully even when the database is locked.
 
 ## Performance Characteristics
 

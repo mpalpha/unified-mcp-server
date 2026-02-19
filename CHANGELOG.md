@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.1] - 2026-02-19
+
+### Fixed - Concurrent Database Access Corruption
+
+- **Problem**: Running `--install` while the MCP server is active corrupts the SQLite database. `cleanupStaleArtifacts()` unconditionally removes `.lock` (v1.9.5), then `--install` opens the same database the running server has open. WASM SQLite has no OS-level `fcntl` locks to prevent concurrent writes.
+- **Fix**: `cleanupStaleArtifacts()` now accepts a `coldStart` parameter (default: `false`). Only MCP server mode passes `coldStart: true` (safe — single-instance subprocess). CLI commands (`--install`, `--init`, `--preset`) use `coldStart: false`, preserving existing locks. When a lock is held, `--install` skips database-dependent operations with a warning and completes successfully.
+- **Files**: `src/database.js` (`cleanupStaleArtifacts`, `initDatabase`, `isLockHeld`), `index.js` (MCP server cold start), `src/cli.js` (lock-safe `--install`)
+
+## [1.10.0] - 2026-02-19
+
+### Added - Experience Bridge + Post-Install Enforcement Gates
+
+#### Experience Bridge
+- **Bridge**: `record_experience` now writes to both `experiences` and `episodic_experiences` tables, connecting the legacy knowledge store to the v1.9.0 memory system
+- **Backfill Migration**: `migrations/003_backfill_experiences_bridge.sql` backfills existing `experiences` rows into `episodic_experiences` with field mapping (type→outcome, confidence→trust, domain→context_keys)
+- **Fault Isolation**: Bridge failure does not break the primary `experiences` insert (try/catch)
+- New experiences now surface in `context_pack` and `run_consolidation` results
+
+#### Post-Install Enforcement Gates
+- **Step 6 Gated**: "IDENTIFY CRITICAL VIOLATIONS" replaced with "MINE VIOLATIONS FROM EVIDENCE" — requires `search_experiences({ type: "ineffective" })` call and transcript mining before proceeding to Step 7
+- **Step 9 Gated**: "REASON ABOUT RULE QUALITY" replaced with "EVALUATE RULE QUALITY" — requires DSPRF evaluation table with mandatory `| D | S | P | R | F |` column format and user approval before calling `update_project_context`
+- Both gates block progress until evidence-based output is presented
+
 ## [1.9.5] - 2026-02-17
 
 ### Fixed - Stale lock blocks database after MCP server update

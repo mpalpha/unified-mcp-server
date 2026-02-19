@@ -263,18 +263,31 @@ function runMigrations(database) {
 }
 
 /**
+ * Check if a database lock is currently held
+ * @param {string} dbPath - Path to the database file
+ * @returns {boolean} true if .lock exists
+ */
+function isLockHeld(dbPath) {
+  return fs.existsSync(dbPath + '.lock');
+}
+
+/**
  * Clean up stale SQLite artifacts before database initialization
+ * v1.10.1: coldStart parameter — only remove .lock on MCP server cold start
  * v1.9.5: Remove .lock unconditionally — at startup, no valid process holds it
  * v1.8.7: Handle both files AND directories (node-sqlite3-wasm uses fs.mkdirSync for .lock)
  * v1.8.6: Initial implementation
  *
  * @param {string} dbPath - Path to the database file
+ * @param {Object} [options]
+ * @param {boolean} [options.coldStart=false] - true for MCP server startup (safe to remove locks)
  */
-function cleanupStaleArtifacts(dbPath) {
-  // v1.9.5: Remove .lock unconditionally. The MCP server is a single-instance
-  // subprocess — if we're starting up, any existing lock is stale by definition.
+function cleanupStaleArtifacts(dbPath, { coldStart = false } = {}) {
+  // v1.10.1: Only remove .lock on cold start (MCP server mode).
+  // CLI commands (--install, --init) use coldStart=false to avoid removing
+  // a lock held by a running server, which causes database corruption.
   const lockPath = dbPath + '.lock';
-  if (fs.existsSync(lockPath)) {
+  if (coldStart && fs.existsSync(lockPath)) {
     try {
       const stat = fs.statSync(lockPath);
       if (stat.isDirectory()) {
@@ -315,14 +328,17 @@ function cleanupStaleArtifacts(dbPath) {
 
 /**
  * Initialize database connection and schema
+ * @param {Object} [options]
+ * @param {boolean} [options.coldStart=false] - true for MCP server startup (safe to remove stale locks)
  */
-function initDatabase() {
+function initDatabase({ coldStart = false } = {}) {
   ensureProjectContext();
 
   const dbPath = getDbPath();
 
   // v1.8.6: Clean up stale artifacts before opening database
-  cleanupStaleArtifacts(dbPath);
+  // v1.10.1: Pass coldStart to control lock removal behavior
+  cleanupStaleArtifacts(dbPath, { coldStart });
   const Database = getDatabaseClass();
   db = new Database(dbPath);
   db.pragma('journal_mode = DELETE');
@@ -578,6 +594,7 @@ module.exports = {
   getMigrationsDir,
   ensureProjectContext,
   ensureGlobalConfig,
+  isLockHeld,
   cleanupStaleArtifacts,
   initDatabase,
   runMigrations,

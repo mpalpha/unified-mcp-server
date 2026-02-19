@@ -93,7 +93,8 @@ test('Package.json bin field configured', () => {
 
 // Test 4: --help flag works
 test('--help flag works', () => {
-  const output = execSync('node bootstrap.js --help', { encoding: 'utf8' });
+  const bootstrapPath = path.join(__dirname, '..', 'bootstrap.js');
+  const output = execInProject(`node "${bootstrapPath}" --help`);
   if (!output.includes('Unified MCP Server')) {
     throw new Error('Help output missing expected text');
   }
@@ -107,7 +108,8 @@ test('--help flag works', () => {
 
 // Test 5: --version flag works
 test('--version flag works', () => {
-  const output = execSync('node bootstrap.js --version', { encoding: 'utf8' }).trim();
+  const bootstrapPath = path.join(__dirname, '..', 'bootstrap.js');
+  const output = execInProject(`node "${bootstrapPath}" --version`).trim();
   if (!output.match(/^\d+\.\d+\.\d+$/)) {
     throw new Error(`Expected version format X.Y.Z, got "${output}"`);
   }
@@ -117,7 +119,8 @@ test('--version flag works', () => {
 // v1.8.0: --init now requires TTY and falls back to --install in non-interactive mode
 test('--init flag falls back to --install in non-TTY', () => {
   // Capture both stdout and stderr (warning goes to stderr)
-  const output = execSync('echo "" | node bootstrap.js --init 2>&1', { encoding: 'utf8', shell: '/bin/bash' });
+  const bootstrapPath = path.join(__dirname, '..', 'bootstrap.js');
+  const output = execInProject(`echo "" | node "${bootstrapPath}" --init 2>&1`, { shell: '/bin/bash' });
   // In non-TTY mode, should show warning and fall back to --install
   if (!output.includes('Warning: --init requires an interactive terminal')) {
     throw new Error('Init output missing TTY warning');
@@ -135,7 +138,8 @@ test('--init flag falls back to --install in non-TTY', () => {
 
 // Test 6b: --install flag works (non-interactive)
 test('--install flag works', () => {
-  const output = execSync('node bootstrap.js --install --preset three-gate 2>&1', { encoding: 'utf8' });
+  const bootstrapPath = path.join(__dirname, '..', 'bootstrap.js');
+  const output = execInProject(`node "${bootstrapPath}" --install --preset three-gate 2>&1`);
   if (!output.includes('Non-Interactive Install')) {
     throw new Error('Install output missing expected header');
   }
@@ -243,8 +247,9 @@ test('--preset flag works', () => {
 
 // Test 12: --preset validates preset names
 test('--preset validates preset names', () => {
+  const bootstrapPath = path.join(__dirname, '..', 'bootstrap.js');
   try {
-    execSync('node bootstrap.js --preset invalid-preset', { encoding: 'utf8', stderr: 'pipe' });
+    execInProject(`node "${bootstrapPath}" --preset invalid-preset`);
     throw new Error('Should have failed with invalid preset');
   } catch (error) {
     if (!error.message.includes('Invalid preset')) {
@@ -379,6 +384,32 @@ test('Database module uses WASM-only', () => {
   }
 });
 
+// Test 21: --install with existing lock shows warning (v1.10.1)
+test('--install with existing lock shows warning', () => {
+  const lockPath = path.join(CLAUDE_DIR, 'experiences.db.lock');
+  // Create a lock directory to simulate a running server
+  fs.mkdirSync(lockPath, { recursive: true });
+
+  const bootstrapPath = path.join(__dirname, '..', 'bootstrap.js');
+  const output = execInProject(`node "${bootstrapPath}" --install --preset three-gate 2>&1`);
+
+  // Should complete successfully with warning
+  if (!output.includes('MCP server is running')) {
+    throw new Error('Install should warn about running server');
+  }
+  if (!output.includes('INSTALLATION COMPLETE')) {
+    throw new Error('Install should complete despite lock');
+  }
+
+  // Lock should still exist (not removed by --install)
+  if (!fs.existsSync(lockPath)) {
+    throw new Error('Lock should be preserved by --install');
+  }
+
+  // Cleanup
+  fs.rmdirSync(lockPath);
+});
+
 // v1.4.0: Cleanup test project
 try {
   fs.rmSync(TEST_PROJECT, { recursive: true, force: true });
@@ -386,7 +417,7 @@ try {
   // Ignore cleanup errors
 }
 
-const totalTests = 20;
+const totalTests = 21;
 console.log(`\n=== Results ===`);
 console.log(`Passed: ${passed}/${totalTests}`);
 console.log(`Failed: ${failed}/${totalTests}`);

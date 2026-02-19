@@ -2,6 +2,14 @@
 
 ## Version History
 
+### v1.10.1 - (Fix Concurrent Database Access Corruption)
+**Status**: ✅ COMPLETE
+**Prevent database corruption when --install runs while MCP server is active**
+
+### v1.10.0 - (Bridge Experience Tables + Post-Install Enforcement Gates)
+**Status**: ✅ COMPLETE
+**Bridge legacy experiences → episodic_experiences + add enforcement gates to post-install Steps 6/9**
+
 ### v1.9.4 - (Documentation Accuracy Sweep)
 **Status**: ✅ COMPLETE
 **Fix 17 stale references across docs, headers, and module descriptions**
@@ -13,6 +21,363 @@
 ### v1.9.2 - (Patch Release - Session Bootstrap Fix + Stale Doc Cleanup)
 **Status**: ✅ COMPLETE
 **Memory tools require session_id but no tool or hook creates memory sessions**
+
+## Fix Concurrent Database Access Corruption (v1.10.1)
+
+### Problem Statement
+
+Running `unified-mcp-server --install` while the MCP server is already active (e.g., running as a Claude Code subprocess) corrupts the SQLite database. The corruption manifests as invalid page numbers, duplicate page references, and freelist errors in the B-tree structure.
+
+### Root Cause
+
+Three contributing factors combine to cause corruption:
+
+1. **`cleanupStaleArtifacts()` unconditionally removes `.lock`** (v1.9.5 change). This was designed for cold startup but also executes during `--install` via `initDatabase()`. It removes the running server's lock, destroying the only locking mechanism between processes.
+
+2. **`--install` calls `getDatabase()`** at `src/cli.js:1237` to apply the memory schema. This triggers `initDatabase()`, which opens the same database file the running server already has open. With WASM SQLite (`node-sqlite3-wasm`), there are no OS-level `fcntl` locks — only the directory-based lock that was just removed.
+
+3. **`test-npx.js` tests 6/6b ran from the project root** instead of the temp test directory, triggering `--install` against the live database during `npm test`. Fixed in v1.10.0 (all `execSync` calls now use `execInProject`).
+
+### Design Decisions
+
+**Fix 1: `--install` should not compete with a running server.**
+
+The `--install` flag's `getDatabase()` call (cli.js:1237) applies the memory schema. This is a setup operation that should either:
+- Skip database init if a lock already exists (another process has the database open)
+- Use a separate, brief connection with proper error handling for SQLITE_BUSY
+
+**Fix 2: `cleanupStaleArtifacts()` should only run on cold startup.**
+
+Add a parameter or guard so that `cleanupStaleArtifacts()` only removes locks when the server is performing a cold start (MCP server mode), not when running CLI commands like `--install`, `--health`, or `--doctor` that may execute while a server is already running.
+
+**Fix 3: Add lock-aware database opening.**
+
+Before opening a database connection, check if a `.lock` directory/file already exists. If it does, either:
+- Fail fast with a clear error message ("Another process has the database open")
+- Wait briefly and retry with a timeout
+
+### Pre-Implementation Reading
+
+- `src/database.js` — `cleanupStaleArtifacts()`, `initDatabase()`, `getDatabase()` singleton pattern
+- `src/database-wasm.js` — WASM adapter, no OS-level file locking
+- `src/cli.js` — `getDatabase()` call at line ~1237 during `--install`
+- `test/test-npx.js` — Tests 4-6, 6b, 12 now use `execInProject()` (fixed in v1.10.0)
+
+### Cascading Update Steps
+
+Follow docs FIRST → impl → tests → version bump.
+
+**Step 1: Documentation Updates**
+
+| File | Change |
+|------|--------|
+| `docs/ARCHITECTURE.md` | Add "Database Locking" section documenting WASM SQLite's directory-based locking, the concurrent access limitation, and the lock-check guard. |
+| `CHANGELOG.md` | Add `[1.10.1]` entry documenting the fix. |
+
+**Step 2: Implementation — Lock-Aware Database Access**
+
+| File | Change |
+|------|--------|
+| `src/database.js` | Add `isLockHeld()` function that checks if `.lock` directory exists. Modify `cleanupStaleArtifacts()` to accept a `coldStart` parameter (default: `false`). Only remove `.lock` when `coldStart` is `true`. |
+| `src/database.js` | Modify `initDatabase()` to accept options `{ coldStart: false }`. Pass `coldStart` to `cleanupStaleArtifacts()`. When `coldStart` is `false` and lock exists, log a warning but still attempt to open (SQLite may handle it if the other process is idle). |
+| `index.js` | When starting in MCP server mode (stdin/stdout), call `initDatabase({ coldStart: true })`. CLI commands use the default (`coldStart: false`). |
+| `src/cli.js` | In the `--install` memory schema init block (~line 1233), wrap `getDatabase()` in a try/catch that checks for lock conflicts. If another process holds the lock, skip memory schema init with a warning: "MCP server is running — schema will be applied on next restart." |
+
+**Step 3: Tests**
+
+| File | Change |
+|------|--------|
+| `test/test-database.js` | Add test: `cleanupStaleArtifacts` with `coldStart: false` preserves existing `.lock` directory. |
+| `test/test-database.js` | Add test: `cleanupStaleArtifacts` with `coldStart: true` removes `.lock` directory. |
+| `test/test-npx.js` | Add test: `--install` with existing `.lock` directory shows warning and completes without corruption. |
+
+**Step 4: Version Bump**
+
+| File | Change |
+|------|--------|
+| `package.json` | `"version": "1.10.1"` |
+| `index.js` | VERSION constant → `'1.10.1'` |
+
+### Hard Invariants
+
+1. MCP server cold start MUST still remove stale locks (preserves v1.9.5 behavior for server mode)
+2. `--install` MUST NOT corrupt a database held open by another process
+3. `--install` MUST still succeed (schema applied on next server restart if locked)
+4. Tool count stays at 34 — no new MCP tools added
+5. All existing tests must continue to pass
+6. `test-npx.js` must NOT run any `execSync` from the project root (enforced by using `execInProject` for all calls)
+
+### Acceptance Criteria
+
+**Lock Guard:**
+- A1: `src/database.js` exports `isLockHeld` function
+- A2: `cleanupStaleArtifacts` accepts and respects `coldStart` parameter
+- A3: `initDatabase` passes `coldStart` option to `cleanupStaleArtifacts`
+- A4: MCP server mode (index.js) passes `coldStart: true` on startup
+
+**CLI Safety:**
+- A5: `--install` does not corrupt database when `.lock` exists
+- A6: `--install` shows warning when lock is held by another process
+- A7: `--install` completes successfully even when database is locked
+
+**Test Isolation:**
+- A8: `test-npx.js` has zero bare `execSync` calls (all use `execInProject`)
+- A9: `test-database.js` has `coldStart: true` and `coldStart: false` tests
+
+**Documentation:**
+- A10: `docs/ARCHITECTURE.md` documents WASM SQLite locking limitation
+- A11: `CHANGELOG.md` contains `1.10.1` entry
+
+**Version:**
+- A12: `package.json` version is `"1.10.1"`
+- A13: `index.js` VERSION constant is `'1.10.1'`
+
+### Verification Commands
+
+```bash
+# A1: isLockHeld exported
+grep -q 'isLockHeld' src/database.js
+
+# A2: coldStart parameter
+grep -q 'coldStart' src/database.js
+
+# A3: initDatabase passes coldStart
+grep -q 'coldStart' src/database.js
+
+# A4: MCP server uses coldStart: true
+grep -q 'coldStart.*true' index.js
+
+# A5-A7: Tested via test-npx.js and test-database.js
+
+# A8: No bare execSync in test-npx.js (only execInProject)
+! grep -n 'execSync(' test/test-npx.js | grep -v 'execInProject\|require\|const.*execSync'
+
+# A9: coldStart tests exist
+grep -q 'coldStart' test/test-database.js
+
+# A10: Architecture docs locking
+grep -q 'lock\|concurrent\|WASM.*lock' docs/ARCHITECTURE.md
+
+# A11: Changelog entry
+grep -q '1\.10\.1' CHANGELOG.md
+
+# A12: package.json version
+node -e "const p = require('./package.json'); console.assert(p.version === '1.10.1', 'version mismatch: ' + p.version)"
+
+# A13: index.js version
+grep -q "1\.10\.1" index.js
+```
+
+---
+
+## Bridge Experience Tables + Post-Install Enforcement Gates (v1.10.0)
+
+### Problem Statement
+
+**Problem 1 — Disconnected Experience Stores:**
+
+The project has two experience tables that don't talk to each other:
+
+- `experiences` (legacy, in `database.js`) — used by `record_experience`, `search_experiences`, etc.
+- `episodic_experiences` (v1.9.0 memory system, in `migrations/002`) — used by `context_pack`, `run_consolidation`, `guarded_cycle`.
+
+When agents call `record_experience` (the primary knowledge capture tool), data goes into `experiences` but never reaches `episodic_experiences`. This means `context_pack` never surfaces real project knowledge, and `run_consolidation` never processes it into semantic cells. The memory system is effectively disconnected from the knowledge system.
+
+**Problem 2 — Post-Install Prompt Lacks Enforcement Gates:**
+
+Steps 6 ("IDENTIFY CRITICAL VIOLATIONS") and 9 ("REASON ABOUT RULE QUALITY") in the post-install prompt are advisory instructions. Agents skip them because nothing blocks progress. In practice, the user had to intervene 8+ times to correct skipped steps.
+
+### Root Cause
+
+**Problem 1:** `recordExperience()` in `src/tools/knowledge.js` inserts into the `experiences` table only. No code bridges to `episodic_experiences`. The two systems were built independently — `experiences` in v1.0.0, `episodic_experiences` in v1.9.0 — and never connected.
+
+**Problem 2:** Steps 6 and 9 contain "do not guess" and "apply these checks" language, but no concrete tool calls, no required output format, and no gate condition blocking the next step. Advisory instructions have low compliance without enforcement.
+
+### Design Decisions
+
+**Bridge strategy: Write-bridge + backfill migration.**
+
+When `recordExperience()` inserts into `experiences`, also insert a mapped row into `episodic_experiences`. A new migration (003) backfills existing rows. Bridge failure must NOT break the primary insert (wrap in try/catch).
+
+**Field mapping** (`experiences` → `episodic_experiences`):
+
+| experiences column | episodic_experiences column | Mapping |
+|---|---|---|
+| situation | summary | Direct copy (truncate to 4000 chars) |
+| type | outcome | 'effective' → 'success', 'ineffective' → 'fail' |
+| confidence | trust | 0–0.25→0, 0.26–0.5→1, 0.51–0.75→2, 0.76–1.0→3 |
+| tags (parsed) + domain | context_keys_json | Merge domain + tag array, sort, dedup, JSON |
+| — | salience | Computed from trust via existing `computeSalience()` |
+| — | source | 'agent' |
+| — | scope | 'project' |
+| created_at (epoch int) | created_at (ISO string) | Convert via `new Date(epoch * 1000).toISOString()` |
+| — | session_id | NULL (no session context for legacy records) |
+
+**Gate strategy: Concrete enforcement with required tool calls.**
+
+Replace advisory language with explicit gate markers (`GATE — must complete before Step N`), required MCP tool calls, required output formats, and explicit "DO NOT proceed" instructions.
+
+### Pre-Implementation Reading
+
+Before making any changes, read these files:
+
+- `docs/CONTRIBUTING.md` — Code style (2-space indent, JSDoc), implementation plan format
+- `docs/ARCHITECTURE.md` — Module structure, file organization
+- `src/README.md` — Module imports/exports for src/ directory
+- `docs/TOOL_REFERENCE.md` — Tool schemas for record_experience and memory tools
+- `src/tools/knowledge.js` — Current recordExperience() implementation
+- `src/memory/experiences.js` — Current recordExperience() for episodic table (via barrel export)
+- `src/memory/index.js` — Barrel export (recordEpisodicExperience is the exported name)
+- `src/memory/salience.js` — computeSalience() function signature
+- `src/cli.js` — `getPostInstallPromptContent()` function, current Steps 6 and 9
+- `migrations/002_memory_system.sql` — episodic_experiences schema
+
+### Cascading Update Steps
+
+Follow docs FIRST → impl → tests → version bump.
+
+**Step 1: Documentation Updates**
+
+| File | Change |
+|------|--------|
+| `docs/ARCHITECTURE.md` | Add note about bridge between legacy `experiences` and `episodic_experiences` tables. Note that `record_experience` now writes to both. |
+| `docs/TOOL_REFERENCE.md` | Under `record_experience`, note that it feeds both the legacy experience store and the episodic memory system. New experiences appear in `context_pack` results. |
+| `CHANGELOG.md` | Add `[1.10.0]` entry documenting both the experience bridge and post-install enforcement gates. |
+
+**Step 2: Implementation — Experience Bridge**
+
+| File | Change |
+|------|--------|
+| `src/tools/knowledge.js` | In `recordExperience()`, after the successful INSERT into `experiences`, add a bridge call to `recordEpisodicExperience()` (imported via `src/memory/index.js` barrel as `recordEpisodicExperience`). Map fields per the mapping table above. Wrap the bridge call in try/catch — bridge failure must log to stderr but NOT prevent the primary insert from succeeding. |
+| `migrations/003_backfill_experiences_bridge.sql` | INSERT INTO `episodic_experiences` from SELECT on `experiences`. Use SQL-level field mapping: `CASE WHEN type='effective' THEN 'success' ELSE 'fail' END` for outcome. Trust mapping: `CASE WHEN confidence > 0.75 THEN 3 WHEN confidence > 0.5 THEN 2 WHEN confidence > 0.25 THEN 1 ELSE 0 END`. Use `domain` as single context key in JSON array format. Convert `created_at` via `datetime(created_at, 'unixepoch')`. Set `source` to 'agent', `scope` to 'project', `session_id` to NULL. Compute salience from trust using the salience formula or a reasonable default. |
+
+**Step 3: Implementation — Post-Install Enforcement Gates**
+
+| File | Change |
+|------|--------|
+| `src/cli.js` | In `getPostInstallPromptContent()`, replace Step 6 ("IDENTIFY CRITICAL VIOLATIONS") with "MINE VIOLATIONS FROM EVIDENCE (GATE — must complete before Step 7)". New content must include: required `search_experiences({ type: "ineffective" })` call, transcript mining instruction (grep for correction keywords in `~/.claude/projects/` `.jsonl` files), required presentation of findings before proceeding, and "DO NOT proceed to Step 7 until mining results are presented." |
+| `src/cli.js` | In `getPostInstallPromptContent()`, replace Step 9 ("REASON ABOUT RULE QUALITY") with "EVALUATE RULE QUALITY (GATE — must complete before Step 10)". New content must include: required DSPRF evaluation table format with columns `| Rule | D | S | P | R | F | Pass? |`, explanation of each check letter, requirement that failing rules be rephrased or dropped, and "DO NOT call update_project_context until the user approves the table." Keep the existing DSPRF check definitions (Durability, Specificity, Pattern, Redundancy, Flexibility) but restructure into the mandatory table format. |
+
+**Step 4: Tests**
+
+| File | Change |
+|------|--------|
+| `test/test-memory-system.js` | Add bridge integration test: call `recordExperience()` from knowledge tools, then verify a corresponding row exists in `episodic_experiences` with correct field mapping (outcome mapped, trust mapped, context_keys includes domain). |
+| `test/test-memory-system.js` | Add test that bridge failure (e.g., invalid data for episodic table) does not prevent the primary `experiences` insert from succeeding. |
+| Test file covering `cli.js` | Add tests verifying: (1) `getPostInstallPromptContent()` output contains "GATE" and "must complete before Step 7" in Step 6 area, (2) output contains "search_experiences" and "transcript", (3) output contains "GATE" and "must complete before Step 10" in Step 9 area, (4) output contains DSPRF table headers, (5) output contains "DO NOT call update_project_context until". |
+
+**Step 5: Version Bump**
+
+| File | Change |
+|------|--------|
+| `package.json` | `"version": "1.10.0"` |
+| `index.js` | VERSION constant → `'1.10.0'` |
+
+### Hard Invariants
+
+1. Bridge failure must NOT break the primary `experiences` INSERT — try/catch required
+2. Tool count stays at 34 — no new MCP tools added
+3. `record_experience` tool signature is unchanged — same parameters, same return shape
+4. `episodic_experiences` table schema is unchanged — migration 003 only INSERTs, no ALTER
+5. Existing `search_experiences`, `get_experience`, `export_experiences` remain functional
+6. Legacy `experiences` table continues to be the source of truth for knowledge tools
+7. `recordEpisodicExperience()` in `src/memory/experiences.js` is called via the barrel export name
+8. Post-install prompt step numbering remains consistent (Steps 1–11)
+9. All existing tests must continue to pass
+
+### Acceptance Criteria
+
+**Bridge — Core:**
+- A1: `src/tools/knowledge.js` contains a reference to `recordEpisodicExperience`
+- A2: `src/tools/knowledge.js` imports from the memory system
+- A3: `migrations/003_backfill_experiences_bridge.sql` exists
+- A4: Migration 003 contains `INSERT INTO episodic_experiences`
+- A5: Migration 003 contains `CASE` expressions for field mapping
+
+**Gates — Core:**
+- A6: `src/cli.js` contains "GATE" and "must complete before Step 7" (Step 6 gated)
+- A7: `src/cli.js` post-install prompt references `search_experiences`
+- A8: `src/cli.js` post-install prompt references transcript mining (`.jsonl` or `transcript`)
+- A9: `src/cli.js` contains "GATE" and "must complete before Step 10" (Step 9 gated)
+- A10: `src/cli.js` contains DSPRF evaluation table format (`| D | S | P | R | F |` or equivalent column headers)
+- A11: `src/cli.js` contains "DO NOT call update_project_context until"
+
+**Documentation:**
+- A12: `docs/ARCHITECTURE.md` mentions bridge between experience tables
+- A13: `docs/TOOL_REFERENCE.md` notes `record_experience` feeds both systems
+- A14: `CHANGELOG.md` contains `1.10.0` entry
+
+**Tests:**
+- A15: `test/test-memory-system.js` contains a bridge integration test (grep for 'bridge' or 'episodic' in test descriptions)
+- A16: A test file verifies gate keywords exist in `getPostInstallPromptContent()` output
+- A17: `npm test` passes with 0 failures
+
+**Version:**
+- A18: `package.json` version is `"1.10.0"`
+- A19: `index.js` VERSION constant is `'1.10.0'`
+
+### Verification Commands
+
+```bash
+# A1: Bridge call exists
+grep -q 'recordEpisodicExperience' src/tools/knowledge.js
+
+# A2: Memory import exists
+grep -q 'memory' src/tools/knowledge.js
+
+# A3: Migration 003 exists
+test -f migrations/003_backfill_experiences_bridge.sql
+
+# A4: Migration inserts into episodic_experiences
+grep -q 'INSERT INTO episodic_experiences' migrations/003_backfill_experiences_bridge.sql
+
+# A5: Migration has field mapping
+grep -q 'CASE' migrations/003_backfill_experiences_bridge.sql
+
+# A6: Step 6 gated
+grep -q 'must complete before Step 7' src/cli.js
+
+# A7: search_experiences in post-install
+grep -q 'search_experiences' src/cli.js
+
+# A8: Transcript mining referenced
+grep -q 'transcript\|\.jsonl' src/cli.js
+
+# A9: Step 9 gated
+grep -q 'must complete before Step 10' src/cli.js
+
+# A10: DSPRF table format
+grep -q '| D | S | P | R | F |' src/cli.js
+
+# A11: update_project_context gated
+grep -q 'DO NOT call update_project_context until' src/cli.js
+
+# A12: Architecture docs bridge
+grep -q 'bridge\|episodic_experiences' docs/ARCHITECTURE.md
+
+# A13: Tool reference dual-write
+grep -qi 'both\|dual\|episodic' docs/TOOL_REFERENCE.md
+
+# A14: Changelog entry
+grep -q '1\.10\.0' CHANGELOG.md
+
+# A15: Bridge test exists
+grep -q 'bridge\|episodic' test/test-memory-system.js
+
+# A16: Gate keyword test exists
+grep -rq 'GATE\|getPostInstallPromptContent' test/
+
+# A17: All tests pass
+npm test
+
+# A18: package.json version
+node -e "const p = require('./package.json'); console.assert(p.version === '1.10.0', 'version mismatch: ' + p.version)"
+
+# A19: index.js version
+grep -q "1\.10\.0" index.js
+```
+
+---
 
 ## Session Bootstrap Fix (v1.9.2)
 
